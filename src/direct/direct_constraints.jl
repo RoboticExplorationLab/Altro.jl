@@ -15,7 +15,7 @@ function gen_con_inds(conSet::ConstraintList, structure=:by_knotpoint)
 	if structure == :by_constraint
 	    for (i,con) in enumerate(conSet.constraints)
 			for (j,k) in enumerate(conSet.inds[i])
-				cons[i][TrajOptCore._index(con,k)] = idx .+ (1:conLen[i])
+				cons[i][TO._index(con,k)] = idx .+ (1:conLen[i])
 				idx += conLen[i]
 	        end
 	    end
@@ -69,7 +69,7 @@ function constraint_jacobian_structure(solver::ConstrainedSolver,
 			for (i,con) in enumerate(conSet.constraints)
 				if k in con.inds
 					inds = idx .+ (1:blk_len[i])
-					j = TrajOptCore._index(con,k)
+					j = TO._index(con,k)
 					linds[i][j] = inds
 					con.∇c[j] = inds
 					idx += blk_len[i]

@@ -5,13 +5,14 @@
 module Problems
 
 using ALTRO
-using TrajOptCore
+using TrajectoryOptimization  # import the API
 using LinearAlgebra
 using StaticArrays
 using RobotZoo
 using RobotDynamics
 using Rotations
 const Dynamics = RobotDynamics
+const TO = TrajectoryOptimization
 
 include("../problems/doubleintegrator.jl")
 include("../problems/pendulum.jl")

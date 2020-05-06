@@ -2,6 +2,17 @@ export
     ProjectedNewtonSolverOptions,
     ProjectedNewtonSolver
 
+struct DynamicsVals{T,N,A}
+    fVal::Vector{SVector{N,T}}
+    xMid::Vector{SVector{N,T}}
+    ∇f::Vector{A}
+end
+
+function DynamicsVals(dyn_con::DynamicsConstraint)
+	DynamicsVals(dyn_con.fVal, dyn_con.xMid, dyn_con.∇f)
+end
+
+
 @with_kw mutable struct ProjectedNewtonStats{T}
     iterations::Int = 0
     c_max::Vector{T} = zeros(5)
@@ -90,7 +101,7 @@ function ProjectedNewtonSolver(prob::Problem, opts=SolverOptions())
     stats = ProjectedNewtonStats()
 
     # Add dynamics constraints
-    TrajOptCore.add_dynamics_constraints!(prob, integration(prob), 1)
+    TO.add_dynamics_constraints!(prob, integration(prob), 1)
     conSet = prob.constraints
     NP = sum(num_constraints(conSet))
 
@@ -134,8 +145,8 @@ primal_partition(solver::ProjectedNewtonSolver) = solver.P.xinds, solver.P.uinds
 
 # AbstractSolver interface
 Base.size(solver::ProjectedNewtonSolver{T,n,m}) where {T,n,m} = n,m,length(solver.Z)
-TrajOptCore.get_model(solver::ProjectedNewtonSolver) = solver.prob.model
-TrajOptCore.get_constraints(solver::ProjectedNewtonSolver) = solver.prob.conSet
-TrajOptCore.get_trajectory(solver::ProjectedNewtonSolver) = solver.Z
-TrajOptCore.get_objective(solver::ProjectedNewtonSolver) = solver.prob.obj
+TO.get_model(solver::ProjectedNewtonSolver) = solver.prob.model
+TO.get_constraints(solver::ProjectedNewtonSolver) = solver.prob.conSet
+TO.get_trajectory(solver::ProjectedNewtonSolver) = solver.Z
+TO.get_objective(solver::ProjectedNewtonSolver) = solver.prob.obj
 get_active_set(solver::ProjectedNewtonSolver) = solver.active_set

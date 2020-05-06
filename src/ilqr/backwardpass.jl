@@ -97,9 +97,9 @@ function static_backwardpass!(solver::iLQRSolver2{T,QUAD,L,O,n,n̄,m}) where {T,
         iu = Z[k]._u
 
 		# Get error state expanions
-		fdx,fdu = error_expansion(solver.D[k], model)
+		fdx,fdu = TO.error_expansion(solver.D[k], model)
 		fdx,fdu = SMatrix(fdx), SMatrix(fdu)
-		Q = TrajOptCore.static_expansion(solver.Q[k])
+		Q = TO.static_expansion(solver.Q[k])
 		# Q = error_expansion(solver.Q[k], model)
 		# Q = solver.Q[k]
 
@@ -183,13 +183,13 @@ function _calc_Q!(Q, S1, S, fdx, fdu)
 	return nothing
 end
 
-function _calc_Q!(Q::StaticExpansion, Sxx, Sx, fdx::SMatrix, fdu::SMatrix)
+function _calc_Q!(Q::TO.StaticExpansion, Sxx, Sx, fdx::SMatrix, fdu::SMatrix)
 	Qx = Q.x + fdx'Sx
 	Qu = Q.u + fdu'Sx
 	Qxx = Q.xx + fdx'Sxx*fdx
 	Quu = Q.uu + fdu'Sxx*fdu
 	Qux = Q.ux + fdu'Sxx*fdx
-	StaticExpansion(Qx,Qxx,Qu,Quu,Qux)
+	TO.StaticExpansion(Qx,Qxx,Qu,Quu,Qux)
 end
 
 
@@ -239,7 +239,7 @@ function _calc_ctg!(S, Q, K, d)
     return @SVector [t1, t2]
 end
 
-function _calc_ctg!(Q::StaticExpansion, K::SMatrix, d::SVector)
+function _calc_ctg!(Q::TO.StaticExpansion, K::SMatrix, d::SVector)
 	Sx = Q.x + K'Q.uu*d + K'Q.u + Q.ux'd
 	Sxx = Q.xx + K'Q.uu*K + K'Q.ux + Q.ux'K
 	Sxx = 0.5*(Sxx + Sxx')

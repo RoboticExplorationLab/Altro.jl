@@ -91,14 +91,14 @@ function ALTROSolver(prob::Problem{Q,T},
     opts_altro = ALTROSolverOptions(opts)
     solver_al = AugmentedLagrangianSolver(prob, opts, solver_uncon=solver_uncon)
     solver_pn = ProjectedNewtonSolver(prob, opts)
-    TrajOptCore.link_constraints!(get_constraints(solver_pn), get_constraints(solver_al))
+    TO.link_constraints!(get_constraints(solver_pn), get_constraints(solver_al))
     S = typeof(solver_al.solver_uncon)
     ALTROSolver{T,S}(opts_altro, solver_al, solver_pn)
 end
 
 @inline Base.size(solver::ALTROSolver) = size(solver.solver_pn)
-@inline TrajOptCore.get_trajectory(solver::ALTROSolver)::Traj = get_trajectory(solver.solver_al)
-@inline TrajOptCore.get_objective(solver::ALTROSolver) = get_objective(solver.solver_al)
+@inline TO.get_trajectory(solver::ALTROSolver)::Traj = get_trajectory(solver.solver_al)
+@inline TO.get_objective(solver::ALTROSolver) = get_objective(solver.solver_al)
 function iterations(solver::ALTROSolver)
     if !solver.opts.projected_newton
         iterations(solver.solver_al)
@@ -107,7 +107,7 @@ function iterations(solver::ALTROSolver)
     end
 end
 
-function TrajOptCore.get_constraints(solver::ALTROSolver)
+function TO.get_constraints(solver::ALTROSolver)
     if solver.opts.projected_newton
         get_constraints(solver.solver_pn)
     else
@@ -157,11 +157,11 @@ function InfeasibleProblem(prob::Problem, Z0::Traj, R_inf::Real)
     Z = infeasible_trajectory(model_inf, Z0)
 
     # Convert constraints so that they accept new dimensions
-    conSet = TrajOptCore.change_dimension(get_constraints(prob), n, m+n, 1:n, 1:m)
+    conSet = TO.change_dimension(get_constraints(prob), n, m+n, 1:n, 1:m)
 
     # Constrain additional controls to be zero
     inf = InfeasibleConstraint(model_inf)
-    add_constraint!(conSet, inf, 1:N-1)
+    TO.add_constraint!(conSet, inf, 1:N-1)
 
     # Infeasible Objective
     obj = infeasible_objective(prob.obj, R_inf)
@@ -171,16 +171,16 @@ function InfeasibleProblem(prob::Problem, Z0::Traj, R_inf::Real)
 end
 
 function infeasible_objective(obj::Objective, regularizer)
-    n,m = state_dim(obj.cost[1]), control_dim(obj.cost[1])
+    n,m = TO.state_dim(obj.cost[1]), TO.control_dim(obj.cost[1])
     Rd = [@SVector zeros(m); @SVector fill(regularizer,n)]
     R = Diagonal(Rd)
-    cost_inf = DiagonalCost(Diagonal(@SVector zeros(n)), R)
+    cost_inf = TO.DiagonalCost(Diagonal(@SVector zeros(n)), R)
     # cost_inf = DiagonalCost(Diagonal(@SVector zeros(n)), R, checks=false)
     costs = map(obj.cost) do cost
-        cost_idx = TrajOptCore.change_dimension(cost, n, n+m, 1:n, 1:m)
+        cost_idx = TO.change_dimension(cost, n, n+m, 1:n, 1:m)
         cost_idx + cost_inf
     end
-    Objective(costs)
+    TO.Objective(costs)
 end
 
 get_model(solver::ALTROSolver) = get_model(solver.solver_al)

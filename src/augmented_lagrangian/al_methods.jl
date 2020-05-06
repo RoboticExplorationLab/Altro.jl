@@ -7,7 +7,7 @@ function solve!(solver::AugmentedLagrangianSolver{T,S}) where {T,S}
 	solver_uncon = solver.solver_uncon::S
 
 	# Calculate cost
-    J_ = TrajOptCore.get_J(get_objective(solver))
+    J_ = TO.get_J(get_objective(solver))
     J = sum(J_)
 
     for i = 1:solver.opts.iterations
@@ -39,7 +39,7 @@ function initialize!(solver::AugmentedLagrangianSolver)
 	solver.stats.iterations_total = 0
 
 	# Calculate cost
-    TrajOptCore.cost!(get_objective(solver), get_trajectory(solver))
+    TO.cost!(get_objective(solver), get_trajectory(solver))
 end
 
 function step!(solver::AugmentedLagrangianSolver)
@@ -50,7 +50,7 @@ function step!(solver::AugmentedLagrangianSolver)
     # Outer loop update
     dual_update!(solver)
     penalty_update!(solver)
-    TrajOptCore.max_violation!(get_constraints(solver))
+    TO.max_violation!(get_constraints(solver))
 
 	# Reset verbosity level after it's modified
 	set_verbosity!(solver.opts)
@@ -65,7 +65,7 @@ function record_iteration!(solver::AugmentedLagrangianSolver{T,S}, J::T, c_max::
 	solver.stats.cost[i] = J
 
 	conSet = get_constraints(solver)
-	TrajOptCore.max_penalty!(conSet)
+	TO.max_penalty!(conSet)
 	solver.stats.penalty_max[i] = maximum(conSet.c_max)
 
 	@logmsg OuterLoop :iter value=i
@@ -99,11 +99,11 @@ end
 "General Dual Update"
 function dual_update!(solver::AugmentedLagrangianSolver) where {T,Q,N,M,NM}
     conSet = get_constraints(solver)
-	TrajOptCore.dual_update!(conSet)
+	TO.dual_update!(conSet)
 end
 
 "General Penalty Update"
 function penalty_update!(solver::AugmentedLagrangianSolver)
     conSet = get_constraints(solver)
-	TrajOptCore.penalty_update!(conSet)
+	TO.penalty_update!(conSet)
 end

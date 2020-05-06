@@ -164,7 +164,7 @@ function iLQRSolver(prob::Problem{QUAD,T}, opts=SolverOptions{T}()) where {QUAD,
 
     # Init solver results
     n,m,N = size(prob)
-    n̄ = state_diff_size(prob.model)
+    n̄ = RobotDynamics.state_diff_size(prob.model)
 
     x0 = SVector{n}(prob.x0)
     xf = SVector{n}(prob.xf)
@@ -234,12 +234,13 @@ function reset!(solver::iLQRSolver{T}, reset_stats=true) where T
     return nothing
 end
 
-@inline TrajOptCore.get_trajectory(solver::iLQRSolver) = solver.Z
-@inline TrajOptCore.get_objective(solver::iLQRSolver) = solver.obj
-@inline TrajOptCore.get_model(solver::iLQRSolver) = solver.model
+@inline TO.get_trajectory(solver::iLQRSolver) = solver.Z
+@inline TO.get_objective(solver::iLQRSolver) = solver.obj
+@inline TO.get_model(solver::iLQRSolver) = solver.model
 @inline get_initial_state(solver::iLQRSolver) = solver.x0
+@inline TO.integration(solver::iLQRSolver2{<:Any,Q}) where Q = Q
 
-function TrajOptCore.cost(solver::iLQRSolver, Z=solver.Z)
+function TO.cost(solver::iLQRSolver, Z=solver.Z)
     cost!(solver.obj, Z)
     return sum(get_J(solver.obj))
 end

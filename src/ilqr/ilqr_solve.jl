@@ -7,7 +7,7 @@ function initialize!(solver::iLQRSolver2)
 
     # Initial rollout
     rollout!(solver)
-    TrajOptCore.cost!(solver.obj, solver.Z)
+    TO.cost!(solver.obj, solver.Z)
 end
 
 # Generic solve methods
@@ -20,7 +20,7 @@ function solve!(solver::iLQRSolver{T}) where T<:AbstractFloat
 
     n,m,N = size(solver)
     J = Inf
-    _J = TrajOptCore.get_J(solver.obj)
+    _J = TO.get_J(solver.obj)
     J_prev = sum(_J)
 
     for i = 1:solver.opts.iterations
@@ -46,11 +46,11 @@ end
 
 function step!(solver::iLQRSolver2, J)
     Z = solver.Z
-    TrajOptCore.state_diff_jacobian!(solver.G, solver.model, Z)
-	TrajOptCore.dynamics_expansion!(solver.D, solver.model, solver.Z)
-	TrajOptCore.error_expansion!(solver.D, solver.model, solver.G)
-    TrajOptCore.cost_expansion!(solver.quad_obj, solver.obj, solver.Z)
-	TrajOptCore.error_expansion!(solver.Q, solver.quad_obj, solver.model, Z, solver.G)
+    TO.state_diff_jacobian!(solver.G, solver.model, Z)
+	TO.dynamics_expansion!(integration(solver), solver.D, solver.model, solver.Z)
+	TO.error_expansion!(solver.D, solver.model, solver.G)
+    TO.cost_expansion!(solver.quad_obj, solver.obj, solver.Z)
+	TO.error_expansion!(solver.Q, solver.quad_obj, solver.model, Z, solver.G)
 	if solver.opts.static_bp
     	ΔV = static_backwardpass!(solver)
 	else
@@ -69,7 +69,7 @@ function forwardpass!(solver::iLQRSolver, ΔV, J_prev)
     Z = solver.Z; Z̄ = solver.Z̄
     obj = solver.obj
 
-    _J = TrajOptCore.get_J(obj)
+    _J = TO.get_J(obj)
     J::Float64 = Inf
     α = 1.0
     iter = 0
@@ -84,7 +84,7 @@ function forwardpass!(solver::iLQRSolver, ΔV, J_prev)
             for k in eachindex(Z)
                 Z̄[k].z = Z[k].z
             end
-            TrajOptCore.cost!(obj, Z̄)
+            TO.cost!(obj, Z̄)
             J = sum(_J)
 
             z = 0
@@ -110,7 +110,7 @@ function forwardpass!(solver::iLQRSolver, ΔV, J_prev)
         end
 
         # Calcuate cost
-        TrajOptCore.cost!(obj, Z̄)
+        TO.cost!(obj, Z̄)
         J = sum(_J)
 
         expected::Float64 = -α*(ΔV[1] + α*ΔV[2])

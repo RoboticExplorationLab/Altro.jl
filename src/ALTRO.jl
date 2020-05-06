@@ -1,11 +1,11 @@
 module ALTRO
 
-using TrajOptCore
+import TrajectoryOptimization
+import RobotDynamics
 using StaticArrays
 using Parameters
 using DocStringExtensions
 using BenchmarkTools
-using RobotDynamics
 using Interpolations
 using UnsafeArrays
 
@@ -13,11 +13,31 @@ using SparseArrays
 using LinearAlgebra
 using Logging
 
-# Overwritten methods
-import TrajOptCore: rollout!
+const TO = TrajectoryOptimization
 
-import TrajOptCore: DynamicsExpansion, DynamicsVals
-import RobotDynamics: Implicit, Explicit
+# Overwritten methods
+using TrajectoryOptimization:
+    integration, num_constraints, get_trajectory
+
+import TrajectoryOptimization: rollout!, get_constraints, get_model, get_objective
+import RobotDynamics: discrete_jacobian!, discrete_dynamics, dynamics
+
+using TrajectoryOptimization:
+    Problem,
+    ConstraintList,
+    AbstractObjective, Objective, QuadraticObjective,
+    DynamicsExpansion, # TODO: Move to ALTRO
+    ALConstraintSet,
+    DynamicsConstraint,
+    Traj,
+    states, controls
+
+using RobotDynamics:
+    AbstractModel,
+    QuadratureRule, Implicit, Explicit,
+    AbstractKnotPoint, KnotPoint, StaticKnotPoint,
+    state, control
+
 
 # types
 export
@@ -29,9 +49,7 @@ export
 export
     solve!,
     benchmark_solve!,
-    iterations,
-    max_violation,
-    cost
+    iterations
 
 # modules
 export

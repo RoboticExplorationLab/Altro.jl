@@ -17,7 +17,7 @@ function rollout!(solver::iLQRSolver2{T,Q,n}, α) where {T,Q,n}
         RobotDynamics.set_control!(Z̄[k], ū)
 
         # Z̄[k].z = [state(Z̄[k]); control(Z[k]) + δu]
-        Z̄[k+1].z = [discrete_dynamics(Q, solver.model, Z̄[k]);
+        Z̄[k+1].z = [RobotDynamics.discrete_dynamics(Q, solver.model, Z̄[k]);
             control(Z[k+1])]
 
         temp = norm(Z̄[k+1].z)

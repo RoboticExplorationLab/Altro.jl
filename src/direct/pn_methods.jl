@@ -5,8 +5,8 @@ function solve!(solver::ProjectedNewtonSolver)
     copy_constraints!(solver)
     constraint_jacobian!(solver)
     copy_jacobians!(solver)
-    cost_expansion!(solver)
-    update_active_set!(solver)
+    TO.cost_expansion!(solver)
+    TO.update_active_set!(solver)
     copy_active_set!(solver)
 
     if solver.opts.verbose
@@ -35,7 +35,7 @@ end
 function record_iteration!(solver::ProjectedNewtonSolver, viol)
     solver.stats.iterations += 1
     i = solver.stats.iterations
-    solver.stats.cost[i] = cost(solver)
+    solver.stats.cost[i] = TO.cost(solver)
     solver.stats.c_max[i] = viol
 end
 
@@ -59,8 +59,8 @@ function _projection_solve!(solver::ProjectedNewtonSolver)
     # Update everything
     update_constraints!(solver)
     constraint_jacobian!(solver)
-    update_active_set!(solver)
-    cost_expansion!(solver)
+    TO.update_active_set!(solver)
+    TO.cost_expansion!(solver)
 
     # Copy results from constraint sets to sparse arrays
     copyto!(solver.P, solver.Z)
@@ -124,7 +124,7 @@ function _projection_linesearch!(solver::ProjectedNewtonSolver,
 
         copyto!(Z̄, P̄)
         update_constraints!(solver, Z̄)
-        TrajOptCore.max_violation!(conSet)
+        TO.max_violation!(conSet)
         viol_ = maximum(conSet.c_max)
         copy_constraints!(solver)
         d = solver.d[a]
@@ -170,11 +170,11 @@ function active_constraints(solver::ProjectedNewtonSolver)
     return solver.D[solver.active_set, :], solver.d[solver.active_set]  # this allocates
 end
 
-function TrajOptCore.cost_expansion!(solver::ProjectedNewtonSolver)
+function TO.cost_expansion!(solver::ProjectedNewtonSolver)
     Z = get_trajectory(solver)
     E = solver.E
     obj = get_objective(solver)
-    cost_expansion!(E, obj, Z)
+    TO.cost_expansion!(E, obj, Z)
 
     xinds, uinds = solver.P.xinds, solver.P.uinds
     H = solver.H

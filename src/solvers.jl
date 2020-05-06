@@ -33,9 +33,9 @@ iters = iterations(::AbstractSolver)    #
 abstract type AbstractSolver{T} end
 
 # Default getters
-@inline TrajOptCore.get_model(solver::AbstractSolver) = solver.model
-@inline TrajOptCore.get_objective(solver::AbstractSolver) = solver.obj
-@inline TrajOptCore.get_trajectory(solver::AbstractSolver) = solver.Z.Z_
+@inline TO.get_model(solver::AbstractSolver) = solver.model
+@inline TO.get_objective(solver::AbstractSolver) = solver.obj
+@inline TO.get_trajectory(solver::AbstractSolver) = solver.Z.Z_
 @inline get_cost_expansion(solver::AbstractSolver) = solver.E
 @inline get_cost_expansion_error(solver::AbstractSolver) = solver.E
 @inline get_error_state_jacobians(solver::AbstractSolver) = solver.G
@@ -77,30 +77,30 @@ abstract type ConstrainedSolver{T} <: AbstractSolver{T} end
 # include("direct/dircol_ipopt.jl")
 # include("direct/dircol_snopt.jl")
 
-function TrajOptCore.cost(solver::AbstractSolver, Z=get_trajectory(solver))
+function TO.cost(solver::AbstractSolver, Z=get_trajectory(solver))
     obj = get_objective(solver)
-    cost(obj, Z)
+    TO.cost(obj, Z)
 end
 
-function TrajOptCore.cost_expansion!(solver::AbstractSolver)
+function TO.cost_expansion!(solver::AbstractSolver)
     Z = get_trajectory(solver)
     E, obj = get_cost_expansion(solver), get_objective(solver)
     cost_expansion!(E, obj, Z)
 end
 
-TrajOptCore.error_expansion!(solver::AbstractSolver) = error_expansion_uncon!(solver)
+TO.error_expansion!(solver::AbstractSolver) = error_expansion_uncon!(solver)
 
 """ $(SIGNATURES)
 Calculate all the constraint values given the trajectory `Z`
 """
 function update_constraints!(solver::ConstrainedSolver, Z::Traj=get_trajectory(solver))
     conSet = get_constraints(solver)
-    evaluate!(conSet, Z)
+    TO.evaluate!(conSet, Z)
 end
 
-function TrajOptCore.update_active_set!(solver::ConstrainedSolver, Z=get_trajectory(solver))
+function TO.update_active_set!(solver::ConstrainedSolver, Z=get_trajectory(solver))
     conSet = get_constraints(solver)
-    update_active_set!(conSet, Val(solver.opts.active_set_tolerance))
+    TO.update_active_set!(conSet, Val(solver.opts.active_set_tolerance))
 end
 
 """ $(SIGNATURES)
@@ -108,7 +108,7 @@ Calculate all the constraint Jacobians given the trajectory `Z`
 """
 function constraint_jacobian!(solver::ConstrainedSolver, Z=get_trajectory(solver))
     conSet = get_constraints(solver)
-    jacobian!(conSet, Z)
+    TO.jacobian!(conSet, Z)
     return nothing
 end
 
@@ -120,7 +120,7 @@ function error_expansion_uncon!(solver::AbstractSolver)
     error_expansion!(E, E0, get_model(solver), G)
 end
 
-function TrajOptCore.error_expansion!(solver::ConstrainedSolver)
+function TO.error_expansion!(solver::ConstrainedSolver)
     error_expansion_uncon!(solver)
     conSet = get_constraints(solver)
     G = get_error_state_jacobians(solver)
@@ -152,8 +152,8 @@ function rollout!(solver::AbstractSolver)
     rollout!(model, Z, x0)
 end
 
-TrajOptCore.states(solver::AbstractSolver) = [state(z) for z in get_trajectory(solver)]
-function TrajOptCore.controls(solver::AbstractSolver)
+TO.states(solver::AbstractSolver) = [state(z) for z in get_trajectory(solver)]
+function TO.controls(solver::AbstractSolver)
     N = size(solver)[3]
     Z = get_trajectory(solver)
     [control(Z[k]) for k = 1:N-1]
@@ -161,9 +161,9 @@ end
 
 set_initial_state!(solver::AbstractSolver, x0) = copyto!(get_initial_state(solver), x0)
 
-@inline TrajOptCore.initial_states!(solver::AbstractSolver, X0) = set_states!(get_trajectory(solver), X0)
-@inline TrajOptCore.initial_controls!(solver::AbstractSolver, U0) = set_controls!(get_trajectory(solver), U0)
-function TrajOptCore.initial_trajectory!(solver::AbstractSolver, Z0::Traj)
+@inline TO.initial_states!(solver::AbstractSolver, X0) = set_states!(get_trajectory(solver), X0)
+@inline TO.initial_controls!(solver::AbstractSolver, U0) = set_controls!(get_trajectory(solver), U0)
+function TO.initial_trajectory!(solver::AbstractSolver, Z0::Traj)
     Z = get_trajectory(solver)
     for k in eachindex(Z)
         RobotDynamics.set_z!(Z[k], Z0[k].z)
@@ -171,7 +171,7 @@ function TrajOptCore.initial_trajectory!(solver::AbstractSolver, Z0::Traj)
 end
 
 # Default getters
-@inline TrajOptCore.get_times(solver::AbstractSolver) = TrajOptCore.get_times(get_trajectory(solver))
+@inline TO.get_times(solver::AbstractSolver) = TO.get_times(get_trajectory(solver))
 
 
 # Line Search and Merit Functions
@@ -191,22 +191,22 @@ function get_primals(solver::AbstractSolver, α)
 end
 
 # Constrained solver
-TrajOptCore.num_constraints(solver::AbstractSolver) = num_constraints(get_constraints(solver))
+TO.num_constraints(solver::AbstractSolver) = num_constraints(get_constraints(solver))
 
-function TrajOptCore.max_violation(solver::ConstrainedSolver, Z::Traj=get_trajectory(solver); recalculate=true)
+function TO.max_violation(solver::ConstrainedSolver, Z::Traj=get_trajectory(solver); recalculate=true)
     conSet = get_constraints(solver)
     if recalculate
-        evaluate!(conSet, Z)
+        TO.evaluate!(conSet, Z)
     end
-    max_violation(conSet)
+    TO.max_violation(conSet)
 end
 
-function TrajOptCore.norm_violation(solver::ConstrainedSolver, Z::Traj=get_trajectory(solver); recalculate=true, p=2)
+function TO.norm_violation(solver::ConstrainedSolver, Z::Traj=get_trajectory(solver); recalculate=true, p=2)
     conSet = get_constraints(solver)
     if recalculate
         evaluate!(conSet, Z)
     end
-    TrajOptCore.norm_violation(conSet, p)
+    TO.norm_violation(conSet, p)
 end
 
 @inline findmax_violation(solver::ConstrainedSolver) =
@@ -233,7 +233,7 @@ function cost_dgrad(solver::AbstractSolver, Z=get_primals(solver), dZ=get_step(s
 		obj = get_objective(solver)
 		cost_gradient!(E, obj, Traj(Z))
 	end
-	TrajOptCore.dgrad(E, Traj(dZ))
+	TO.dgrad(E, Traj(dZ))
 end
 
 """
@@ -252,7 +252,7 @@ function norm_dgrad(solver::AbstractSolver, Z=get_primals(solver), dZ=get_step(s
 		evaluate!(conSet, Z_)
 		jacobian!(conSet, Z_)
 	end
-    Dc = TrajOptCore.norm_dgrad(conSet, Traj(dZ), 1)
+    Dc = TO.norm_dgrad(conSet, Traj(dZ), 1)
 end
 
 
@@ -262,14 +262,14 @@ end
 Calculate the scalar 0.5*dZ'G*dZ where G is the hessian of cost, evaluating the cost hessian
 at `Z`.
 """
-function cost_dhess(solver::AbstractSolver, Z=TrajOptCore.get_primals(solver),
-		dZ=TrajOptCore.get_step(solver); recalculate=true)
+function cost_dhess(solver::AbstractSolver, Z=TO.get_primals(solver),
+		dZ=TO.get_step(solver); recalculate=true)
 	E = get_cost_expansion(solver)
 	if recalculate
 		obj = get_objective(solver)
 		cost_hessian!(E, obj, Traj(Z))
 	end
-	TrajOptCore.dhess(solver.E, Traj(dZ))
+	TO.dhess(solver.E, Traj(dZ))
 end
 
 # Logging

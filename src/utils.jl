@@ -30,7 +30,7 @@ function benchmark_solve!(solver; samples=10, evals=10)
     Z0 = deepcopy(get_trajectory(solver))
     solver.opts.verbose = false
     b = @benchmark begin
-        initial_trajectory!($solver,$Z0)
+        TO.initial_trajectory!($solver,$Z0)
         solve!($solver)
     end samples=samples evals=evals
     return b

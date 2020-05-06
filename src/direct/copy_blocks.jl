@@ -31,20 +31,20 @@ end
 
 """Copy constraint Jacobians to given indices in a sparse array
 Dispatches on bandedness of the constraint"""
-function copy_jacobian!(D, con::ConVal{<:StageConstraint}, cinds, xinds, uinds) where T
+function copy_jacobian!(D, con::TO.ConVal{<:TO.StageConstraint}, cinds, xinds, uinds) where T
     for (i,k) in enumerate(con.inds)
         zind = [xinds[k]; uinds[k]]
         D[cinds[i], zind] .= con.jac[i]
     end
 end
 
-function copy_jacobian!(D, con::ConVal{<:StateConstraint}, cinds, xinds, uinds) where T
+function copy_jacobian!(D, con::TO.ConVal{<:TO.StateConstraint}, cinds, xinds, uinds) where T
     for (i,k) in enumerate(con.inds)
         D[cinds[i], xinds[k]] .= con.jac[i]
     end
 end
 
-function copy_jacobian!(D, con::ConVal{<:ControlConstraint}, cinds, xinds, uinds) where T
+function copy_jacobian!(D, con::TO.ConVal{<:TO.ControlConstraint}, cinds, xinds, uinds) where T
     for (i,k) in enumerate(con.inds)
         D[cinds[i], uinds[k]] .= con.jac[i]
     end
@@ -57,7 +57,7 @@ end
 #     end
 # end
 
-function copy_jacobian!(D, con::ConVal{<:DynamicsConstraint{<:Explicit}},
+function copy_jacobian!(D, con::TO.ConVal{<:DynamicsConstraint{<:Explicit}},
 		cinds, xinds, uinds)
 	N = length(xinds)
     for (i,k) in enumerate(con.inds)
@@ -84,7 +84,7 @@ end
 
 
 "Copy constraint Jacobians to linear indices of a vector"
-function copy_jacobian!(d::AbstractVector{<:Real}, con::ConVal, linds)
+function copy_jacobian!(d::AbstractVector{<:Real}, con::TO.ConVal, linds)
 	for (j,k) in enumerate(con.inds)
 		inds = linds[j]
 		d[inds] = con.jac[j]
