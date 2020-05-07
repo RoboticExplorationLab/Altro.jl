@@ -1,4 +1,5 @@
 using ALTRO
+using TrajectoryOptimization
 using Test
 if !isdefined(Main,:TEST_TIME)
     TEST_TIME = true
@@ -9,7 +10,7 @@ solver = ALTROSolver(Problems.DoubleIntegrator()...)
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time / 1e6 < 0.5
 @test max_violation(solver) < 1e-6
-@test iterations(solver) <= 8 # 8
+@test iterations(solver) == 8 # 8
 
 # Pendulum
 solver = ALTROSolver(Problems.Pendulum()...)
@@ -51,7 +52,7 @@ solver = ALTROSolver(Problems.DubinsCar(:escape)..., infeasible=true, R_inf=0.1)
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time / 1e6 < 20
 @test max_violation(solver) < 1e-6
-@test iterations(solver) <= 13 # 13
+@test iterations(solver) == 13 # 13
 
 # Zig-zag
 solver = ALTROSolver(Problems.Quadrotor(:zigzag)...)

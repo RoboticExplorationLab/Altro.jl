@@ -239,8 +239,3 @@ end
 @inline TO.get_model(solver::iLQRSolver) = solver.model
 @inline get_initial_state(solver::iLQRSolver) = solver.x0
 @inline TO.integration(solver::iLQRSolver2{<:Any,Q}) where Q = Q
-
-function TO.cost(solver::iLQRSolver, Z=solver.Z)
-    cost!(solver.obj, Z)
-    return sum(get_J(solver.obj))
-end
