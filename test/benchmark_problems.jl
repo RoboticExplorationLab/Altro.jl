@@ -47,6 +47,9 @@ TEST_TIME && @test minimum(b).time /1e6 < 10
 @test max_violation(solver) < 1e-6
 @test iterations(solver) == 20 # 20
 
+solver = AugmentedLagrangianSolver(Problems.DubinsCar(:three_obstacles)...)
+@test benchmark_solve!(solver).allocs == 0
+
 # Escape
 solver = ALTROSolver(Problems.DubinsCar(:escape)..., infeasible=true, R_inf=0.1)
 b = benchmark_solve!(solver)
@@ -60,6 +63,9 @@ b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time / 1e6 < 50
 @test max_violation(solver) < 1e-6
 @test iterations(solver) == 14 # 14
+
+solver = AugmentedLagrangianSolver(Problems.Quadrotor(:zigzag)...)
+@test benchmark_solve!(solver).allocs == 0
 
 # Barrell Roll
 solver = ALTROSolver(Problems.YakProblems()...)
