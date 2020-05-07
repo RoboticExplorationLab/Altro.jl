@@ -174,8 +174,7 @@ function infeasible_objective(obj::Objective, regularizer)
     n,m = TO.state_dim(obj.cost[1]), TO.control_dim(obj.cost[1])
     Rd = [@SVector zeros(m); @SVector fill(regularizer,n)]
     R = Diagonal(Rd)
-    cost_inf = TO.DiagonalCost(Diagonal(@SVector zeros(n)), R)
-    # cost_inf = DiagonalCost(Diagonal(@SVector zeros(n)), R, checks=false)
+    cost_inf = TO.DiagonalCost(Diagonal(@SVector zeros(n)), R)# checks=false)
     costs = map(obj.cost) do cost
         cost_idx = TO.change_dimension(cost, n, n+m, 1:n, 1:m)
         cost_idx + cost_inf

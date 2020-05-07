@@ -259,12 +259,12 @@ function TO.cost!(obj::ALObjective, Z::Traj)
     TO.cost!(TO.get_J(obj), obj.constraints)
 end
 
-function TO.cost_expansion!(E::QuadraticObjective, obj::ALObjective, Z::Traj, init::Bool=false)
+function TO.cost_expansion!(E::QuadraticObjective, obj::ALObjective, Z::Traj, init::Bool=false, rezero::Bool=false)
     # Update constraint jacobians
     TO.jacobian!(obj.constraints, Z)
 
     # Calculate expansion of original objective
-    TO.cost_expansion!(E, obj.obj, Z, true)
+    TO.cost_expansion!(E, obj.obj, Z, true, rezero)
 
     # Add in expansion of constraints
     TO.cost_expansion!(E, obj.constraints, Z, true)

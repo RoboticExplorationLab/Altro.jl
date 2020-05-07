@@ -49,7 +49,7 @@ function step!(solver::iLQRSolver2, J)
     TO.state_diff_jacobian!(solver.G, solver.model, Z)
 	TO.dynamics_expansion!(integration(solver), solver.D, solver.model, solver.Z)
 	TO.error_expansion!(solver.D, solver.model, solver.G)
-    TO.cost_expansion!(solver.quad_obj, solver.obj, solver.Z)
+    TO.cost_expansion!(solver.quad_obj, solver.obj, solver.Z, true, true)
 	TO.error_expansion!(solver.Q, solver.quad_obj, solver.model, Z, solver.G)
 	if solver.opts.static_bp
     	ΔV = static_backwardpass!(solver)
