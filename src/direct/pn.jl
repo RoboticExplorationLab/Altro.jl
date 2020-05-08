@@ -69,8 +69,8 @@ This solver is to be used exlusively for solutions that are close to the optimal
 struct ProjectedNewtonSolver{T,N,M,NM} <: ConstrainedSolver{T}
     # Problem Info
     prob::ProblemInfo{T,N}
-    Z::Vector{KnotPoint{T,N,M,NM}}
-    Z̄::Vector{KnotPoint{T,N,M,NM}}
+    Z::Traj{N,M,T,KnotPoint{T,N,M,NM}}
+    Z̄::Traj{N,M,T,KnotPoint{T,N,M,NM}}
 
     opts::ProjectedNewtonSolverOptions{T}
     stats::ProjectedNewtonStats{T}

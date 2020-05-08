@@ -131,8 +131,8 @@ struct iLQRSolver2{T,I<:QuadratureRule,L,O,n,n̄,m,L1} <: iLQRSolver{T}
     stats::iLQRStats{T}
 
     # Primal Duals
-    Z::Vector{KnotPoint{T,n,m,L1}}
-    Z̄::Vector{KnotPoint{T,n,m,L1}}
+    Z::Traj{n,m,T,KnotPoint{T,n,m,L1}}
+    Z̄::Traj{n,m,T,KnotPoint{T,n,m,L1}}
 
     # Data variables
     # K::Vector{SMatrix{m,n̄,T,L2}}  # State feedback gains (m,n,N-1)

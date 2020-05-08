@@ -249,7 +249,7 @@ function Base.copy(obj::ALObjective)
     ALObjective(obj.obj, ConstraintSet(copy(obj.constraints.constraints), length(obj.obj)))
 end
 
-function TO.cost!(obj::ALObjective, Z::Traj)
+function TO.cost!(obj::ALObjective, Z::AbstractTrajectory)
     # Calculate unconstrained cost
     TO.cost!(obj.obj, Z)
 

@@ -103,7 +103,7 @@ RobotDynamics.orientation(model::InfeasibleModel, x::SVector) = orientation(mode
 
 "Calculate a dynamically feasible initial trajectory for an infeasible problem, given a
 desired trajectory"
-function infeasible_trajectory(model::InfeasibleModel{n,m}, Z0::Vector{<:AbstractKnotPoint{T,n,m}}) where {T,n,m}
+function infeasible_trajectory(model::InfeasibleModel{n,m}, Z0::Traj) where {T,n,m}
     x,u = zeros(model)
     ui = @SVector zeros(n)
     Z = [KnotPoint(state(z), [control(z); ui], z.dt, z.t) for z in Z0]
@@ -116,7 +116,7 @@ function infeasible_trajectory(model::InfeasibleModel{n,m}, Z0::Vector{<:Abstrac
         RobotDynamics.set_control!(Z[k], u)
         RobotDynamics.set_state!(Z[k+1], x′ + u_slack)
     end
-    return Z
+    return Traj(Z)
 end
 
 ############################################################################################
