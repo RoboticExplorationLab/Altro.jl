@@ -101,11 +101,15 @@ function DubinsCar(scenario=:three_obstacles; N=101)
         u_bnd = 2.
         x_min = @SVector [-0.25, -0.001, -Inf]
         x_max = @SVector [0.25, d + 0.001, Inf]
-        bnd = BoundConstraint(n,m,x_min=x_min,x_max=x_max,u_min=-u_bnd,u_max=u_bnd)
+        bnd_x = BoundConstraint(n,m, x_min=x_min, x_max=x_max)
+        bnd_u = BoundConstraint(n,m, u_min=-u_bnd, u_max=u_bnd)
+        # bnd = BoundConstraint(n,m,x_min=x_min,x_max=x_max,u_min=-u_bnd,u_max=u_bnd)
         goal = GoalConstraint(xf)
 
         conSet = ConstraintList(n,m,N)
-        add_constraint!(conSet, bnd, 1:N-1)
+        # add_constraint!(conSet, bnd, 1:N-1)
+        add_constraint!(conSet, bnd_u, 1:N-1)
+        add_constraint!(conSet, bnd_x, 2:N-1)
         add_constraint!(conSet, goal, N:N)
 
         # problem

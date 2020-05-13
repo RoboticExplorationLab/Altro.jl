@@ -15,7 +15,6 @@ using Logging
 
 const TO = TrajectoryOptimization
 
-# Overwritten methods
 using TrajectoryOptimization:
     integration, num_constraints, get_trajectory
 
@@ -26,6 +25,7 @@ using TrajectoryOptimization:
     Problem,
     ConstraintList,
     AbstractObjective, Objective, QuadraticObjective,
+    AbstractTrajectory,
     DynamicsExpansion, # TODO: Move to ALTRO
     ALConstraintSet,
     DynamicsConstraint,
