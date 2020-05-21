@@ -190,7 +190,7 @@ function iLQRSolver(prob::Problem{QUAD,T}, opts=SolverOptions{T}()) where {QUAD,
 
     grad = zeros(T,N-1)
 
-    logger = default_logger(opts.verbose)
+    logger = SolverLogging.default_logger(opts.verbose)
 	L = typeof(prob.model)
 	O = typeof(prob.obj)
 
@@ -225,7 +225,8 @@ Base.size(solver::iLQRSolver2{<:Any,<:Any,<:Any,<:Any,n,<:Any,m}) where {n,m} = 
 
 AbstractSolver(prob::Problem, opts::iLQRSolverOptions) = iLQRSolver(prob, opts)
 
-function reset!(solver::iLQRSolver{T}, reset_stats=true) where T
+function reset!(solver::iLQRSolver{T},
+		reset_stats=length(solver.stats.cost) != solver.opts.iterations) where T
     if reset_stats
         reset!(solver.stats, solver.opts.iterations)
     end

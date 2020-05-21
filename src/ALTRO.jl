@@ -8,6 +8,7 @@ using DocStringExtensions
 using BenchmarkTools
 using Interpolations
 using UnsafeArrays
+using SolverLogging
 
 using SparseArrays
 using LinearAlgebra
@@ -57,7 +58,6 @@ export
 
 
 include("utils.jl")
-include("logger.jl")
 include("infeasible_model.jl")
 include("solver_opts.jl")
 include("solvers.jl")

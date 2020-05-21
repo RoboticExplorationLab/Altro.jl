@@ -161,8 +161,8 @@ end
 
 set_initial_state!(solver::AbstractSolver, x0) = copyto!(get_initial_state(solver), x0)
 
-@inline TO.initial_states!(solver::AbstractSolver, X0) = set_states!(get_trajectory(solver), X0)
-@inline TO.initial_controls!(solver::AbstractSolver, U0) = set_controls!(get_trajectory(solver), U0)
+@inline TO.initial_states!(solver::AbstractSolver, X0) = TO.set_states!(get_trajectory(solver), X0)
+@inline TO.initial_controls!(solver::AbstractSolver, U0) = TO.set_controls!(get_trajectory(solver), U0)
 function TO.initial_trajectory!(solver::AbstractSolver, Z0::Traj)
     Z = get_trajectory(solver)
     for k in eachindex(Z)

@@ -1,4 +1,5 @@
 function initialize!(solver::iLQRSolver2)
+	reset!(solver)
     set_verbosity!(solver.opts)
     clear_cache!(solver.opts)
 
@@ -28,7 +29,7 @@ function solve!(solver::iLQRSolver{T}) where T<:AbstractFloat
 
         # check for cost blow up
         if J > solver.opts.max_cost_value
-            # @warn "Cost exceeded maximum cost"
+            @warn "Cost exceeded maximum cost"
             return solver
         end
 
