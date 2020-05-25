@@ -215,7 +215,7 @@ end
 
 
 Base.size(solver::AugmentedLagrangianSolver) = size(solver.solver_uncon)
-@inline TO.cost(solver::AugmentedLagrangianSolver) = cost(solver.solver_uncon)
+@inline TO.cost(solver::AugmentedLagrangianSolver) = TO.cost(solver.solver_uncon)
 @inline TO.get_trajectory(solver::AugmentedLagrangianSolver) = get_trajectory(solver.solver_uncon)
 @inline TO.get_objective(solver::AugmentedLagrangianSolver) = get_objective(solver.solver_uncon)
 @inline TO.get_model(solver::AugmentedLagrangianSolver) = get_model(solver.solver_uncon)

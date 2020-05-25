@@ -160,7 +160,7 @@ function record_iteration!(solver::iLQRSolver, J, dJ)
     @logmsg InnerLoop :grad value=solver.stats.gradient[i]
     # @logmsg InnerLoop :zero_count value=solver.stats[:dJ_zero_counter][end]
     if solver.opts.verbose
-        print_level(InnerLoop)
+        print_level(InnerLoop, global_logger())
     end
     return nothing
 end

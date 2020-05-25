@@ -286,6 +286,6 @@ end
 function clear_cache!(opts)
     if opts.verbose
         log_level = opts.log_level
-        clear_cache!(global_logger().leveldata[log_level])
+        SolverLogging.clear_cache!(global_logger().leveldata[log_level])
     end
 end

@@ -22,7 +22,7 @@ end
 
 function set_logger()
     if !(global_logger() isa SolverLogger)
-        global_logger(default_logger(true))
+        global_logger(SolverLogging.default_logger(true))
     end
 end
 

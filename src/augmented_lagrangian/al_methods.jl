@@ -73,7 +73,7 @@ function record_iteration!(solver::AugmentedLagrangianSolver{T,S}, J::T, c_max::
 	@logmsg OuterLoop :cost value=J
     @logmsg OuterLoop :c_max value=c_max
 	if solver.opts.verbose
-		print_level(OuterLoop)
+		print_level(OuterLoop, global_logger())
 	end
 end
 
