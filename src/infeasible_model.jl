@@ -91,8 +91,8 @@ function RobotDynamics.state_diff_jacobian!(G, model::InfeasibleModel, Z::Traj)
 	RobotDynamics.state_diff_jacobian!(G, model.model, Z)
 end
 
-function RobotDynamics.∇²differential(model::InfeasibleModel, x::SVector, dx::SVector)
-	return ∇²differential(model.model, x, dx)
+function RobotDynamics.∇²differential!(∇G, model::InfeasibleModel, x::SVector, dx::SVector)
+	return ∇²differential!(∇G, model.model, x, dx)
 end
 
 RobotDynamics.state_diff_size(model::InfeasibleModel) = RobotDynamics.state_diff_size(model.model)

@@ -1,8 +1,3 @@
-export
-    iLQRSolverOptions,
-	iLQRSolver2,
-    iLQRSolver
-
 
 @with_kw mutable struct iLQRStats{T}
     iterations::Int = 0
@@ -114,9 +109,8 @@ function iLQRSolverOptions(opts::Union{SolverOptions,UnconstrainedSolverOptions}
 	)
 end
 
-abstract type iLQRSolver{T} <: UnconstrainedSolver{T} end
 
-struct iLQRSolver2{T,I<:QuadratureRule,L,O,n,n̄,m,L1} <: iLQRSolver{T}
+struct iLQRSolver{T,I<:QuadratureRule,L,O,n,n̄,m,L1} <: UnconstrainedSolver{T}
     # Model + Objective
     model::L
     obj::O
@@ -195,7 +189,7 @@ function iLQRSolver(prob::Problem{QUAD,T}, opts=SolverOptions{T}()) where {QUAD,
 	O = typeof(prob.obj)
 
 	opts_ilqr = iLQRSolverOptions(opts)
-    solver = iLQRSolver2{T,QUAD,L,O,n,n̄,m,n+m}(prob.model, prob.obj, x0, xf,
+    solver = iLQRSolver{T,QUAD,L,O,n,n̄,m,n+m}(prob.model, prob.obj, x0, xf,
 		prob.tf, N, opts_ilqr, stats,
         Z, Z̄, K, d, D, G, quad_exp, S, Q, Quu_reg, Qux_reg, ρ, dρ, grad, logger)
 
@@ -203,25 +197,7 @@ function iLQRSolver(prob::Problem{QUAD,T}, opts=SolverOptions{T}()) where {QUAD,
     return solver
 end
 
-# function reset!(solver::iLQRSolver2{T}, reset_stats=true) where T
-#     if reset_stats
-#         reset!(solver.stats, solver.opts.iterations)
-#     end
-#     solver.ρ[1] = 0.0
-#     solver.dρ[1] = 0.0
-#     return nothing
-# end
-#
-Base.size(solver::iLQRSolver2{<:Any,<:Any,<:Any,<:Any,n,<:Any,m}) where {n,m} = n,m,solver.N
-# @inline get_trajectory(solver::iLQRSolver2) = solver.Z
-# @inline get_objective(solver::iLQRSolver2) = solver.obj
-# @inline get_model(solver::iLQRSolver2) = solver.model
-# @inline get_initial_state(solver::iLQRSolver2) = solver.x0
-#
-# function cost(solver::iLQRSolver2, Z=solver.Z)
-#     cost!(solver.obj, Z)
-#     return sum(get_J(solver.obj))
-# end
+Base.size(solver::iLQRSolver{<:Any,<:Any,<:Any,<:Any,n,<:Any,m}) where {n,m} = n,m,solver.N
 
 AbstractSolver(prob::Problem, opts::iLQRSolverOptions) = iLQRSolver(prob, opts)
 
@@ -239,4 +215,4 @@ end
 @inline TO.get_objective(solver::iLQRSolver) = solver.obj
 @inline TO.get_model(solver::iLQRSolver) = solver.model
 @inline get_initial_state(solver::iLQRSolver) = solver.x0
-@inline TO.integration(solver::iLQRSolver2{<:Any,Q}) where Q = Q
+@inline TO.integration(solver::iLQRSolver{<:Any,Q}) where Q = Q

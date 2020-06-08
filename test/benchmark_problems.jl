@@ -62,7 +62,7 @@ solver = ALTROSolver(Problems.Quadrotor(:zigzag)...)
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time / 1e6 < 50
 @test max_violation(solver) < 1e-6
-@test iterations(solver) == 14 # 14
+@test iterations(solver) == 16 # 16
 
 solver = AugmentedLagrangianSolver(Problems.Quadrotor(:zigzag)...)
 @test benchmark_solve!(solver).allocs == 0
@@ -72,4 +72,4 @@ solver = ALTROSolver(Problems.YakProblems()...)
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time / 1e6 < 100
 @test max_violation(solver) < 1e-6
-@test iterations(solver) <= 18 # 18
+@test iterations(solver) == 18 # 18

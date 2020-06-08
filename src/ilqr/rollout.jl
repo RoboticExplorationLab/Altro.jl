@@ -1,5 +1,5 @@
 
-function rollout!(solver::iLQRSolver2{T,Q,n}, α) where {T,Q,n}
+function rollout!(solver::iLQRSolver{T,Q,n}, α) where {T,Q,n}
     Z = solver.Z; Z̄ = solver.Z̄
     K = solver.K; d = solver.d;
 

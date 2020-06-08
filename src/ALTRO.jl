@@ -43,8 +43,11 @@ using RobotDynamics:
 # types
 export
     ALTROSolver,
+    ALTROSolverOptions,
     iLQRSolver,
+    iLQRSolverOptions,
     AugmentedLagrangianSolver,
+    AugmentedLagrangianSolverOptions,
     SolverOptions
 
 export

@@ -1,4 +1,4 @@
-function initialize!(solver::iLQRSolver2)
+function initialize!(solver::iLQRSolver)
 	reset!(solver)
     set_verbosity!(solver.opts)
     clear_cache!(solver.opts)
@@ -45,7 +45,7 @@ function solve!(solver::iLQRSolver{T}) where T<:AbstractFloat
     return solver
 end
 
-function step!(solver::iLQRSolver2, J)
+function step!(solver::iLQRSolver, J)
     Z = solver.Z
     TO.state_diff_jacobian!(solver.G, solver.model, Z)
 	TO.dynamics_expansion!(integration(solver), solver.D, solver.model, solver.Z)
@@ -169,7 +169,7 @@ end
 $(SIGNATURES)
     Calculate the problem gradient using heuristic from iLQG (Todorov) solver
 """
-function gradient_todorov!(solver::iLQRSolver2)
+function gradient_todorov!(solver::iLQRSolver)
 	tmp = solver.S[end].r
     for k in eachindex(solver.d)
 		tmp .= abs.(solver.d[k])
