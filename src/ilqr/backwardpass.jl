@@ -125,6 +125,11 @@ function static_backwardpass!(solver::iLQRSolver{T,QUAD,L,O,n,n̄,m}) where {T,Q
 
         # Calculate cost-to-go (using unregularized Quu and Qux)
 		Sxx, Sx, ΔV_ = _calc_ctg!(Q, K_, d_)
+		if solver.opts.save_S
+			S[k].xx .= Sxx
+			S[k].x .= Sx
+			S[k].c .= ΔV_
+		end
 		ΔV += ΔV_
         k -= 1
     end

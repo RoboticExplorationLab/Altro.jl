@@ -7,6 +7,7 @@ end
 
 # Double Integrator
 solver = ALTROSolver(Problems.DoubleIntegrator()...)
+# solver.solver_al.solver_uncon.opts.save_S
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time / 1e6 < 0.5
 @test max_violation(solver) < 1e-6

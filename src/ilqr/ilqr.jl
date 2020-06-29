@@ -99,6 +99,9 @@ $(FIELDS)
 	static_bp::Bool = true
 
     log_level::Base.CoreLogging.LogLevel = InnerLoop
+
+	"Save the Cost-to-Go expansion at each time step for static backwardpass"
+	save_S::Bool = false
 end
 
 function iLQRSolverOptions(opts::Union{SolverOptions,UnconstrainedSolverOptions})
