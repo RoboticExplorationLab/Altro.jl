@@ -1,4 +1,4 @@
-module ALTRO
+module Altro
 
 import TrajectoryOptimization
 import RobotDynamics

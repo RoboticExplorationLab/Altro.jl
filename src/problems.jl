@@ -4,7 +4,7 @@
 """
 module Problems
 
-using ALTRO
+using Altro
 using TrajectoryOptimization  # import the API
 using LinearAlgebra
 using StaticArrays

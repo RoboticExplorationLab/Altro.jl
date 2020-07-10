@@ -1,5 +1,5 @@
 using Test
-using ALTRO
+using Altro
 
 TEST_TIME = false
 

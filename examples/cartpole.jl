@@ -1,6 +1,6 @@
 # Set up problem using TrajectoryOptimization.jl and RobotZoo.jl
 using TrajectoryOptimization
-using ALTRO
+using Altro
 import RobotZoo.Cartpole
 using StaticArrays, LinearAlgebra
 

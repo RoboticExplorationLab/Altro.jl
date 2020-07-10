@@ -1,4 +1,4 @@
-using ALTRO
+using Altro
 using TrajectoryOptimization
 using Test
 if !isdefined(Main,:TEST_TIME)

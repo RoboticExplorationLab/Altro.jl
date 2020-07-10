@@ -1,14 +1,14 @@
 ![CI](https://github.com/RoboticExplorationLab/ALTRO.jl/workflows/CI/badge.svg)
 [![codecov](https://codecov.io/gh/RoboticExplorationLab/ALTRO.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/RoboticExplorationLab/ALTRO.jl)
 
-# ALTRO.jl
-Implementation of the Augmented Lagrangian TRajectory Optimizer (ALTRO) solver, a very fast solver for constrained trajectory optimization problems. 
-ALTRO uses iterative LQR (iLQR) with an augmented Lagrangian framework and can solve problems with nonlinear inequality and equality path constraints 
-and nonlinear dynamics. 
+# Altro.jl
+Implementation of the Augmented Lagrangian TRajectory Optimizer (ALTRO) solver, a very fast solver for constrained trajectory optimization problems.
+ALTRO uses iterative LQR (iLQR) with an augmented Lagrangian framework and can solve problems with nonlinear inequality and equality path constraints
+and nonlinear dynamics.
 
-ALTRO.jl solves trajectory optimization problems set up using [TrajectoryOptimization.jl](https://github.com/RoboticExplorationLab/TrajectoryOptimization.jl). 
+ALTRO.jl solves trajectory optimization problems set up using [TrajectoryOptimization.jl](https://github.com/RoboticExplorationLab/TrajectoryOptimization.jl).
 
-For details on the solver, see the original [conference paper](https://rexlab.stanford.edu/papers/altro-iros.pdf) or related 
+For details on the solver, see the original [conference paper](https://rexlab.stanford.edu/papers/altro-iros.pdf) or related
 [tutorial](https://bjack205.github.io/papers/AL_iLQR_Tutorial.pdf).
 
 ## Simple Example
