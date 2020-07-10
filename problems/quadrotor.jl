@@ -16,7 +16,7 @@ function Quadrotor(scenario=:zigzag, Rot=UnitQuaternion{Float64};
 
         # Initial condition
         x0_pos = @SVector [0., -10., 1.]
-        x0 = Dynamics.build_state(model, x0_pos, UnitQuaternion(I), zeros(3), zeros(3))
+        x0 = RobotDynamics.build_state(model, x0_pos, UnitQuaternion(I), zeros(3), zeros(3))
 
         # cost
         costfun == :QuatLQR ? sq = 0 : sq = 1
@@ -80,7 +80,7 @@ function Quadrotor(scenario=:zigzag, Rot=UnitQuaternion{Float64};
         u0 = @SVector fill(0.5*9.81/4, m)
         U_hover = [copy(u0) for k = 1:N-1] # initial hovering control trajectory
 
-        # Constaints
+        # Constraints
         conSet = ConstraintList(n,m,N)
         if normcon
             if use_rot == :slack

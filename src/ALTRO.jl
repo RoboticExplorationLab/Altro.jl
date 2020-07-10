@@ -13,6 +13,7 @@ using SolverLogging
 using SparseArrays
 using LinearAlgebra
 using Logging
+using Statistics
 
 const TO = TrajectoryOptimization
 
