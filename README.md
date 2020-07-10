@@ -1,3 +1,6 @@
+![CI](https://github.com/RoboticExplorationLab/ALTRO.jl/workflows/CI/badge.svg)
+[![codecov](https://codecov.io/gh/RoboticExplorationLab/ALTRO.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/RoboticExplorationLab/ALTRO.jl)
+
 # ALTRO.jl
 Implementation of the Augmented Lagrangian TRajectory Optimizer (ALTRO) solver, a very fast solver for constrained trajectory optimization problems. 
 ALTRO uses iterative LQR (iLQR) with an augmented Lagrangian framework and can solve problems with nonlinear inequality and equality path constraints 
