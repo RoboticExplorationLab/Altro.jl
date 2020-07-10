@@ -201,7 +201,7 @@ function DubinsCar(scenario=:three_obstacles; N=101)
                    7.5 6.25 -.261;
                    9 5. -1.57;
                    7.5 2.5 0.]
-        X0_escape = ALTRO.interp_rows(N,tf,Array(X_guess'))
+        X0_escape = Altro.interp_rows(N,tf,Array(X_guess'))
         initial_states!(car_escape_static, X0_escape)
 
         return car_escape_static, opts
