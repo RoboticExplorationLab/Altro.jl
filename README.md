@@ -6,7 +6,7 @@ Implementation of the Augmented Lagrangian TRajectory Optimizer (ALTRO) solver, 
 ALTRO uses iterative LQR (iLQR) with an augmented Lagrangian framework and can solve problems with nonlinear inequality and equality path constraints
 and nonlinear dynamics.
 
-ALTRO.jl solves trajectory optimization problems set up using [TrajectoryOptimization.jl](https://github.com/RoboticExplorationLab/TrajectoryOptimization.jl).
+Altro.jl solves trajectory optimization problems set up using [TrajectoryOptimization.jl](https://github.com/RoboticExplorationLab/TrajectoryOptimization.jl).
 
 For details on the solver, see the original [conference paper](https://rexlab.stanford.edu/papers/altro-iros.pdf) or related
 [tutorial](https://bjack205.github.io/papers/AL_iLQR_Tutorial.pdf).
