@@ -197,7 +197,7 @@ function AugmentedLagrangianSolver(prob::Problem{Q,T}, opts=SolverOptions{T}();
     opts_al = AugmentedLagrangianSolverOptions(opts)
     alobj = ALObjective(prob)
     rollout!(prob)
-    prob_al = Problem(prob.model, alobj, ConstraintList(size(prob)...),
+    prob_al = Problem{Q}(prob.model, alobj, ConstraintList(size(prob)...),
         prob.x0, prob.xf, prob.Z, prob.N, prob.t0, prob.tf)
 
     solver_uncon = solver_uncon(prob_al, opts)
