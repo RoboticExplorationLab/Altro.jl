@@ -163,8 +163,8 @@ function iLQRSolver(prob::Problem{QUAD,T}, opts=SolverOptions{T}()) where {QUAD,
     n,m,N = size(prob)
     n̄ = RobotDynamics.state_diff_size(prob.model)
 
-    x0 = SVector{n}(prob.x0)
-    xf = SVector{n}(prob.xf)
+    x0 = prob.x0
+    xf = prob.xf
 
     Z = prob.Z
     # Z̄ = Traj(n,m,Z[1].dt,N)
