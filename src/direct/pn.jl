@@ -30,7 +30,8 @@ $(FIELDS)
     solve_type::Symbol = :feasible
     active_set_tolerance::T = 1e-3
     constraint_tolerance::T = 1e-6
-    ρ::T = 1e-2
+    ρ_chol::T = 1e-2     # cholesky factorization regularization
+    ρ_primal::T = 1.0e-8 # primal regularization
     r_threshold::T = 1.1
 end
 

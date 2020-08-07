@@ -51,7 +51,10 @@ function _projection_solve!(solver::ProjectedNewtonSolver)
     a = solver.active_set
     max_refinements = 10
     convergence_rate_threshold = solver.opts.r_threshold
-    ρ = solver.opts.ρ
+
+    # regularization
+    ρ_chol = solver.opts.ρ_chol
+    ρ_primal = solver.opts.ρ_primal
 
     # Assume constant, diagonal cost Hessian (for now)
     H = Diagonal(solver.H)
@@ -76,9 +79,17 @@ function _projection_solve!(solver::ProjectedNewtonSolver)
         println("feas0: $viol0")
     end
 
+    if ρ_primal > 0.0
+        dim_primal = size(solver.P.Z)[1]
+        for i = 1:dim_primal
+            H[i,i] += ρ_primal
+        end
+    end
+
     HinvD = H\D'
+
     S = Symmetric(D*HinvD)
-    Sreg = cholesky(S + ρ*I)
+    Sreg = cholesky(S + ρ_chol*I) #TODO is this fast or slow? try above
     viol_prev = viol0
     count = 0
     while count < max_refinements
