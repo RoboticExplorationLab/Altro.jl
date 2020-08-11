@@ -4,7 +4,12 @@
 # Altro.jl
 Implementation of the Augmented Lagrangian TRajectory Optimizer (ALTRO) solver, a very fast solver for constrained trajectory optimization problems.
 ALTRO uses iterative LQR (iLQR) with an augmented Lagrangian framework and can solve problems with nonlinear inequality and equality path constraints
-and nonlinear dynamics.
+and nonlinear dynamics. The key features of the ALTRO solver are:
+  * General nonlinear cost functions, including minimum time problems
+  * General nonlinear state and input constraints
+  * Infeasible state initialization
+  * Square-root methods for improved numerical conditioning
+  * Active-set projection method for solution polishing
 
 Altro.jl solves trajectory optimization problems set up using [TrajectoryOptimization.jl](https://github.com/RoboticExplorationLab/TrajectoryOptimization.jl).
 
