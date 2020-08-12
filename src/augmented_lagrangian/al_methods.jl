@@ -10,7 +10,7 @@ function solve!(solver::AugmentedLagrangianSolver{T,S}) where {T,S}
     J_ = TO.get_J(get_objective(solver))
     J = sum(J_)
 
-    for i = 1:solver.opts.iterations
+    for i = 1:solver.opts.iterations_outer
 		set_tolerances!(solver, solver_uncon, i)
 
         step!(solver)
@@ -79,7 +79,7 @@ end
 
 function set_tolerances!(solver::AugmentedLagrangianSolver{T},
         solver_uncon::AbstractSolver{T},i::Int) where T
-    if i != solver.opts.iterations
+    if i != solver.opts.iterations_outer
         solver_uncon.opts.cost_tolerance = solver.opts.cost_tolerance_intermediate
         solver_uncon.opts.gradient_norm_tolerance = solver.opts.gradient_norm_tolerance_intermediate
     else

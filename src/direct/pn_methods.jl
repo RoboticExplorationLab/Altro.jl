@@ -9,7 +9,7 @@ function solve!(solver::ProjectedNewtonSolver)
     TO.update_active_set!(solver)
     copy_active_set!(solver)
 
-    if solver.opts.verbose
+    if solver.opts.verbose_pn
         println("\nProjection:")
     end
     viol = projection_solve!(solver)
@@ -75,7 +75,7 @@ function _projection_solve!(solver::ProjectedNewtonSolver)
     D,d = active_constraints(solver)
 
     viol0 = norm(d,Inf)
-    if solver.opts.verbose
+    if solver.opts.verbose_pn
         println("feas0: $viol0")
     end
 
@@ -98,7 +98,7 @@ function _projection_solve!(solver::ProjectedNewtonSolver)
         viol_prev = viol
         count += 1
 
-        if solver.opts.verbose
+        if solver.opts.verbose_pn
             println("conv rate: $convergence_rate")
         end
 
@@ -141,7 +141,7 @@ function _projection_linesearch!(solver::ProjectedNewtonSolver,
         d = solver.d[a]
         viol = norm(d,Inf)
 
-        if solver.opts.verbose
+        if solver.opts.verbose_pn
             println("feas: ", viol, " (α = ", α, ")")
         end
         if viol < viol0 || count > 10

@@ -104,15 +104,6 @@ $(FIELDS)
 	save_S::Bool = false
 end
 
-function iLQRSolverOptions(opts::Union{SolverOptions,UnconstrainedSolverOptions})
-	iLQRSolverOptions(
-		cost_tolerance=opts.cost_tolerance,
-		iterations=opts.iterations,
-		verbose=opts.verbose
-	)
-end
-
-
 struct iLQRSolver{T,I<:QuadratureRule,L,O,n,n̄,m,L1} <: UnconstrainedSolver{T}
     # Model + Objective
     model::L
@@ -154,7 +145,7 @@ struct iLQRSolver{T,I<:QuadratureRule,L,O,n,n̄,m,L1} <: UnconstrainedSolver{T}
 
 end
 
-function iLQRSolver(prob::Problem{QUAD,T}, opts=SolverOptions{T}()) where {QUAD,T}
+function iLQRSolver(prob::Problem{QUAD,T}; opts...) where {QUAD,T}
 
     # Init solver statistics
     stats = iLQRStats{T}() # = Dict{Symbol,Any}(:timer=>TimerOutput())
@@ -187,11 +178,12 @@ function iLQRSolver(prob::Problem{QUAD,T}, opts=SolverOptions{T}()) where {QUAD,
 
     grad = zeros(T,N-1)
 
-    logger = SolverLogging.default_logger(opts.verbose)
+    opts_ilqr = iLQRSolverOptions()
+    set_options!(opts_ilqr; opts...)
+
+    logger = SolverLogging.default_logger(opts_ilqr.verbose)
 	L = typeof(prob.model)
 	O = typeof(prob.obj)
-
-	opts_ilqr = iLQRSolverOptions(opts)
     solver = iLQRSolver{T,QUAD,L,O,n,n̄,m,n+m}(prob.model, prob.obj, x0, xf,
 		prob.tf, N, opts_ilqr, stats,
         Z, Z̄, K, d, D, G, quad_exp, S, Q, Quu_reg, Qux_reg, ρ, dρ, grad, logger)
@@ -200,9 +192,13 @@ function iLQRSolver(prob::Problem{QUAD,T}, opts=SolverOptions{T}()) where {QUAD,
     return solver
 end
 
+# Getters
 Base.size(solver::iLQRSolver{<:Any,<:Any,<:Any,<:Any,n,<:Any,m}) where {n,m} = n,m,solver.N
-
-AbstractSolver(prob::Problem, opts::iLQRSolverOptions) = iLQRSolver(prob, opts)
+@inline TO.get_trajectory(solver::iLQRSolver) = solver.Z
+@inline TO.get_objective(solver::iLQRSolver) = solver.obj
+@inline TO.get_model(solver::iLQRSolver) = solver.model
+@inline get_initial_state(solver::iLQRSolver) = solver.x0
+@inline TO.integration(solver::iLQRSolver{<:Any,Q}) where Q = Q
 
 function reset!(solver::iLQRSolver{T},
 		reset_stats=length(solver.stats.cost) != solver.opts.iterations) where T
@@ -214,8 +210,3 @@ function reset!(solver::iLQRSolver{T},
     return nothing
 end
 
-@inline TO.get_trajectory(solver::iLQRSolver) = solver.Z
-@inline TO.get_objective(solver::iLQRSolver) = solver.obj
-@inline TO.get_model(solver::iLQRSolver) = solver.model
-@inline get_initial_state(solver::iLQRSolver) = solver.x0
-@inline TO.integration(solver::iLQRSolver{<:Any,Q}) where Q = Q

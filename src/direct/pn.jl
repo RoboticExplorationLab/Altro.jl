@@ -25,24 +25,15 @@ Solver options for the Projected Newton solver.
 $(FIELDS)
 """
 @with_kw mutable struct ProjectedNewtonSolverOptions{T} <: DirectSolverOptions{T}
-    verbose::Bool = true
+    verbose_pn::Bool = false 
     n_steps::Int = 2
     solve_type::Symbol = :feasible
     active_set_tolerance::T = 1e-3
-    constraint_tolerance::T = 1e-6
+    constraint_tolerance::T = 1e-4
     ρ_chol::T = 1e-2     # cholesky factorization regularization
     ρ_primal::T = 1.0e-8 # primal regularization
     r_threshold::T = 1.1
 end
-
-function ProjectedNewtonSolverOptions(opts::SolverOptions)
-    ProjectedNewtonSolverOptions(
-        constraint_tolerance=opts.constraint_tolerance,
-        active_set_tolerance=opts.active_set_tolerance,
-        verbose=opts.verbose,
-    )
-end
-
 
 struct ProblemInfo{T,N}
     model::AbstractModel
@@ -93,7 +84,7 @@ struct ProjectedNewtonSolver{T,N,M,NM} <: ConstrainedSolver{T}
     con_inds::Vector{<:Vector}
 end
 
-function ProjectedNewtonSolver(prob::Problem, opts=SolverOptions())
+function ProjectedNewtonSolver(prob::Problem; opts...)
     Z = prob.Z  # grab trajectory before copy to keep associativity
     prob = copy(prob)  # don't modify original problem
 
@@ -134,12 +125,12 @@ function ProjectedNewtonSolver(prob::Problem, opts=SolverOptions())
     # Set constant pieces of the Jacobian
     xinds,uinds = P.xinds, P.uinds
 
-    opts_pn = ProjectedNewtonSolverOptions(opts)
+    opts_pn = ProjectedNewtonSolverOptions()
+    set_options!(opts_pn; opts...)
     dyn_inds = SVector{n,Int}[]
     ProjectedNewtonSolver(prob_info, Z, Z̄, opts_pn, stats,
         P, P̄, H, g, E, D, d, dyn_vals, active_set, dyn_inds, con_inds)
 end
-
 
 primals(solver::ProjectedNewtonSolver) = solver.P.Z
 primal_partition(solver::ProjectedNewtonSolver) = solver.P.xinds, solver.P.uinds

@@ -47,7 +47,11 @@ abstract type AbstractSolver{T} end
 @inline options(solver::AbstractSolver) = solver.opts
 @inline stats(solver::AbstractSolver) = solver.stats
 iterations(solver::AbstractSolver) = stats(solver).iterations
-
+has_option(solver::AbstractSolver, field::Symbol) = has_option(options(solver), field)
+set_options!(solver::AbstractSolver; opts...) = set_options!(options(solver); opts...)
+get_option(solver::AbstractSolver, field::Symbol) = getfield(options(solver), field)
+_get_options(solver::AbstractSolver) = Parameters.type2dict(options(solver))
+get_options(solver::AbstractSolver, recursive::Bool=true, group::Bool=false) = _get_options(solver) 
 
 "$(TYPEDEF) Unconstrained optimization solver. Will ignore
 any constraints in the problem"
