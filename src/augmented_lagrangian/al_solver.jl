@@ -31,9 +31,6 @@ $(FIELDS)
     "Print summary at each iteration."
     verbose::Bool=false
 
-    "unconstrained solver options."
-    opts_uncon::UnconstrainedSolverOptions{T} = UnconstrainedSolverOptions{Float64}()
-
     "dJ < ϵ, cost convergence criteria for unconstrained solve or to enter outerloop for constrained solve."
     cost_tolerance::T = 1.0e-4
 
