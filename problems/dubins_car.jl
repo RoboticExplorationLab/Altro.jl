@@ -1,7 +1,7 @@
 
 function DubinsCar(scenario=:three_obstacles; N=101)
     if scenario == :three_obstacles
-        opts = SolverOptions(
+        opts = SolverOpts(
             cost_tolerance_intermediate=1e-2,
             penalty_scaling=10.,
             penalty_initial=10.0,
@@ -47,7 +47,7 @@ function DubinsCar(scenario=:three_obstacles; N=101)
         return car_3obs_static, opts
 
     elseif scenario==:turn90
-        opts = SolverOptions(
+        opts = SolverOpts(
             cost_tolerance_intermediate=1e-3,
             active_set_tolerance=1e-4
         )
@@ -79,9 +79,9 @@ function DubinsCar(scenario=:three_obstacles; N=101)
         return prob, opts
 
     elseif scenario==:parallel_park
-        opts = SolverOptions(
+        opts = SolverOpts(
             cost_tolerance_intermediate=1e-3,
-            active_set_tolerance=1e-4
+            active_set_tolerance_pn=1e-4
         )
 
         # model
@@ -122,11 +122,12 @@ function DubinsCar(scenario=:three_obstacles; N=101)
         return prob, opts
 
     elseif scenario==:escape
-        opts = SolverOptions(
+        opts = SolverOpts(
             cost_tolerance_intermediate=1e-3,
             penalty_scaling=100.,
             penalty_initial=10.,
-            active_set_tolerance=1e-4
+            active_set_tolerance_pn=1e-4,
+            active_set_tolerance_al=1e-4
         )
 
         # Static Car Escape

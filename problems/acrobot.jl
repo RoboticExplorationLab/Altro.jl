@@ -1,5 +1,5 @@
 function Acrobot()
-    opts = SolverOptions(
+    opts = SolverOpts(
         cost_tolerance_intermediate=1e-2,
         penalty_scaling = 1000.,
         penalty_initial = 0.001,
