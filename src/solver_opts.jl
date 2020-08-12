@@ -94,3 +94,90 @@ function (::Type{S})(prob::Problem, opts::SolverOptions; kwargs...) where S <: A
     d = Parameters.type2dict(opts)
     S(prob; kwargs..., d...)
 end
+
+@with_kw mutable struct SolverOpts{T} <: AbstractSolverOptions{T}
+    # Optimality Tolerances
+    constraint_tolerance::T = 1e-6
+    cost_tolerance::T = 1e-4
+    cost_tolerance_intermediate::T = 1e-4
+    gradient_tolerance::T = 1e-5
+    gradient_tolerance_intermediate::T = 1e-5
+
+    # iLQR
+    iterations_inner::Int = 300
+    dJ_counter_limit::Int = 10
+    square_root::Bool = false
+    line_search_lower_bound::T = 1e-8
+    line_search_upper_bound::T = 10.0
+    iterations_linesearch::Int = 20
+    max_cost_value::T = 1.0e8
+    max_state_value::T = 1.0e8
+    max_control_value::T = 1.0e8
+	static_bp::Bool = true
+	save_S::Bool = false
+
+    # Backward pass regularization
+    bp_reg::Bool = false
+    bp_reg_initial::T = 0.0
+    bp_reg_increase_factor::T = 1.6
+    bp_reg_max::T = 1.0e8
+    bp_reg_min::T = 1.0e-8
+    bp_reg_type::Symbol = :control
+    bp_reg_fp::T = 10.0
+
+    # Augmented Lagrangian
+    penalty_initial::T = NaN
+    penalty_scaling::T = NaN
+    active_set_tolerance_al::T = 1e-3
+    dual_max::T = NaN
+    penalty_max::T = NaN
+    iterations_outer::Int = 30
+    kickout_max_penalty::Bool = false
+    reset_duals::Bool = true
+    reset_penalties::Bool = true
+
+    # Projected Newton
+    verbose_pn::Bool = false
+    n_steps::Int = 2
+    solve_type::Symbol = :feasible
+    projected_newton_tolerance::T = 1e-3
+    active_set_tolerance_pn::T = 1e-3
+    ρ_chol::T = 1e-2     # cholesky factorization regularization
+    ρ_primal::T = 1.0e-8 # primal regularization
+    r_threshold::T = 1.1
+
+    # General options
+    projected_newton::Bool = true
+    constrained::Bool = true
+    iterations::Int = 300
+    verbose::Int = 0 
+end
+
+function reset!(conSet::ALConstraintSet{T}, opts::SolverOpts{T}) where T
+    if !isnan(opts.dual_max)
+        for params in conSet.params
+            params.λ_max = opts.dual_max
+        end
+    end
+    if !isnan(opts.penalty_max)
+        for params in conSet.params
+            params.μ_max = opts.penalty_max
+        end
+    end
+    if !isnan(opts.penalty_initial)
+        for params in conSet.params
+            params.μ0 = opts.penalty_initial
+        end
+    end
+    if !isnan(opts.penalty_scaling)
+        for params in conSet.params
+            params.ϕ = opts.penalty_scaling
+        end
+    end
+    if opts.reset_duals
+        TO.reset_duals!(conSet)
+    end
+    if opts.reset_penalties
+        TO.reset_penalties!(conSet)
+    end
+end

@@ -3,35 +3,35 @@ export
     ALTROSolver
 
 
-"""$(TYPEDEF) Solver options for the ALTRO solver.
-$(FIELDS)
-"""
-@with_kw mutable struct ALTROSolverOptions{T} <: AbstractSolverOptions{T}
+# """$(TYPEDEF) Solver options for the ALTRO solver.
+# $(FIELDS)
+# """
+# @with_kw mutable struct ALTROSolverOptions{T} <: AbstractSolverOptions{T}
 
-    # General
-    "Output verbosity. 0 is none, 1 is AL only, 2 is AL and iLQR."
-    verbose::Int = 0
-    "finish with a projected newton solve."
-    projected_newton::Bool = true
-    "Solve problem, satisfying specified constraints. If false, will ignore constraints
-        and solve with iLQR."
-    constrained::Bool = true
+#     # General
+#     "Output verbosity. 0 is none, 1 is AL only, 2 is AL and iLQR."
+#     verbose::Int = 0
+#     "finish with a projected newton solve."
+#     projected_newton::Bool = true
+#     "Solve problem, satisfying specified constraints. If false, will ignore constraints
+#         and solve with iLQR."
+#     constrained::Bool = true
 
-    # Tolerances
-    "cost tolerance"
-    cost_tolerance::T = 1e-4
-    "constraint tolerance"
-    constraint_tolerance::T = 1e-4
-    "constraint satisfaction tolerance that triggers the projected newton solver.
-        If set to a non-positive number it will kick out when the maximum penalty is reached."
-    projected_newton_tolerance::T = 1.0e-3
+#     # Tolerances
+#     "cost tolerance"
+#     cost_tolerance::T = 1e-4
+#     "constraint tolerance"
+#     constraint_tolerance::T = 1e-4
+#     "constraint satisfaction tolerance that triggers the projected newton solver.
+#         If set to a non-positive number it will kick out when the maximum penalty is reached."
+#     projected_newton_tolerance::T = 1.0e-3
 
-    # Other
-    "initial penalty term for infeasible controls."
-    penalty_initial_infeasible::T = 1.0
-    "penalty update rate for infeasible controls."
-    penalty_scaling_infeasible::T = 10.0
-end
+#     # Other
+#     "initial penalty term for infeasible controls."
+#     penalty_initial_infeasible::T = 1.0
+#     "penalty update rate for infeasible controls."
+#     penalty_scaling_infeasible::T = 10.0
+# end
 
 
 
@@ -44,17 +44,15 @@ ALTRO consists of two "phases":
 2) Projected Newton: A collocation-flavored active-set solver projects the solution from AL-iLQR onto the feasible subspace to achieve machine-precision constraint satisfaction.
 """
 struct ALTROSolver{T,S} <: ConstrainedSolver{T}
-    opts::ALTROSolverOptions{T}
+    opts::SolverOpts{T}
     solver_al::AugmentedLagrangianSolver{T,S}
     solver_pn::ProjectedNewtonSolver{T}
 end
 
-AbstractSolver(prob::Problem, opts::ALTROSolverOptions) = ALTROSolver(prob, opts)
-
-function ALTROSolver(prob::Problem{Q,T};
+function ALTROSolver(prob::Problem{Q,T}, opts::SolverOpts=SolverOpts();
         infeasible::Bool=false,
         R_inf::Real=1.0,
-        solver_uncon=iLQRSolver, opts...) where {Q,T}
+        solver_uncon=iLQRSolver) where {Q,T}
     if infeasible
         # Convert to an infeasible problem
         prob = InfeasibleProblem(prob, prob.Z, R_inf/prob.Z[1].dt)
@@ -65,13 +63,12 @@ function ALTROSolver(prob::Problem{Q,T};
         # con_inf.params.μ0 = opts.penalty_initial_infeasible
         # con_inf.params.ϕ = opts.penalty_scaling_infeasible
     end
-    opts_altro = ALTROSolverOptions()
-    solver_al = AugmentedLagrangianSolver(prob; solver_uncon=solver_uncon, opts...)
-    solver_pn = ProjectedNewtonSolver(prob)#; opts...)
+    solver_al = AugmentedLagrangianSolver(prob, opts; solver_uncon=solver_uncon)
+    solver_pn = ProjectedNewtonSolver(prob, opts)
     TO.link_constraints!(get_constraints(solver_pn), get_constraints(solver_al))
     S = typeof(solver_al.solver_uncon)
-    solver = ALTROSolver{T,S}(opts_altro, solver_al, solver_pn)
-    set_options!(solver; opts...)
+    solver = ALTROSolver{T,S}(opts, solver_al, solver_pn)
+    # set_options!(solver; opts...)
     solver
 end
 
@@ -171,6 +168,7 @@ function solve!(solver::ALTROSolver)
 
     # Set terminal condition if using projected newton
     opts = solver.opts
+    ϵ_con = solver.opts.constraint_tolerance
     if opts.projected_newton
         opts_al = solver.solver_al.opts
         if opts.projected_newton_tolerance >= 0
@@ -188,6 +186,7 @@ function solve!(solver::ALTROSolver)
     i = solver.solver_al.stats.iterations
     c_max = solver.solver_al.stats.c_max[i]
 
+    opts.constraint_tolerance = ϵ_con
     if opts.projected_newton && c_max > opts.constraint_tolerance
         solve!(solver.solver_pn)
     end

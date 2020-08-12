@@ -102,9 +102,10 @@ function update_constraints!(solver::ConstrainedSolver, Z::Traj=get_trajectory(s
     TO.evaluate!(conSet, Z)
 end
 
-function TO.update_active_set!(solver::ConstrainedSolver, Z=get_trajectory(solver))
+function TO.update_active_set!(solver::ConstrainedSolver, 
+        Z=get_trajectory(solver); tol=solver.opts.active_set_tolerance)
     conSet = get_constraints(solver)
-    TO.update_active_set!(conSet, Val(solver.opts.active_set_tolerance))
+    TO.update_active_set!(conSet, Val(tol))
 end
 
 """ $(SIGNATURES)
@@ -278,19 +279,22 @@ function cost_dhess(solver::AbstractSolver, Z=TO.get_primals(solver),
 end
 
 # Logging
-function set_verbosity!(opts)
-    log_level = opts.log_level
-    if opts.verbose
+is_verbose(solver::AbstractSolver) = 
+    log_level(solver) > LogLevel(-100*options(solver).verbose)
+
+function set_verbosity!(solver::AbstractSolver)
+    llevel = log_level(solver)
+    if is_verbose(solver)
         set_logger()
-        Logging.disable_logging(LogLevel(log_level.level-1))
+        Logging.disable_logging(LogLevel(llevel.level-1))
     else
-        Logging.disable_logging(log_level)
+        Logging.disable_logging(llevel)
     end
 end
 
-function clear_cache!(opts)
-    if opts.verbose
-        log_level = opts.log_level
-        SolverLogging.clear_cache!(global_logger().leveldata[log_level])
+function clear_cache!(solver::AbstractSolver)
+    llevel = log_level(solver)
+    if is_verbose(solver)
+        SolverLogging.clear_cache!(global_logger().leveldata[llevel])
     end
 end

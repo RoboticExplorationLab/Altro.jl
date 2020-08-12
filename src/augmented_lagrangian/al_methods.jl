@@ -30,8 +30,8 @@ function solve!(solver::AugmentedLagrangianSolver{T,S}) where {T,S}
 end
 
 function initialize!(solver::AugmentedLagrangianSolver)
-	set_verbosity!(solver.opts)
-	clear_cache!(solver.opts)
+	set_verbosity!(solver)
+	clear_cache!(solver)
 
 	# Reset solver
     reset!(get_constraints(solver), solver.opts)
@@ -53,7 +53,7 @@ function step!(solver::AugmentedLagrangianSolver)
     TO.max_violation!(get_constraints(solver))
 
 	# Reset verbosity level after it's modified
-	set_verbosity!(solver.opts)
+	set_verbosity!(solver)
 end
 
 function record_iteration!(solver::AugmentedLagrangianSolver{T,S}, J::T, c_max::T) where {T,S}
@@ -72,7 +72,7 @@ function record_iteration!(solver::AugmentedLagrangianSolver{T,S}, J::T, c_max::
 	@logmsg OuterLoop :total value=solver.stats.iterations_total
 	@logmsg OuterLoop :cost value=J
     @logmsg OuterLoop :c_max value=c_max
-	if solver.opts.verbose
+	if is_verbose(solver) 
 		print_level(OuterLoop, global_logger())
 	end
 end
@@ -81,10 +81,10 @@ function set_tolerances!(solver::AugmentedLagrangianSolver{T},
         solver_uncon::AbstractSolver{T},i::Int) where T
     if i != solver.opts.iterations_outer
         solver_uncon.opts.cost_tolerance = solver.opts.cost_tolerance_intermediate
-        solver_uncon.opts.gradient_norm_tolerance = solver.opts.gradient_norm_tolerance_intermediate
+        solver_uncon.opts.gradient_tolerance = solver.opts.gradient_tolerance_intermediate
     else
         solver_uncon.opts.cost_tolerance = solver.opts.cost_tolerance
-        solver_uncon.opts.gradient_norm_tolerance = solver.opts.gradient_norm_tolerance
+        solver_uncon.opts.gradient_tolerance = solver.opts.gradient_tolerance
     end
 
     return nothing

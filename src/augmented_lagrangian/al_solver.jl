@@ -1,6 +1,5 @@
 export
     AugmentedLagrangianSolver,
-    AugmentedLagrangianSolverOptions,
     get_constraints
 
 
@@ -23,114 +22,97 @@ function reset!(stats::ALStats, L=0)
 end
 
 
-"""$(TYPEDEF)
-Solver options for the augmented Lagrangian solver.
-$(FIELDS)
-"""
-@with_kw mutable struct AugmentedLagrangianSolverOptions{T} <: AbstractSolverOptions{T}
-    "Print summary at each iteration."
-    verbose::Bool=false
+# """$(TYPEDEF)
+# Solver options for the augmented Lagrangian solver.
+# $(FIELDS)
+# """
+# @with_kw mutable struct AugmentedLagrangianSolverOptions{T} <: AbstractSolverOptions{T}
+#     "Print summary at each iteration."
+#     verbose::Bool=false
 
-    "dJ < ϵ, cost convergence criteria for unconstrained solve or to enter outerloop for constrained solve."
-    cost_tolerance::T = 1.0e-4
+#     "dJ < ϵ, cost convergence criteria for unconstrained solve or to enter outerloop for constrained solve."
+#     cost_tolerance::T = 1.0e-4
 
-    "dJ < ϵ_int, intermediate cost convergence criteria to enter outerloop of constrained solve."
-    cost_tolerance_intermediate::T = 1.0e-3
+#     "dJ < ϵ_int, intermediate cost convergence criteria to enter outerloop of constrained solve."
+#     cost_tolerance_intermediate::T = 1.0e-3
 
-    "gradient_norm < ϵ, gradient norm convergence criteria."
-    gradient_norm_tolerance::T = 1.0e-5
+#     "gradient_norm < ϵ, gradient norm convergence criteria."
+#     gradient_norm_tolerance::T = 1.0e-5
 
-    "gradient_norm_int < ϵ, gradient norm intermediate convergence criteria."
-    gradient_norm_tolerance_intermediate::T = 1.0e-5
+#     "gradient_norm_int < ϵ, gradient norm intermediate convergence criteria."
+#     gradient_norm_tolerance_intermediate::T = 1.0e-5
 
-    "max(constraint) < ϵ, constraint convergence criteria."
-    constraint_tolerance::T = 1.0e-4
+#     "max(constraint) < ϵ, constraint convergence criteria."
+#     constraint_tolerance::T = 1.0e-4
 
-    "max(constraint) < ϵ_int, intermediate constraint convergence criteria."
-    constraint_tolerance_intermediate::T = 1.0e-3
+#     "max(constraint) < ϵ_int, intermediate constraint convergence criteria."
+#     constraint_tolerance_intermediate::T = 1.0e-3
 
-    "maximum outerloop updates."
-    iterations_outer::Int = 30
+#     "maximum outerloop updates."
+#     iterations_outer::Int = 30
 
-    "global maximum Lagrange multiplier. If NaN, use value from constraint"
-    dual_max::T = NaN
+#     "global maximum Lagrange multiplier. If NaN, use value from constraint"
+#     dual_max::T = NaN
 
-    "global maximum penalty term. If NaN, use value from constraint"
-    penalty_max::T = NaN
+#     "global maximum penalty term. If NaN, use value from constraint"
+#     penalty_max::T = NaN
 
-    "global initial penalty term. If NaN, use value from constraint"
-    penalty_initial::T = NaN
+#     "global initial penalty term. If NaN, use value from constraint"
+#     penalty_initial::T = NaN
 
-    "global penalty update multiplier; penalty_scaling > 1. If NaN, use value from constraint"
-    penalty_scaling::T = NaN
+#     "global penalty update multiplier; penalty_scaling > 1. If NaN, use value from constraint"
+#     penalty_scaling::T = NaN
 
-    "penalty update multiplier when μ should not be update, typically 1.0 (or 1.0 + ϵ)."
-    penalty_scaling_no::T = 1.0
+#     # "penalty update multiplier when μ should not be update, typically 1.0 (or 1.0 + ϵ)."
+#     # penalty_scaling_no::T = 1.0
 
-    "ratio of current constraint to previous constraint violation; 0 < constraint_decrease_ratio < 1."
-    constraint_decrease_ratio::T = 0.25
+#     # "ratio of current constraint to previous constraint violation; 0 < constraint_decrease_ratio < 1."
+#     # constraint_decrease_ratio::T = 0.25
 
-    "type of outer loop update (default, feedback)."
-    outer_loop_update_type::Symbol = :default
+#     # "type of outer loop update (default, feedback)."
+#     # outer_loop_update_type::Symbol = :default
 
-    "numerical tolerance for constraint violation."
-    active_constraint_tolerance::T = 0.0
+#     "numerical tolerance for constraint violation."
+#     active_constraint_tolerance::T = 0.0
 
-    "terminal solve when maximum penalty is reached."
-    kickout_max_penalty::Bool = false
+#     "terminal solve when maximum penalty is reached."
+#     kickout_max_penalty::Bool = false
 
-    reset_duals::Bool = true
+#     reset_duals::Bool = true
 
-    reset_penalties::Bool = true
+#     reset_penalties::Bool = true
 
-    log_level_outer::Base.CoreLogging.LogLevel = OuterLoop
-end
+#     log_level_outer::Base.CoreLogging.LogLevel = OuterLoop
+# end
 
-function reset!(conSet::ALConstraintSet{T}, opts::AugmentedLagrangianSolverOptions{T}) where T
-    if !isnan(opts.dual_max)
-        for params in conSet.params
-            params.λ_max = opts.dual_max
-        end
-    end
-    if !isnan(opts.penalty_max)
-        for params in conSet.params
-            params.μ_max = opts.penalty_max
-        end
-    end
-    if !isnan(opts.penalty_initial)
-        for params in conSet.params
-            params.μ0 = opts.penalty_initial
-        end
-    end
-    if !isnan(opts.penalty_scaling)
-        for params in conSet.params
-            params.ϕ = opts.penalty_scaling
-        end
-    end
-    if opts.reset_duals
-        TO.reset_duals!(conSet)
-    end
-    if opts.reset_penalties
-        TO.reset_penalties!(conSet)
-    end
-end
-
-function set_verbosity!(opts::AugmentedLagrangianSolverOptions)
-    log_level = opts.log_level_outer
-    if opts.verbose
-        set_logger()
-        Logging.disable_logging(LogLevel(log_level.level-1))
-        logger = global_logger()
-        if opts.opts_uncon.verbose
-            freq = 1
-        else
-            freq = 5
-        end
-        logger.leveldata[log_level].freq = freq
-    else
-        Logging.disable_logging(log_level)
-    end
-end
+# function reset!(conSet::ALConstraintSet{T}, opts::AugmentedLagrangianSolverOptions{T}) where T
+#     if !isnan(opts.dual_max)
+#         for params in conSet.params
+#             params.λ_max = opts.dual_max
+#         end
+#     end
+#     if !isnan(opts.penalty_max)
+#         for params in conSet.params
+#             params.μ_max = opts.penalty_max
+#         end
+#     end
+#     if !isnan(opts.penalty_initial)
+#         for params in conSet.params
+#             params.μ0 = opts.penalty_initial
+#         end
+#     end
+#     if !isnan(opts.penalty_scaling)
+#         for params in conSet.params
+#             params.ϕ = opts.penalty_scaling
+#         end
+#     end
+#     if opts.reset_duals
+#         TO.reset_duals!(conSet)
+#     end
+#     if opts.reset_penalties
+#         TO.reset_penalties!(conSet)
+#     end
+# end
 
 
 @doc raw""" ```julia
@@ -157,28 +139,22 @@ This function is then minimized with respect to the primal variables using any u
     AL methods have superlinear convergence as long as the penalty term μ is updated each iteration.
 """
 struct AugmentedLagrangianSolver{T,S<:AbstractSolver} <: ConstrainedSolver{T}
-    opts::AugmentedLagrangianSolverOptions{T}
+    opts::SolverOpts{T}
     stats::ALStats{T}
     stats_uncon::Vector{STATS} where STATS
     solver_uncon::S
 end
 
-AbstractSolver(prob::Problem{Q,T},
-    opts::AugmentedLagrangianSolverOptions{T}=AugmentedLagrangianSolverOptions{T}()) where {Q,T} =
-    AugmentedLagrangianSolver(prob,opts)
 
 """$(TYPEDSIGNATURES)
 Form an augmented Lagrangian cost function from a Problem and AugmentedLagrangianSolver.
     Does not allocate new memory for the internal arrays, but points to the arrays in the solver.
 """
-function AugmentedLagrangianSolver(prob::Problem{Q,T};
-        solver_uncon=iLQRSolver, opts...) where {Q,T}
+function AugmentedLagrangianSolver(prob::Problem{Q,T}, opts::SolverOpts=SolverOpts();
+        solver_uncon=iLQRSolver) where {Q,T}
     # Init solver statistics
     stats = ALStats()
     stats_uncon = Vector{iLQRStats{T}}()
-
-    # Create solver options
-    opts_al = AugmentedLagrangianSolverOptions()
 
     # Build Augmented Lagrangian Objective
     alobj = ALObjective(prob)
@@ -187,12 +163,12 @@ function AugmentedLagrangianSolver(prob::Problem{Q,T};
         prob.x0, prob.xf, prob.Z, prob.N, prob.t0, prob.tf)
 
     # Instantiate the unconstrained solver
-    solver_uncon = solver_uncon(prob_al)
+    solver_uncon = solver_uncon(prob_al, opts)
 
     # Build solver
-    solver = AugmentedLagrangianSolver(opts_al, stats, stats_uncon, solver_uncon)
+    solver = AugmentedLagrangianSolver(opts, stats, stats_uncon, solver_uncon)
     reset!(solver)
-    set_options!(solver; opts...)
+    # set_options!(solver; opts...)
     return solver
 end
 
@@ -204,6 +180,8 @@ Base.size(solver::AugmentedLagrangianSolver) = size(solver.solver_uncon)
 @inline TO.get_model(solver::AugmentedLagrangianSolver) = get_model(solver.solver_uncon)
 @inline get_initial_state(solver::AugmentedLagrangianSolver) = get_initial_state(solver.solver_uncon)
 @inline iterations(solver::AugmentedLagrangianSolver) = solver.stats.iterations_total
+
+log_level(::AugmentedLagrangianSolver) = OuterLoop
 
 function TO.get_constraints(solver::AugmentedLagrangianSolver{T}) where T
     obj = get_objective(solver)::ALObjective{T}
@@ -248,7 +226,25 @@ function get_options(solver::AugmentedLagrangianSolver, recursive::Bool=true, gr
     end
 end
 
-function reset!(solver::AugmentedLagrangianSolver{T}) where T
+function set_verbosity!(solver::AugmentedLagrangianSolver)
+    llevel = log_level(solver) 
+    if is_verbose(solver)
+        set_logger()
+        Logging.disable_logging(LogLevel(llevel.level-1))
+        logger = global_logger()
+        if is_verbose(solver.solver_uncon) 
+            freq = 1
+        else
+            freq = 5
+        end
+        logger.leveldata[llevel].freq = freq
+    else
+        Logging.disable_logging(llevel)
+    end
+end
+
+
+function reset!(solver::AugmentedLagrangianSolver)
     reset!(solver.stats, solver.opts.iterations_outer)
     reset!(solver.solver_uncon)
     reset!(get_constraints(solver), solver.opts)

@@ -1,7 +1,7 @@
 function initialize!(solver::iLQRSolver)
 	reset!(solver)
-    set_verbosity!(solver.opts)
-    clear_cache!(solver.opts)
+    set_verbosity!(solver)
+    clear_cache!(solver)
 
     solver.ρ[1] = solver.opts.bp_reg_initial
     solver.dρ[1] = 0.0
@@ -153,13 +153,18 @@ function record_iteration!(solver::iLQRSolver, J, dJ)
     solver.stats.cost[i] = J
     solver.stats.dJ[i] = dJ
     solver.stats.gradient[i] = mean(solver.grad)
+    if dJ ≈ 0
+        solver.stats.dJ_zero_counter += 1
+    else
+        solver.stats.dJ_zero_counter = 0
+    end
 
     @logmsg InnerLoop :iter value=i
     @logmsg InnerLoop :cost value=J
     @logmsg InnerLoop :dJ   value=dJ
     @logmsg InnerLoop :grad value=solver.stats.gradient[i]
     # @logmsg InnerLoop :zero_count value=solver.stats[:dJ_zero_counter][end]
-    if solver.opts.verbose
+    if is_verbose(solver) 
         print_level(InnerLoop, global_logger())
     end
     return nothing
@@ -195,7 +200,7 @@ function evaluate_convergence(solver::iLQRSolver)
     end
 
     # Check for gradient convergence
-    if solver.stats.gradient[i] < solver.opts.gradient_norm_tolerance
+    if solver.stats.gradient[i] < solver.opts.gradient_tolerance
         return true
     end
 
