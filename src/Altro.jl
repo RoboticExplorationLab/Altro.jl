@@ -56,6 +56,13 @@ export
     benchmark_solve!,
     iterations
 
+# solver options
+export
+    set_options!,
+    has_option,
+    get_option,
+    get_options
+
 # modules
 export
     Problems
