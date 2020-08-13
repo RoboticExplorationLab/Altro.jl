@@ -1,19 +1,19 @@
 
-@with_kw mutable struct iLQRStats{T}
-    iterations::Int = 0
-    cost::Vector{T} = [0.]
-    dJ::Vector{T} = [0.]
-    gradient::Vector{T} = [0.]
-    dJ_zero_counter::Int = 0
-end
+# @with_kw mutable struct iLQRStats{T}
+#     iterations::Int = 0
+#     cost::Vector{T} = [0.]
+#     dJ::Vector{T} = [0.]
+#     gradient::Vector{T} = [0.]
+#     dJ_zero_counter::Int = 0
+# end
 
-function reset!(stats::iLQRStats, N=0)
-    stats.iterations = 0
-    stats.cost = zeros(N)
-    stats.dJ = zeros(N)
-    stats.gradient = zeros(N)
-    stats.dJ_zero_counter = 0
-end
+# function reset!(stats::iLQRStats, N=0)
+#     stats.iterations = 0
+#     stats.cost = zeros(N)
+#     stats.dJ = zeros(N)
+#     stats.gradient = zeros(N)
+#     stats.dJ_zero_counter = 0
+# end
 
 # """$(TYPEDEF)
 # Solver options for the iterative LQR (iLQR) solver.
@@ -116,7 +116,7 @@ struct iLQRSolver{T,I<:QuadratureRule,L,O,n,n̄,m,L1} <: UnconstrainedSolver{T}
     N::Int
 
     opts::SolverOpts{T}
-    stats::iLQRStats{T}
+    stats::SolverStats{T}
 
     # Primal Duals
     Z::Traj{n,m,T,KnotPoint{T,n,m,L1}}
@@ -145,10 +145,13 @@ struct iLQRSolver{T,I<:QuadratureRule,L,O,n,n̄,m,L1} <: UnconstrainedSolver{T}
 
 end
 
-function iLQRSolver(prob::Problem{QUAD,T}, opts::SolverOpts=SolverOpts()) where {QUAD,T}
-
-    # Init solver statistics
-    stats = iLQRStats{T}() # = Dict{Symbol,Any}(:timer=>TimerOutput())
+function iLQRSolver(
+        prob::Problem{QUAD,T}, 
+        opts::SolverOpts=SolverOpts(), 
+        stats::SolverStats=SolverStats(parent=solvername(iLQRSolver));
+        kwarg_opts...
+    ) where {QUAD,T}
+    set_options!(opts; kwarg_opts...)
 
     # Init solver results
     n,m,N = size(prob)
@@ -196,14 +199,12 @@ Base.size(solver::iLQRSolver{<:Any,<:Any,<:Any,<:Any,n,<:Any,m}) where {n,m} = n
 @inline TO.get_model(solver::iLQRSolver) = solver.model
 @inline get_initial_state(solver::iLQRSolver) = solver.x0
 @inline TO.integration(solver::iLQRSolver{<:Any,Q}) where Q = Q
+solvername(::Type{<:iLQRSolver}) = :iLQR
 
 log_level(::iLQRSolver) = InnerLoop
 
-function reset!(solver::iLQRSolver{T},
-		reset_stats=length(solver.stats.cost) != solver.opts.iterations) where T
-    if reset_stats
-        reset!(solver.stats, solver.opts.iterations)
-    end
+function reset!(solver::iLQRSolver{T}) where T
+    reset_solver!(solver)
     solver.ρ[1] = 0.0
     solver.dρ[1] = 0.0
     return nothing

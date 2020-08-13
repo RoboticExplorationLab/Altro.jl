@@ -44,25 +44,16 @@ using RobotDynamics:
 # types
 export
     ALTROSolver,
-    ALTROSolverOptions,
     iLQRSolver,
-    iLQRSolverOptions,
     AugmentedLagrangianSolver,
-    AugmentedLagrangianSolverOptions,
-    SolverOptions,
+    SolverStats,
     SolverOpts
 
 export
     solve!,
     benchmark_solve!,
-    iterations
-
-# solver options
-export
-    set_options!,
-    has_option,
-    get_option,
-    get_options
+    iterations,
+    set_options!
 
 # modules
 export

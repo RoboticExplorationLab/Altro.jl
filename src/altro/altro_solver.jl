@@ -45,6 +45,7 @@ ALTRO consists of two "phases":
 """
 struct ALTROSolver{T,S} <: ConstrainedSolver{T}
     opts::SolverOpts{T}
+    stats::SolverStats{T}
     solver_al::AugmentedLagrangianSolver{T,S}
     solver_pn::ProjectedNewtonSolver{T}
 end
@@ -52,7 +53,9 @@ end
 function ALTROSolver(prob::Problem{Q,T}, opts::SolverOpts=SolverOpts();
         infeasible::Bool=false,
         R_inf::Real=1.0,
-        solver_uncon=iLQRSolver) where {Q,T}
+        solver_uncon=iLQRSolver,
+        kwarg_opts...
+    ) where {Q,T}
     if infeasible
         # Convert to an infeasible problem
         prob = InfeasibleProblem(prob, prob.Z, R_inf/prob.Z[1].dt)
@@ -63,11 +66,14 @@ function ALTROSolver(prob::Problem{Q,T}, opts::SolverOpts=SolverOpts();
         # con_inf.params.μ0 = opts.penalty_initial_infeasible
         # con_inf.params.ϕ = opts.penalty_scaling_infeasible
     end
-    solver_al = AugmentedLagrangianSolver(prob, opts; solver_uncon=solver_uncon)
-    solver_pn = ProjectedNewtonSolver(prob, opts)
+    set_options!(opts; kwarg_opts...)
+    stats = SolverStats{T}(parent=solvername(ALTROSolver))
+    solver_al = AugmentedLagrangianSolver(prob, opts, stats; solver_uncon=solver_uncon)
+    solver_pn = ProjectedNewtonSolver(prob, opts, stats)
     TO.link_constraints!(get_constraints(solver_pn), get_constraints(solver_al))
     S = typeof(solver_al.solver_uncon)
-    solver = ALTROSolver{T,S}(opts, solver_al, solver_pn)
+    solver = ALTROSolver{T,S}(opts, stats, solver_al, solver_pn)
+    reset!(solver)
     # set_options!(solver; opts...)
     solver
 end
@@ -78,14 +84,7 @@ end
 @inline TO.get_objective(solver::ALTROSolver) = get_objective(solver.solver_al)
 @inline TO.get_model(solver::ALTROSolver) = get_model(solver.solver_al)
 @inline get_initial_state(solver::ALTROSolver) = get_initial_state(solver.solver_al)
-
-function iterations(solver::ALTROSolver)
-    if !solver.opts.projected_newton
-        iterations(solver.solver_al)
-    else
-        iterations(solver.solver_al) + iterations(solver.solver_pn)
-    end
-end
+solvername(::Type{<:ALTROSolver}) = :ALTRO
 
 function TO.get_constraints(solver::ALTROSolver)
     if solver.opts.projected_newton
@@ -97,47 +96,6 @@ end
 
 
 # Options methods
-function set_options!(solver::ALTROSolver; d...)
-    v = get_verbosity(d)
-    set_options!(solver.opts; d..., verbose=v[1])
-    set_options!(solver.solver_al; d..., verbose=v[1])
-    set_options!(solver.solver_pn; d...)
-end
-
-function has_option(solver::ALTROSolver, field::Symbol)
-    has_option(solver.solver_al, field) || has_option(solver.solver_pn, field) ||
-        has_option(solver.opts, field)
-end
-
-function get_option(solver::ALTROSolver, field::Symbol)
-    if has_option(solver.opts, field)
-        return getfield(solver.opts,field)
-    elseif has_option(solver.solver_al, field)
-        return get_option(solver.solver_al, field)
-    elseif has_option(solver.solver_pn, field)
-        return get_option(solver.solver_pn, field)
-    else
-        throw(ErrorException("$field is not a valid option"))
-    end
-end
-
-function get_options(solver::ALTROSolver, recursive::Bool=true, group::Bool=false)
-    d1 = _get_options(solver) 
-    if recursive
-        d2 = get_options(solver.solver_al, recursive, group)
-        d3 = get_options(solver.solver_pn, recursive, group)
-        if group
-            return Dict(:ALTRO => d1, :AL => d2[:AL], :iLQR => d2[:iLQR], :PN => d3)
-        else
-            d = merge(merge_opt, d1, d2, d3)
-            check_invalid_merge(d, :ALTRO=>d1, :AL=>d2, :PN=>d3)
-            return d
-        end
-    else
-        return d1
-    end
-end
-
 function get_verbosity(d::AbstractDict)::Tuple{Int,Bool,Bool}
     v0 = (0,false,false)
     v1 = (1,true,false)
@@ -164,6 +122,7 @@ end
 
 # Solve Methods
 function solve!(solver::ALTROSolver)
+    reset!(solver)
     conSet = get_constraints(solver)
 
     # Set terminal condition if using projected newton
@@ -191,6 +150,8 @@ function solve!(solver::ALTROSolver)
         solve!(solver.solver_pn)
     end
 
+    terminate!(solver)
+    solver
 end
 
 

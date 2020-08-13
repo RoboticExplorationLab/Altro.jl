@@ -3,23 +3,23 @@ export
     get_constraints
 
 
-@with_kw mutable struct ALStats{T}
-    iterations::Int = 0
-    iterations_total::Int = 0
-    iterations_inner::Vector{Int} = zeros(Int,0)
-    cost::Vector{T} = zeros(0)
-    c_max::Vector{T} = zeros(0)
-    penalty_max::Vector{T} = zeros(0)
-end
+# @with_kw mutable struct ALStats{T}
+#     iterations::Int = 0
+#     iterations_total::Int = 0
+#     iterations_inner::Vector{Int} = zeros(Int,0)
+#     cost::Vector{T} = zeros(0)
+#     c_max::Vector{T} = zeros(0)
+#     penalty_max::Vector{T} = zeros(0)
+# end
 
-function reset!(stats::ALStats, L=0)
-    stats.iterations = 0
-    stats.iterations_total = 0
-    stats.iterations_inner = zeros(Int,L)
-    stats.cost = zeros(L)*NaN
-    stats.c_max = zeros(L)*NaN
-    stats.penalty_max = zeros(L)*NaN
-end
+# function reset!(stats::ALStats, L=0)
+#     stats.iterations = 0
+#     stats.iterations_total = 0
+#     stats.iterations_inner = zeros(Int,L)
+#     stats.cost = zeros(L)*NaN
+#     stats.c_max = zeros(L)*NaN
+#     stats.penalty_max = zeros(L)*NaN
+# end
 
 
 # """$(TYPEDEF)
@@ -140,8 +140,7 @@ This function is then minimized with respect to the primal variables using any u
 """
 struct AugmentedLagrangianSolver{T,S<:AbstractSolver} <: ConstrainedSolver{T}
     opts::SolverOpts{T}
-    stats::ALStats{T}
-    stats_uncon::Vector{STATS} where STATS
+    stats::SolverStats{T}
     solver_uncon::S
 end
 
@@ -150,11 +149,14 @@ end
 Form an augmented Lagrangian cost function from a Problem and AugmentedLagrangianSolver.
     Does not allocate new memory for the internal arrays, but points to the arrays in the solver.
 """
-function AugmentedLagrangianSolver(prob::Problem{Q,T}, opts::SolverOpts=SolverOpts();
-        solver_uncon=iLQRSolver) where {Q,T}
-    # Init solver statistics
-    stats = ALStats()
-    stats_uncon = Vector{iLQRStats{T}}()
+function AugmentedLagrangianSolver(
+        prob::Problem{Q,T}, 
+        opts::SolverOpts=SolverOpts(), 
+        stats::SolverStats=SolverStats(parent=solvername(AugmentedLagrangianSolver));
+        solver_uncon=iLQRSolver,
+        kwarg_opts...
+    ) where {Q,T}
+    set_options!(opts; kwarg_opts...)
 
     # Build Augmented Lagrangian Objective
     alobj = ALObjective(prob)
@@ -163,10 +165,10 @@ function AugmentedLagrangianSolver(prob::Problem{Q,T}, opts::SolverOpts=SolverOp
         prob.x0, prob.xf, prob.Z, prob.N, prob.t0, prob.tf)
 
     # Instantiate the unconstrained solver
-    solver_uncon = solver_uncon(prob_al, opts)
+    solver_uncon = solver_uncon(prob_al, opts, stats)
 
     # Build solver
-    solver = AugmentedLagrangianSolver(opts, stats, stats_uncon, solver_uncon)
+    solver = AugmentedLagrangianSolver(opts, stats, solver_uncon)
     reset!(solver)
     # set_options!(solver; opts...)
     return solver
@@ -179,53 +181,14 @@ Base.size(solver::AugmentedLagrangianSolver) = size(solver.solver_uncon)
 @inline TO.get_objective(solver::AugmentedLagrangianSolver) = get_objective(solver.solver_uncon)
 @inline TO.get_model(solver::AugmentedLagrangianSolver) = get_model(solver.solver_uncon)
 @inline get_initial_state(solver::AugmentedLagrangianSolver) = get_initial_state(solver.solver_uncon)
-@inline iterations(solver::AugmentedLagrangianSolver) = solver.stats.iterations_total
-
-log_level(::AugmentedLagrangianSolver) = OuterLoop
+solvername(::Type{<:AugmentedLagrangianSolver}) = :AL
 
 function TO.get_constraints(solver::AugmentedLagrangianSolver{T}) where T
     obj = get_objective(solver)::ALObjective{T}
     obj.constraints
 end
 
-
 # Options methods
-function set_options!(solver::AugmentedLagrangianSolver; opts...)
-    v = get_verbosity(opts)
-    set_options!(solver.opts; opts..., verbose=v[2])
-    set_options!(solver.solver_uncon; opts..., verbose=v[3])
-end
-
-function has_option(solver::AugmentedLagrangianSolver, field::Symbol)
-    has_option(solver.solver_uncon, field) || has_option(solver.opts, field)
-end
-
-function get_option(solver::AugmentedLagrangianSolver, field::Symbol)
-    if has_option(solver.opts, field)
-        return solver.opts[field]
-    elseif has_option(solver.solver_uncon, field)
-        return get_option(solver.solver_uncon, field)
-    else
-        throw(ErrorException("$field is not a valid option"))
-    end
-end
-
-function get_options(solver::AugmentedLagrangianSolver, recursive::Bool=true, group::Bool=false)
-    d1 = _get_options(solver)
-    if recursive
-        d2 = get_options(solver.solver_uncon)
-        if group 
-            Dict(:AL => d1, :iLQR => d2)
-        else
-            d = merge(merge_opt, d1, d2)
-            check_invalid_merge(d, :AL=>d1, :iLQR=>d2)
-            return d
-        end
-    else
-        d1
-    end
-end
-
 function set_verbosity!(solver::AugmentedLagrangianSolver)
     llevel = log_level(solver) 
     if is_verbose(solver)
@@ -245,9 +208,8 @@ end
 
 
 function reset!(solver::AugmentedLagrangianSolver)
-    reset!(solver.stats, solver.opts.iterations_outer)
+    reset_solver!(solver)
     reset!(solver.solver_uncon)
-    reset!(get_constraints(solver), solver.opts)
 end
 
 ############################################################################################

@@ -13,11 +13,11 @@ function DynamicsVals(dyn_con::DynamicsConstraint)
 end
 
 
-@with_kw mutable struct ProjectedNewtonStats{T}
-    iterations::Int = 0
-    c_max::Vector{T} = zeros(5)
-    cost::Vector{T} = zeros(5)
-end
+# @with_kw mutable struct ProjectedNewtonStats{T}
+#     iterations::Int = 0
+#     c_max::Vector{T} = zeros(5)
+#     cost::Vector{T} = zeros(5)
+# end
 
 
 # """$(TYPEDEF)
@@ -65,7 +65,7 @@ struct ProjectedNewtonSolver{T,N,M,NM} <: ConstrainedSolver{T}
     Z̄::Traj{N,M,T,KnotPoint{T,N,M,NM}}
 
     opts::SolverOpts{T}
-    stats::ProjectedNewtonStats{T}
+    stats::SolverStats{T}
     P::Primals{T,N,M}
     P̄::Primals{T,N,M}
 
@@ -85,13 +85,13 @@ struct ProjectedNewtonSolver{T,N,M,NM} <: ConstrainedSolver{T}
     con_inds::Vector{<:Vector}
 end
 
-function ProjectedNewtonSolver(prob::Problem, opts::SolverOpts=SolverOpts())
+function ProjectedNewtonSolver(prob::Problem, 
+        opts::SolverOpts=SolverOpts(), stats::SolverStats=SolverStats())
     Z = prob.Z  # grab trajectory before copy to keep associativity
     prob = copy(prob)  # don't modify original problem
 
     n,m,N = size(prob)
     NN = n*N + m*(N-1)
-    stats = ProjectedNewtonStats()
 
     # Add dynamics constraints
     TO.add_dynamics_constraints!(prob, integration(prob), 1)
@@ -141,4 +141,6 @@ TO.get_model(solver::ProjectedNewtonSolver) = solver.prob.model
 TO.get_constraints(solver::ProjectedNewtonSolver) = solver.prob.conSet
 TO.get_trajectory(solver::ProjectedNewtonSolver) = solver.Z
 TO.get_objective(solver::ProjectedNewtonSolver) = solver.prob.obj
+iterations(solver::ProjectedNewtonSolver) = solver.stats.iterations_pn
 get_active_set(solver::ProjectedNewtonSolver) = solver.active_set
+solvername(::Type{<:ProjectedNewtonSolver}) = :PN

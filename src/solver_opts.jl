@@ -22,78 +22,12 @@ for the outer AL iterations but not the iLQR iterations.
 function set_options!(opts::OPT; d...) where OPT <: AbstractSolverOptions
     for (key,val) in pairs(d)
         if hasfield(OPT, key) 
+            val = convert(fieldtype(OPT, key), val)
             setfield!(opts, key, val) 
         end
     end
 end
 
-"""
-    has_option(opt::AbstractSolverOptions, field::Symbol)
-    has_option(opt::AbstractSolver, field::Symbol)
-
-Check to see if a solver or solver option has the option `field`.
-"""
-@inline function has_option(opts::OPT, field::Symbol) where OPT <: AbstractSolverOptions
-    hasfield(OPT, field)
-end
-
-"""
-    merge_opt(a,b)
-
-Used when merging option outputs from `get_options`. Will set the output to `:invalid`
-if the values are different.
-"""
-merge_opt(a::T, b::T) where T = a == b ? a : :invalid
-merge_opt(a::Real, b::Real) = a ≈ b ? a : :invalid
-merge_opt(a, b) = :invalid
-
-"""
-    check_invalid_merge(d::AbstractDict, d0::Pair{Symbol,<:Dict}...)
-
-Check the the merged dictionary `d` if it contains any invalidated options. If so,
-it will print a warning message with details about option, it's values, and which
-solver the options came from. 
-
-The original option dictionaries need to passed in as Pairs, with the first element
-being a symbol identifying the solver (e.g. :AL, :ALTRO, :iLQR).
-"""
-function check_invalid_merge(d::AbstractDict, d0::Pair{Symbol,<:Dict}...)
-    bad_keys = [k for (k,v) in pairs(d) if v==:invalid]
-    for key in bad_keys
-        vals = join(["$(d.second[key]) ($(d.first))" for d in d0], ", ")
-        @warn "Cannot combine values for option \"$key\". values = $vals.
-        Value will be invalidated. Use get_options(solver, true, true) to group by solver."
-    end
-    return bad_keys 
-end
-
-"""
-    SolverOptions{T}
-
-Simple mutable struct containing common solver options used by ALTRO. Can be passed
-in to any solver constructor, which automatically splats the fields into the keyword
-arguments of the solver constructor.
-"""
-@with_kw mutable struct SolverOptions{T} <: AbstractSolverOptions{T}
-    constraint_tolerance::T = 1e-6
-    cost_tolerance::T = 1e-4
-    cost_tolerance_intermediate::T = 1e-4
-    active_set_tolerance::T = 1e-3
-    penalty_initial::T = NaN
-    penalty_scaling::T = NaN
-    iterations::Int = 300
-    iterations_inner::Int = 100
-    verbose::Bool = false
-end
-
-"""
-Allow any solver to accept a `SolverOptions` struct, which is automatically converted
-to keyword argument pairs.
-"""
-function (::Type{S})(prob::Problem, opts::SolverOptions; kwargs...) where S <: AbstractSolver
-    d = Parameters.type2dict(opts)
-    S(prob; kwargs..., d...)
-end
 
 @with_kw mutable struct SolverOpts{T} <: AbstractSolverOptions{T}
     # Optimality Tolerances
@@ -142,14 +76,16 @@ end
     solve_type::Symbol = :feasible
     projected_newton_tolerance::T = 1e-3
     active_set_tolerance_pn::T = 1e-3
+    multiplier_projection::Bool = true
     ρ_chol::T = 1e-2     # cholesky factorization regularization
     ρ_primal::T = 1.0e-8 # primal regularization
+    ρ_dual::T = 1.0e-8   # regularization for multiplier projection 
     r_threshold::T = 1.1
 
     # General options
     projected_newton::Bool = true
     constrained::Bool = true
-    iterations::Int = 300
+    iterations::Int = 1000   # max number of iterations
     verbose::Int = 0 
 end
 
@@ -180,4 +116,114 @@ function reset!(conSet::ALConstraintSet{T}, opts::SolverOpts{T}) where T
     if opts.reset_penalties
         TO.reset_penalties!(conSet)
     end
+end
+
+@with_kw mutable struct SolverStats{T}
+    # Iteration counts
+    iterations::Int = 0
+    iterations_outer::Int = 0
+    iterations_pn::Int = 0
+
+    # Iteration stats
+    iteration::Vector{Int} = Int[] 
+    iteration_outer::Vector{Int} = Int[]
+    iteration_pn::Vector{Bool} = Bool[]   # is the iteration a pn iteration
+    cost::Vector{T} = Float64[]
+    dJ::Vector{T} = Float64[]
+    c_max::Vector{T} = Float64[]
+    gradient::Vector{T} = Float64[] 
+    penalty_max::Vector{T} = Float64[]
+
+    # iLQR
+    dJ_zero_counter::Int = 0
+
+    # Other
+    is_reset::Bool = false
+    "Which solver is the top-level solver and responsible for resetting and trimming."
+    parent::Symbol
+end
+
+function reset!(stats::SolverStats, N::Int, parent::Symbol)
+    if parent == stats.parent
+        stats.is_reset = false  # force a reset
+        reset!(stats, N)
+    end
+    return nothing
+end
+
+function reset!(stats::SolverStats, N::Int=0)
+    stats.is_reset && return nothing
+    stats.iterations = 0
+    stats.iterations_outer = 0
+    stats.iterations_pn = 0
+    function reset!(v::AbstractVector{T}, N::Int) where T 
+        resize!(v, N)
+        v .= zero(T)
+    end
+    reset!(stats.iteration, N)
+    reset!(stats.iteration_outer, N)
+    reset!(stats.iteration_pn, N)
+    reset!(stats.cost, N)
+    reset!(stats.dJ, N)
+    reset!(stats.c_max, N)
+    reset!(stats.gradient, N)
+    reset!(stats.penalty_max, N)
+    stats.dJ_zero_counter = 0
+    stats.is_reset = true
+    return nothing
+end
+
+function record_iteration!(stats::SolverStats; 
+        cost=Inf, dJ=Inf, c_max=Inf, gradient=Inf, penalty_max=Inf, 
+        is_pn::Bool=false, is_outer::Bool=false
+    )
+    # don't increment the iteration for an outer loop
+    if is_outer
+        stats.iterations_outer += 1
+    else
+        stats.iterations += 1
+    end
+    i = stats.iterations
+    function record!(vec, val, i)
+        if val == Inf
+            val = i > 1 ? vec[i-1] : val
+        end
+        vec[i] = val
+    end
+    stats.iteration[i] = i
+    stats.iteration_outer[i] = stats.iterations_outer
+    stats.iteration_pn[i] = is_pn
+    record!(stats.cost, cost, i)
+    record!(stats.dJ, dJ, i)
+    record!(stats.c_max, c_max, i)
+    record!(stats.gradient, gradient, i)
+    record!(stats.penalty_max, penalty_max, i)
+    is_pn && (stats.iterations_pn += 1)
+    return stats.iterations
+end
+
+function trim!(stats::SolverStats, parent::Symbol)
+    if parent == stats.parent
+        trim!(stats)
+    end
+end
+function trim!(stats::SolverStats)
+    N = stats.iterations
+    resize!(stats.iteration, N)
+    resize!(stats.iteration_outer, N)
+    resize!(stats.iteration_pn, N)
+    resize!(stats.cost, N)
+    resize!(stats.dJ, N)
+    resize!(stats.c_max, N)
+    resize!(stats.gradient, N)
+    resize!(stats.penalty_max, N)
+    stats.is_reset = false
+    return N 
+end
+
+function Dict(stats::SolverStats)
+    fields = (:iteration, :iteration_outer, :iteration_pn, 
+        :cost, :dJ, :c_max, :gradient, :penalty_max)
+    pairs = [field=>getfield(stats,field) for field in fields]
+    Dict(pairs...)
 end

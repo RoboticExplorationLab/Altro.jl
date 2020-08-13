@@ -44,14 +44,39 @@ abstract type AbstractSolver{T} end
 @inline get_solution(solver::AbstractSolver) = get_trajectory(solver)
 @inline get_primals(solver::AbstractSolver) = solver.Z̄
 @inline get_step(solver::AbstractSolver) = solver.δZ
-@inline options(solver::AbstractSolver) = solver.opts
 @inline stats(solver::AbstractSolver) = solver.stats
 iterations(solver::AbstractSolver) = stats(solver).iterations
-has_option(solver::AbstractSolver, field::Symbol) = has_option(options(solver), field)
+@inline options(solver::AbstractSolver) = solver.opts
 set_options!(solver::AbstractSolver; opts...) = set_options!(options(solver); opts...)
-get_option(solver::AbstractSolver, field::Symbol) = getfield(options(solver), field)
-_get_options(solver::AbstractSolver) = Parameters.type2dict(options(solver))
-get_options(solver::AbstractSolver, recursive::Bool=true, group::Bool=false) = _get_options(solver) 
+reset!(solver::AbstractSolver) = reset_solver!(solver)  # default method
+solvername(solver::S) where S <: AbstractSolver = solvername(S)
+
+"""
+    reset_solver!(solver::AbstractSolver)
+
+Reset solver stats and constraints.
+"""
+function reset_solver!(solver::AbstractSolver)
+    # Reset the stats only if it's the top level solver
+    opts = options(solver)::SolverOpts
+    reset!(stats(solver), opts.iterations, solvername(solver))
+
+    if is_constrained(solver)
+        reset!(get_constraints(solver), opts)
+    end
+end
+
+"""
+    terminate!(solver::AbstractSolver)
+
+Perform any necessary actions after finishing the solve.
+"""
+function terminate!(solver::AbstractSolver)
+    # Delete extra stats entries, only if terminal solver
+    trim!(stats(solver), solvername(solver))
+
+    # TODO: Print an optional summary
+end
 
 "$(TYPEDEF) Unconstrained optimization solver. Will ignore
 any constraints in the problem"
@@ -69,17 +94,12 @@ get_constraints(::ConstrainedSolver)::ConstrainSet
 """
 abstract type ConstrainedSolver{T} <: AbstractSolver{T} end
 
+is_constrained(::AbstractSolver)::Bool = true
+is_constrained(::ConstrainedSolver)::Bool = true
+is_constrained(::UnconstrainedSolver)::Bool = false
+
 @inline get_duals(solver::ConstrainedSolver) = get_duals(get_constraints(solver))
 
-
-# """ $(TYPEDEF)
-# Solve the trajectory optimization problem by computing search directions using the joint
-# state vector, often solving the KKT system directly.
-# """
-# abstract type DirectSolver{T} <: ConstrainedSolver{T} end
-#
-# include("direct/dircol_ipopt.jl")
-# include("direct/dircol_snopt.jl")
 
 function TO.cost(solver::AbstractSolver, Z=get_trajectory(solver))
     obj = get_objective(solver)
@@ -279,8 +299,10 @@ function cost_dhess(solver::AbstractSolver, Z=TO.get_primals(solver),
 end
 
 # Logging
+log_level(solver::AbstractSolver) = OuterLoop
+
 is_verbose(solver::AbstractSolver) = 
-    log_level(solver) > LogLevel(-100*options(solver).verbose)
+    log_level(solver) >= LogLevel(-100*options(solver).verbose)
 
 function set_verbosity!(solver::AbstractSolver)
     llevel = log_level(solver)

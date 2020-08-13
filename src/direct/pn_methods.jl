@@ -31,24 +31,22 @@ function projection_solve!(solver::ProjectedNewtonSolver)
     count = 0
     while count < max_projection_iters && viol > ϵ_feas
         viol = _projection_solve!(solver)
+        if solver.opts.multiplier_projection
+            res = multiplier_projection!(solver)
+        else
+            res = Inf
+        end
         count += 1
-        record_iteration!(solver, viol)
+        record_iteration!(solver, viol, res)
     end
     return viol
 end
 
-function record_iteration!(solver::ProjectedNewtonSolver, viol)
-    solver.stats.iterations += 1
-    i = solver.stats.iterations
-    solver.stats.cost[i] = TO.cost(solver)
-    solver.stats.c_max[i] = viol
-end
-
-function reset!(solver::ProjectedNewtonSolver)
-    solver.stats.iterations = 0
-    solver.stats.cost .*= 0
-    solver.stats.c_max .*= 0
-    return nothing
+function record_iteration!(solver::ProjectedNewtonSolver, viol, res)
+    J = TO.cost(solver)
+    J_prev = solver.stats.cost[solver.stats.iterations]
+    record_iteration!(solver.stats, cost=TO.cost(solver), c_max=viol, is_pn=true,
+        dJ=J_prev-J, gradient=res, penalty_max=NaN)
 end
 
 function _projection_solve!(solver::ProjectedNewtonSolver)
@@ -220,7 +218,10 @@ function multiplier_projection!(solver::ProjectedNewtonSolver)
     D,d = active_constraints(solver)
     g = solver.g
     res0 = g + D'λ
-    δλ = -(D*D')\(D*res0)
+    A = D*D'
+    Areg = A + I*solver.opts.ρ_primal
+    b = D*res0
+    δλ = -reg_solve(A, b, Areg)
     λ += δλ
     res = g + D'λ  # primal residual
     return norm(res)

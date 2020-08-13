@@ -16,7 +16,6 @@ end
 function solve!(solver::iLQRSolver{T}) where T<:AbstractFloat
 	initialize!(solver)
 
-    solver.stats.iterations = 0
     Z = solver.Z; Z̄ = solver.Z̄;
 
     n,m,N = size(solver)
@@ -42,6 +41,7 @@ function solve!(solver::iLQRSolver{T}) where T<:AbstractFloat
         record_iteration!(solver, J, dJ)
         evaluate_convergence(solver) ? break : nothing
     end
+    terminate!(solver)
     return solver
 end
 
@@ -148,11 +148,10 @@ end
 Stash iteration statistics
 """
 function record_iteration!(solver::iLQRSolver, J, dJ)
-    solver.stats.iterations += 1
+    gradient = mean(solver.grad)
+    record_iteration!(solver.stats, cost=J, dJ=dJ, gradient=gradient)
     i = solver.stats.iterations::Int
-    solver.stats.cost[i] = J
-    solver.stats.dJ[i] = dJ
-    solver.stats.gradient[i] = mean(solver.grad)
+    
     if dJ ≈ 0
         solver.stats.dJ_zero_counter += 1
     else
@@ -162,7 +161,7 @@ function record_iteration!(solver::iLQRSolver, J, dJ)
     @logmsg InnerLoop :iter value=i
     @logmsg InnerLoop :cost value=J
     @logmsg InnerLoop :dJ   value=dJ
-    @logmsg InnerLoop :grad value=solver.stats.gradient[i]
+    @logmsg InnerLoop :grad value=gradient
     # @logmsg InnerLoop :zero_count value=solver.stats[:dJ_zero_counter][end]
     if is_verbose(solver) 
         print_level(InnerLoop, global_logger())

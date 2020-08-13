@@ -13,19 +13,31 @@ function solve!(solver::AugmentedLagrangianSolver{T,S}) where {T,S}
     for i = 1:solver.opts.iterations_outer
 		set_tolerances!(solver, solver_uncon, i)
 
-        step!(solver)
-        J = sum(J_)
-        c_max = maximum(conSet.c_max)
+        # Solve the unconstrained problem
+        solve!(solver.solver_uncon)
 
+        # Record the updated information
+        J = sum(J_)
+        TO.max_violation!(conSet)
+        c_max = maximum(conSet.c_max)
         record_iteration!(solver, J, c_max)
 
+        # Check for convergence before doing the outer loop udpate
         converged = evaluate_convergence(solver)
         if converged
             break
         end
 
-        reset!(solver_uncon, false)
+        # Outer loop update
+        dual_update!(solver)
+        penalty_update!(solver)
+
+        # Reset verbosity level after it's modified
+        set_verbosity!(solver)
+
+        reset!(solver_uncon)
     end
+    terminate!(solver)
     return solver
 end
 
@@ -34,9 +46,7 @@ function initialize!(solver::AugmentedLagrangianSolver)
 	clear_cache!(solver)
 
 	# Reset solver
-    reset!(get_constraints(solver), solver.opts)
-    solver.stats.iterations = 0
-	solver.stats.iterations_total = 0
+    reset!(solver)
 
 	# Calculate cost
     TO.cost!(get_objective(solver), get_trajectory(solver))
@@ -58,18 +68,18 @@ end
 
 function record_iteration!(solver::AugmentedLagrangianSolver{T,S}, J::T, c_max::T) where {T,S}
 
-    solver.stats.iterations += 1
-    i = solver.stats.iterations
-    solver.stats.iterations_total += solver.solver_uncon.stats.iterations
-    solver.stats.c_max[i] = c_max
-	solver.stats.cost[i] = J
-
 	conSet = get_constraints(solver)
 	TO.max_penalty!(conSet)
-	solver.stats.penalty_max[i] = maximum(conSet.c_max)
+    max_penalty = maximum(conSet.c_max)
+    J_prev = solver.stats.cost[solver.stats.iterations]
+    dJ = J_prev - J
+    
+    # Just update constraint violation and max penalty
+    record_iteration!(solver.stats, c_max=c_max, penalty_max=max_penalty, is_outer=true)
+    j = solver.stats.iterations_outer::Int
 
-	@logmsg OuterLoop :iter value=i
-	@logmsg OuterLoop :total value=solver.stats.iterations_total
+	@logmsg OuterLoop :iter value=j
+	@logmsg OuterLoop :total value=solver.stats.iterations
 	@logmsg OuterLoop :cost value=J
     @logmsg OuterLoop :c_max value=c_max
 	if is_verbose(solver) 
