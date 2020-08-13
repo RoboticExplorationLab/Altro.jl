@@ -11,11 +11,33 @@ function copy_inds(dest, src, inds)
     end
 end
 
+function copyback_inds(dest, src, inds)
+    for i in eachindex(inds)
+        src[i] = dest[inds[i]]
+    end
+end
+
 "Copy constraints to a single concatenated vector"
 function copy_constraints!(d, solver::ConstrainedSolver)
     conSet = get_constraints(solver)
     for (i,con) in enumerate(conSet.errvals)
         copy_inds(d, con.vals, solver.con_inds[i])
+    end
+    return nothing
+end
+
+function copy_multipliers!(λ, solver::ConstrainedSolver)
+    conSet = get_constraints(solver)
+    for (i,con) in enumerate(conSet.errvals)
+        copy_inds(λ, conSet.λ[i], solver.con_inds[i])
+    end
+    return nothing
+end
+
+function copyback_multipliers!(λ, solver::ConstrainedSolver)
+    conSet = get_constraints(solver)
+    for (i,con) in enumerate(conSet.errvals)
+        copyback_inds(λ, conSet.λ[i], solver.con_inds[i])
     end
     return nothing
 end

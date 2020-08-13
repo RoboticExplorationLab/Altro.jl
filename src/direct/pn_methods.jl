@@ -3,6 +3,7 @@ function solve!(solver::ProjectedNewtonSolver)
 
     update_constraints!(solver)
     copy_constraints!(solver)
+    copy_multipliers!(solver)
     constraint_jacobian!(solver)
     copy_jacobians!(solver)
     TO.cost_expansion!(solver)
@@ -13,10 +14,14 @@ function solve!(solver::ProjectedNewtonSolver)
         println("\nProjection:")
     end
     viol = projection_solve!(solver)
-    copyto!(solver.Z, solver.P)
+    # copyto!(solver.Z, solver.P)
+
+    # Copy the multipliers back to the ALConSet
+    copyback_multipliers!(solver.λ, solver)
+
+    terminate!(solver)
+    return solver
 end
-
-
 
 function projection_solve!(solver::ProjectedNewtonSolver)
     ϵ_feas = solver.opts.constraint_tolerance
@@ -107,6 +112,7 @@ function _projection_solve!(solver::ProjectedNewtonSolver)
             break
         end
     end
+    copyto!(solver.Z, solver.P)
     return viol_prev
 end
 
@@ -209,6 +215,35 @@ function copy_expansion!(H, g, E, xinds, uinds)
     return nothing
 end
 
+function multiplier_projection!(solver::ProjectedNewtonSolver)
+    λ = solver.λ[solver.active_set]
+    D,d = active_constraints(solver)
+    g = solver.g
+    res0 = g + D'λ
+    δλ = -(D*D')\(D*res0)
+    λ += δλ
+    res = g + D'λ  # primal residual
+    return norm(res)
+end
+
+
+function primal_residual(solver::ProjectedNewtonSolver, update::Bool=false)
+    if update
+        update_constraints!(solver)
+        copy_constraints!(solver)
+        TO.update_active_set!(solver; tol=solver.opts.active_set_tolerance_pn)
+        copy_active_set!(solver)
+        constraint_jacobian!(solver)
+        copy_jacobians!(solver)
+        TO.cost_expansion!(solver)
+    end
+    λ = solver.λ[solver.active_set]
+    D,d = active_constraints(solver)
+    g = solver.g
+    return norm(D'λ + g)
+end
+
 @inline copy_constraints!(solver::ProjectedNewtonSolver) = copy_constraints!(solver.d, solver)
+@inline copy_multipliers!(solver::ProjectedNewtonSolver) = copy_multipliers!(solver.λ, solver)
 @inline copy_jacobians!(solver::ProjectedNewtonSolver) = copy_jacobians!(solver.D, solver)
 @inline copy_active_set!(solver::ProjectedNewtonSolver) = copy_active_set!(solver.active_set, solver)

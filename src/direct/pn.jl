@@ -76,6 +76,7 @@ struct ProjectedNewtonSolver{T,N,M,NM} <: ConstrainedSolver{T}
 
     D::SparseMatrixCSC{T,Int}
     d::Vector{T}
+    λ::Vector{T}
 
     dyn_vals::DynamicsVals{T}
     active_set::Vector{Bool}
@@ -113,6 +114,7 @@ function ProjectedNewtonSolver(prob::Problem, opts::SolverOpts=SolverOpts())
 
     D = spzeros(NP,NN)
     d = zeros(NP)
+    λ = zeros(NP)
 
     fVal = [@SVector zeros(n) for k = 1:N]
     xMid = [@SVector zeros(n) for k = 1:N-1]
@@ -127,7 +129,7 @@ function ProjectedNewtonSolver(prob::Problem, opts::SolverOpts=SolverOpts())
 
     dyn_inds = SVector{n,Int}[]
     ProjectedNewtonSolver(prob_info, Z, Z̄, opts, stats,
-        P, P̄, H, g, E, D, d, dyn_vals, active_set, dyn_inds, con_inds)
+        P, P̄, H, g, E, D, d, λ, dyn_vals, active_set, dyn_inds, con_inds)
 end
 
 primals(solver::ProjectedNewtonSolver) = solver.P.Z
