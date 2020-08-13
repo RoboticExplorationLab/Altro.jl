@@ -100,7 +100,11 @@ stored in the `SolverStats` type, accessible via `solver.stats` or `Altro.stats(
 | `c_max` | Maximum constrained violation |
 | `gradient` | Approximation of dual optimality residual (2-norm of gradient of the Lagrangian) |
 | `penalty_max` | Maximum penalty parameter |
+
 The other fields are used interally by the solver and not important to the end user.
+
+The vector fields of the `SolverStats` type can be converted to a dictionary via `Dict(stats::SolverStats)`,
+which can then be cast into a tabular format such as `DataFrame` from DataFrames.jl.
 
 ## Solver Options
 Like any nonlinear programming solver, ALTRO comes with a host of solver options.
