@@ -1,7 +1,3 @@
-export
-    ProjectedNewtonSolverOptions,
-    ProjectedNewtonSolver
-
 struct DynamicsVals{T,N,A}
     fVal::Vector{SVector{N,T}}
     xMid::Vector{SVector{N,T}}
@@ -11,29 +7,6 @@ end
 function DynamicsVals(dyn_con::DynamicsConstraint)
 	DynamicsVals(dyn_con.fVal, dyn_con.xMid, dyn_con.∇f)
 end
-
-
-# @with_kw mutable struct ProjectedNewtonStats{T}
-#     iterations::Int = 0
-#     c_max::Vector{T} = zeros(5)
-#     cost::Vector{T} = zeros(5)
-# end
-
-
-# """$(TYPEDEF)
-# Solver options for the Projected Newton solver.
-# $(FIELDS)
-# """
-# @with_kw mutable struct ProjectedNewtonSolverOptions{T} <: DirectSolverOptions{T}
-#     verbose_pn::Bool = false 
-#     n_steps::Int = 2
-#     solve_type::Symbol = :feasible
-#     active_set_tolerance::T = 1e-3
-#     constraint_tolerance::T = 1e-6
-#     ρ_chol::T = 1e-2     # cholesky factorization regularization
-#     ρ_primal::T = 1.0e-8 # primal regularization
-#     r_threshold::T = 1.1
-# end
 
 struct ProblemInfo{T,N}
     model::AbstractModel

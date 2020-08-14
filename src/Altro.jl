@@ -44,8 +44,8 @@ using RobotDynamics:
 # types
 export
     ALTROSolver,
-    iLQRSolver,
-    AugmentedLagrangianSolver,
+    # iLQRSolver,
+    # AugmentedLagrangianSolver,
     SolverStats,
     SolverOpts
 
@@ -70,6 +70,7 @@ include("ilqr/ilqr_solve.jl")
 include("ilqr/backwardpass.jl")
 include("ilqr/rollout.jl")
 include("augmented_lagrangian/al_solver.jl")
+include("augmented_lagrangian/al_objective.jl")
 include("augmented_lagrangian/al_methods.jl")
 include("direct/primals.jl")
 include("direct/pn.jl")

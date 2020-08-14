@@ -1,39 +1,3 @@
-export
-    ALTROSolverOptions,
-    ALTROSolver
-
-
-# """$(TYPEDEF) Solver options for the ALTRO solver.
-# $(FIELDS)
-# """
-# @with_kw mutable struct ALTROSolverOptions{T} <: AbstractSolverOptions{T}
-
-#     # General
-#     "Output verbosity. 0 is none, 1 is AL only, 2 is AL and iLQR."
-#     verbose::Int = 0
-#     "finish with a projected newton solve."
-#     projected_newton::Bool = true
-#     "Solve problem, satisfying specified constraints. If false, will ignore constraints
-#         and solve with iLQR."
-#     constrained::Bool = true
-
-#     # Tolerances
-#     "cost tolerance"
-#     cost_tolerance::T = 1e-4
-#     "constraint tolerance"
-#     constraint_tolerance::T = 1e-4
-#     "constraint satisfaction tolerance that triggers the projected newton solver.
-#         If set to a non-positive number it will kick out when the maximum penalty is reached."
-#     projected_newton_tolerance::T = 1.0e-3
-
-#     # Other
-#     "initial penalty term for infeasible controls."
-#     penalty_initial_infeasible::T = 1.0
-#     "penalty update rate for infeasible controls."
-#     penalty_scaling_infeasible::T = 10.0
-# end
-
-
 
 """$(TYPEDEF)
 Augmented Lagrangian Trajectory Optimizer (ALTRO) is a solver developed by the Robotic Exploration Lab at Stanford University.
