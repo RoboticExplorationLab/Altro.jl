@@ -26,7 +26,7 @@ ilqr = Altro.iLQRSolver(prob, opts, something_wrong=false)
 @test ilqr.opts === solver.opts
 
 # Solve an unconstrained problem
-ilqr = iLQRSolver(Problems.Cartpole(constrained=false)..., verbose=2)
+ilqr = Altro.iLQRSolver(Problems.Cartpole(constrained=false)..., verbose=2)
 b0 = benchmark_solve!(ilqr)
 solver = ALTROSolver(Problems.Cartpole(constrained=false)..., verbose=2, projected_newton=false)
 b1 = benchmark_solve!(solver)

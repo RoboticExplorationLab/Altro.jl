@@ -7,6 +7,7 @@ TEST_TIME = false
 
 @testset "Benchmark Problems" begin
     include("benchmark_problems.jl")
+    include(joinpath(@__DIR__,"..","examples","quickstart.jl"))
 end
 
 @testset "Solvers" begin

@@ -8,7 +8,7 @@ end
 # Double Integrator
 solver = ALTROSolver(Problems.DoubleIntegrator()...)
 b = benchmark_solve!(solver)
-TEST_TIME && @test minimum(b).time / 1e6 < 0.7
+TEST_TIME && @test minimum(b).time / 1e6 < 1 
 @test max_violation(solver) < 1e-6
 @test iterations(solver) == 8 # 8
 @test solver.stats.gradient[end] < 1e-9
