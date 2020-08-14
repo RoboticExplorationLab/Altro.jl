@@ -95,35 +95,16 @@ function TO.get_constraints(solver::ALTROSolver)
 end
 
 
-# Options methods
-function get_verbosity(d::AbstractDict)::Tuple{Int,Bool,Bool}
-    v0 = (0,false,false)
-    v1 = (1,true,false)
-    v2 = (2,true,true)
-    get_verbosity(v::Bool) = v ? v2 : v0 
-    function get_verbosity(v::Int)
-        if v == 0
-            v0
-        elseif v == 1
-            v1
-        elseif v == 2
-            v2
-        else
-            throw(ArgumentError("verbosity must be between 0-2"))
-        end
-    end
-    if :verbose in keys(d)
-        return get_verbosity(d[:verbose])
-    else
-        return v0 
-    end
-end
-
-
 # Solve Methods
 function solve!(solver::ALTROSolver)
     reset!(solver)
-    conSet = get_constraints(solver)
+    conSet = get_constraints(solver.solver_al)
+
+    if isempty(conSet) 
+        ilqr = solver.solver_al.solver_uncon
+        solve!(ilqr)
+        return solver
+    end
 
     # Set terminal condition if using projected newton
     opts = solver.opts

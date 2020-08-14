@@ -84,7 +84,6 @@ end
 
     # General options
     projected_newton::Bool = true
-    constrained::Bool = true
     iterations::Int = 1000   # max number of iterations
     verbose::Int = 0 
 end

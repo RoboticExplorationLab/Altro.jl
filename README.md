@@ -176,6 +176,5 @@ description:
 | `ρ_dual` | Regularization on the dual variables during the multiplier projection step. | Low | `1e-8` |
 | `r_threshold` | Improvement ratio threshold for projected newton solve. If the ratio of constraint violations between subsequent steps is less than this value, it will update the cost and constraint expansions | Low | `1.1` |
 | `projected_newton` | Enable projected newton solve. If enabled, `projected_newton_solve` is used as the `constraint_tolerance` for the AL-iLQR solve. Projected newton solve is still a WIP and not very robust. | High | `true` |
-| `constrained` | Enables constraints. If `false` it will just use iLQR. | High | `true` |
 | `iterations` | Max number of total iterations (iLQR + projected newton). | Med | 1000 |
 | `verbose` | Controls output during solve. `0` is zero output, `1` outputs AL iterations, and `2` outputs both AL and iLQR iterations | Low | `0` |
