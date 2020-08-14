@@ -34,8 +34,8 @@ end
     constraint_tolerance::T = 1e-6
     cost_tolerance::T = 1e-4
     cost_tolerance_intermediate::T = 1e-4
-    gradient_tolerance::T = 1e-5
-    gradient_tolerance_intermediate::T = 1e-5
+    gradient_tolerance::T = 10.0
+    gradient_tolerance_intermediate::T = 1.0
 
     # iLQR
     iterations_inner::Int = 300
