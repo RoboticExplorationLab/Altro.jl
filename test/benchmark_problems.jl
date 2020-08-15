@@ -55,7 +55,7 @@ TEST_TIME && @test minimum(b).time /1e6 < 6
 
 solver = ALTROSolver(Problems.DubinsCar(:three_obstacles)..., projected_newton=false)
 @test solver.opts.projected_newton == false 
-Sys.iswindows() && (@test benchmark_solve!(solver).allocs == 0)   # not sure why this fails on Windows?
+Sys.iswindows() || (@test benchmark_solve!(solver).allocs == 0)   # not sure why this fails on Windows?
 @test solver.stats.gradient[end] < 1e-1
 
 # Escape
