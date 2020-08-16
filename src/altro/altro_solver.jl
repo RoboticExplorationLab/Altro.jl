@@ -91,7 +91,7 @@ function solve!(solver::ALTROSolver)
     c_max = solver.solver_al.stats.c_max[i]
 
     opts.constraint_tolerance = ϵ_con
-    if opts.projected_newton && c_max > opts.constraint_tolerance
+    if opts.projected_newton && c_max > opts.constraint_tolerance && status(solver) <= SOLVE_SUCCEEDED
         solve!(solver.solver_pn)
     end
 

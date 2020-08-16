@@ -137,6 +137,7 @@ end
     dJ_zero_counter::Int = 0
 
     # Other
+    status::TerminationStatus = UNSOLVED
     is_reset::Bool = false
     "Which solver is the top-level solver and responsible for resetting and trimming."
     parent::Symbol

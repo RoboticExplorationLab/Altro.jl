@@ -22,6 +22,9 @@ function solve!(solver::AugmentedLagrangianSolver{T,S}) where {T,S}
         c_max = maximum(conSet.c_max)
         record_iteration!(solver, J, c_max)
 
+        # Check solver status
+        status(solver) > SOLVE_SUCCEEDED && break
+
         # Check for convergence before doing the outer loop udpate
         converged = evaluate_convergence(solver)
         if converged

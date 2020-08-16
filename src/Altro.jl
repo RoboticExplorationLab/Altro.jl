@@ -53,7 +53,8 @@ export
     solve!,
     benchmark_solve!,
     iterations,
-    set_options!
+    set_options!,
+    status
 
 # modules
 export

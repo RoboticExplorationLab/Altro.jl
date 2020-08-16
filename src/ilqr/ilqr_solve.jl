@@ -26,10 +26,14 @@ function solve!(solver::iLQRSolver{T}) where T<:AbstractFloat
     for i = 1:solver.opts.iterations
         J = step!(solver, J_prev)
 
+        # check for a change in solver status
+        status(solver) > SOLVE_SUCCEEDED && break
+
         # check for cost blow up
         if J > solver.opts.max_cost_value
-            @warn "Cost exceeded maximum cost"
-            return solver
+            # @warn "Cost exceeded maximum cost"
+            solver.stats.status = MAXIMUM_COST
+            break
         end
 
         copy_trajectories!(solver)
@@ -133,7 +137,9 @@ function forwardpass!(solver::iLQRSolver, ΔV, J_prev)
     end
 
     if J > J_prev
-        error("Error: Cost increased during Forward Pass")
+        # error("Error: Cost increased during Forward Pass")
+        solver.stats.status = COST_INCREASE
+        return NaN
     end
 
     @logmsg InnerLoop :expected value=expected
@@ -202,18 +208,21 @@ function evaluate_convergence(solver::iLQRSolver)
     # must satisfy both 
     if (0.0 <= dJ < solver.opts.cost_tolerance) && (grad < solver.opts.gradient_tolerance)
         @logmsg InnerLoop "Cost criteria satisfied."
+        solver.stats.status = SOLVE_SUCCEEDED
         return true
     end
 
     # Check total iterations
     if i >= solver.opts.iterations
         @logmsg InnerLoop "Hit max iterations. Terminating."
+        solver.stats.status = MAX_ITERATIONS
         return true
     end
 
     # Outer loop update if forward pass is repeatedly unsuccessful
     if solver.stats.dJ_zero_counter > solver.opts.dJ_counter_limit
         @logmsg InnerLoop "dJ Counter hit max. Terminating."
+        solver.stats.status = NO_PROGRESS
         return true
     end
 

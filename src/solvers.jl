@@ -78,6 +78,23 @@ function terminate!(solver::AbstractSolver)
     # TODO: Print an optional summary
 end
 
+"""
+    TerminationStatus
+
+* `UNSOLVED`: Initial value. Solve either hasn't been attempted or is in process.. 
+* `SOLVE_SUCCEEDED`: Solve met all the required convergence criteria.
+* `MAX_ITERATIONS`: Solve was unable to meet the required convergence criteria within the maximum number of iterations.
+* `MAXIMUM_COST`: Cost exceeded maximum allowable cost.
+* `STATE_LIMIT`: State values exceeded the imposed numerical limits.
+* `CONTROL_LIMIT`: Control values exceeded the imposed numerical limits.
+* `NO_PROGRESS`: iLQR was unable to make any progress for `dJ_counter_limit` consecutive iterations.
+* `COST_INCREASE`: The cost increased during the iLQR forward pass.
+"""
+@enum(TerminationStatus, UNSOLVED, SOLVE_SUCCEEDED, MAX_ITERATIONS, MAXIMUM_COST, 
+    STATE_LIMIT, CONTROL_LIMIT, NO_PROGRESS, COST_INCREASE)
+
+@inline status(solver::AbstractSolver) = stats(solver).status
+
 "$(TYPEDEF) Unconstrained optimization solver. Will ignore
 any constraints in the problem"
 abstract type UnconstrainedSolver{T} <: AbstractSolver{T} end
