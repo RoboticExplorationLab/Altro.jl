@@ -37,7 +37,7 @@ struct ProjectedNewtonSolver{T,N,M,NM} <: ConstrainedSolver{T}
     Z::Traj{N,M,T,KnotPoint{T,N,M,NM}}
     Z̄::Traj{N,M,T,KnotPoint{T,N,M,NM}}
 
-    opts::SolverOpts{T}
+    opts::SolverOptions{T}
     stats::SolverStats{T}
     P::Primals{T,N,M}
     P̄::Primals{T,N,M}
@@ -59,7 +59,7 @@ struct ProjectedNewtonSolver{T,N,M,NM} <: ConstrainedSolver{T}
 end
 
 function ProjectedNewtonSolver(prob::Problem, 
-        opts::SolverOpts=SolverOpts(), stats::SolverStats=SolverStats())
+        opts::SolverOptions=SolverOptions(), stats::SolverStats=SolverStats())
     Z = prob.Z  # grab trajectory before copy to keep associativity
     prob = copy(prob)  # don't modify original problem
 

@@ -5,7 +5,7 @@ function YakProblems(Rot=UnitQuaternion{Float64}; scenario=:barrellroll, use_rot
     n,m = size(model)
     rsize = size(model)[1] - 9
 
-    opts = SolverOpts(
+    opts = SolverOptions(
         cost_tolerance_intermediate = 1e-1,
         penalty_scaling = 1000.,
         penalty_initial = 0.01

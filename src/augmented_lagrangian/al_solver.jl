@@ -23,7 +23,7 @@ This function is then minimized with respect to the primal variables using any u
     AL methods have superlinear convergence as long as the penalty term μ is updated each iteration.
 """
 struct AugmentedLagrangianSolver{T,S<:AbstractSolver} <: ConstrainedSolver{T}
-    opts::SolverOpts{T}
+    opts::SolverOptions{T}
     stats::SolverStats{T}
     solver_uncon::S
 end
@@ -35,7 +35,7 @@ Form an augmented Lagrangian cost function from a Problem and AugmentedLagrangia
 """
 function AugmentedLagrangianSolver(
         prob::Problem{Q,T}, 
-        opts::SolverOpts=SolverOpts(), 
+        opts::SolverOptions=SolverOptions(), 
         stats::SolverStats=SolverStats(parent=solvername(AugmentedLagrangianSolver));
         solver_uncon=iLQRSolver,
         kwarg_opts...

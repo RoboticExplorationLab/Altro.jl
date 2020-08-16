@@ -47,7 +47,7 @@ export
     # iLQRSolver,
     # AugmentedLagrangianSolver,
     SolverStats,
-    SolverOpts
+    SolverOptions
 
 export
     solve!,

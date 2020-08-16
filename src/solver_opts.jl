@@ -29,7 +29,7 @@ function set_options!(opts::OPT; d...) where OPT <: AbstractSolverOptions
 end
 
 
-@with_kw mutable struct SolverOpts{T} <: AbstractSolverOptions{T}
+@with_kw mutable struct SolverOptions{T} <: AbstractSolverOptions{T}
     # Optimality Tolerances
     constraint_tolerance::T = 1e-6
     cost_tolerance::T = 1e-4
@@ -88,7 +88,7 @@ end
     verbose::Int = 0 
 end
 
-function reset!(conSet::ALConstraintSet{T}, opts::SolverOpts{T}) where T
+function reset!(conSet::ALConstraintSet{T}, opts::SolverOptions{T}) where T
     if !isnan(opts.dual_max)
         for params in conSet.params
             params.λ_max = opts.dual_max

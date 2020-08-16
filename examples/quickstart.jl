@@ -40,7 +40,7 @@ prob = Problem(model, obj, xf, tf, x0=x0, constraints=conSet)
 initial_controls!(prob, U0)
 
 # Solve with ALTRO
-opts = SolverOpts(
+opts = SolverOptions(
     cost_tolerance_intermediate=1e-2,
     penalty_scaling=10.,
     penalty_initial=1.0

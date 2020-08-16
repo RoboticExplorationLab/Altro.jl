@@ -1,6 +1,6 @@
 
 function Pendulum()
-    opts = SolverOpts(
+    opts = SolverOptions(
         penalty_scaling=100.,
         penalty_initial=0.1,
     )

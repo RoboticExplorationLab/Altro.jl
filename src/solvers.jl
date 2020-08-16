@@ -58,7 +58,7 @@ Reset solver stats and constraints.
 """
 function reset_solver!(solver::AbstractSolver)
     # Reset the stats only if it's the top level solver
-    opts = options(solver)::SolverOpts
+    opts = options(solver)::SolverOptions
     reset!(stats(solver), opts.iterations, solvername(solver))
 
     if is_constrained(solver)

@@ -8,13 +8,13 @@ ALTRO consists of two "phases":
 2) Projected Newton: A collocation-flavored active-set solver projects the solution from AL-iLQR onto the feasible subspace to achieve machine-precision constraint satisfaction.
 """
 struct ALTROSolver{T,S} <: ConstrainedSolver{T}
-    opts::SolverOpts{T}
+    opts::SolverOptions{T}
     stats::SolverStats{T}
     solver_al::AugmentedLagrangianSolver{T,S}
     solver_pn::ProjectedNewtonSolver{T}
 end
 
-function ALTROSolver(prob::Problem{Q,T}, opts::SolverOpts=SolverOpts();
+function ALTROSolver(prob::Problem{Q,T}, opts::SolverOptions=SolverOptions();
         infeasible::Bool=false,
         R_inf::Real=1.0,
         solver_uncon=iLQRSolver,

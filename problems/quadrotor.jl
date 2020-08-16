@@ -4,7 +4,7 @@ function Quadrotor(scenario=:zigzag, Rot=UnitQuaternion{Float64};
         model = RobotZoo.Quadrotor{Rot}()
         n,m = size(model)
 
-        opts = SolverOpts(
+        opts = SolverOptions(
             penalty_scaling=100.,
             penalty_initial=0.1,
         )

@@ -10,7 +10,7 @@ struct iLQRSolver{T,I<:QuadratureRule,L,O,n,n̄,m,L1} <: UnconstrainedSolver{T}
     tf::T
     N::Int
 
-    opts::SolverOpts{T}
+    opts::SolverOptions{T}
     stats::SolverStats{T}
 
     # Primal Duals
@@ -42,7 +42,7 @@ end
 
 function iLQRSolver(
         prob::Problem{QUAD,T}, 
-        opts::SolverOpts=SolverOpts(), 
+        opts::SolverOptions=SolverOptions(), 
         stats::SolverStats=SolverStats(parent=solvername(iLQRSolver));
         kwarg_opts...
     ) where {QUAD,T}

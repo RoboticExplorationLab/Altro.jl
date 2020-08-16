@@ -1,6 +1,6 @@
 
 function DoubleIntegrator()
-    opts = SolverOpts(
+    opts = SolverOptions(
         penalty_scaling=1000.,
         penalty_initial=1.,
     )

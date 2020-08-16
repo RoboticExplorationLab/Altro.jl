@@ -1,6 +1,6 @@
 function Cartpole(method=:none; constrained::Bool=true)
 
-    opts = SolverOpts(
+    opts = SolverOptions(
         cost_tolerance_intermediate=1e-2,
         penalty_scaling=10.,
         penalty_initial=1.0
