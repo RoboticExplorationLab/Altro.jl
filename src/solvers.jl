@@ -44,10 +44,39 @@ abstract type AbstractSolver{T} end
 @inline get_solution(solver::AbstractSolver) = get_trajectory(solver)
 @inline get_primals(solver::AbstractSolver) = solver.Z̄
 @inline get_step(solver::AbstractSolver) = solver.δZ
-@inline options(solver::AbstractSolver) = solver.opts
 @inline stats(solver::AbstractSolver) = solver.stats
 iterations(solver::AbstractSolver) = stats(solver).iterations
+@inline options(solver::AbstractSolver) = solver.opts
+set_options!(solver::AbstractSolver; opts...) = set_options!(options(solver); opts...)
+reset!(solver::AbstractSolver) = reset_solver!(solver)  # default method
+solvername(solver::S) where S <: AbstractSolver = solvername(S)
 
+"""
+    reset_solver!(solver::AbstractSolver)
+
+Reset solver stats and constraints.
+"""
+function reset_solver!(solver::AbstractSolver)
+    # Reset the stats only if it's the top level solver
+    opts = options(solver)::SolverOpts
+    reset!(stats(solver), opts.iterations, solvername(solver))
+
+    if is_constrained(solver)
+        reset!(get_constraints(solver), opts)
+    end
+end
+
+"""
+    terminate!(solver::AbstractSolver)
+
+Perform any necessary actions after finishing the solve.
+"""
+function terminate!(solver::AbstractSolver)
+    # Delete extra stats entries, only if terminal solver
+    trim!(stats(solver), solvername(solver))
+
+    # TODO: Print an optional summary
+end
 
 "$(TYPEDEF) Unconstrained optimization solver. Will ignore
 any constraints in the problem"
@@ -65,17 +94,12 @@ get_constraints(::ConstrainedSolver)::ConstrainSet
 """
 abstract type ConstrainedSolver{T} <: AbstractSolver{T} end
 
+is_constrained(::AbstractSolver)::Bool = true
+is_constrained(::ConstrainedSolver)::Bool = true
+is_constrained(::UnconstrainedSolver)::Bool = false
+
 @inline get_duals(solver::ConstrainedSolver) = get_duals(get_constraints(solver))
 
-
-# """ $(TYPEDEF)
-# Solve the trajectory optimization problem by computing search directions using the joint
-# state vector, often solving the KKT system directly.
-# """
-# abstract type DirectSolver{T} <: ConstrainedSolver{T} end
-#
-# include("direct/dircol_ipopt.jl")
-# include("direct/dircol_snopt.jl")
 
 function TO.cost(solver::AbstractSolver, Z=get_trajectory(solver))
     obj = get_objective(solver)
@@ -98,9 +122,10 @@ function update_constraints!(solver::ConstrainedSolver, Z::Traj=get_trajectory(s
     TO.evaluate!(conSet, Z)
 end
 
-function TO.update_active_set!(solver::ConstrainedSolver, Z=get_trajectory(solver))
+function TO.update_active_set!(solver::ConstrainedSolver, 
+        Z=get_trajectory(solver); tol=solver.opts.active_set_tolerance)
     conSet = get_constraints(solver)
-    TO.update_active_set!(conSet, Val(solver.opts.active_set_tolerance))
+    TO.update_active_set!(conSet, Val(tol))
 end
 
 """ $(SIGNATURES)
@@ -161,8 +186,8 @@ end
 
 set_initial_state!(solver::AbstractSolver, x0) = copyto!(get_initial_state(solver), x0)
 
-@inline TO.initial_states!(solver::AbstractSolver, X0) = TO.set_states!(get_trajectory(solver), X0)
-@inline TO.initial_controls!(solver::AbstractSolver, U0) = TO.set_controls!(get_trajectory(solver), U0)
+@inline TO.initial_states!(solver::AbstractSolver, X0) = RobotDynamics.set_states!(get_trajectory(solver), X0)
+@inline TO.initial_controls!(solver::AbstractSolver, U0) = RobotDynamics.set_controls!(get_trajectory(solver), U0)
 function TO.initial_trajectory!(solver::AbstractSolver, Z0::Traj)
     Z = get_trajectory(solver)
     for k in eachindex(Z)
@@ -171,7 +196,8 @@ function TO.initial_trajectory!(solver::AbstractSolver, Z0::Traj)
 end
 
 # Default getters
-@inline TO.get_times(solver::AbstractSolver) = TO.get_times(get_trajectory(solver))
+@inline RobotDynamics.get_times(solver::AbstractSolver) = 
+    RobotDynamics.get_times(get_trajectory(solver))
 
 
 # Line Search and Merit Functions
@@ -273,19 +299,24 @@ function cost_dhess(solver::AbstractSolver, Z=TO.get_primals(solver),
 end
 
 # Logging
-function set_verbosity!(opts)
-    log_level = opts.log_level
-    if opts.verbose
+log_level(solver::AbstractSolver) = OuterLoop
+
+is_verbose(solver::AbstractSolver) = 
+    log_level(solver) >= LogLevel(-100*options(solver).verbose)
+
+function set_verbosity!(solver::AbstractSolver)
+    llevel = log_level(solver)
+    if is_verbose(solver)
         set_logger()
-        Logging.disable_logging(LogLevel(log_level.level-1))
+        Logging.disable_logging(LogLevel(llevel.level-1))
     else
-        Logging.disable_logging(log_level)
+        Logging.disable_logging(llevel)
     end
 end
 
-function clear_cache!(opts)
-    if opts.verbose
-        log_level = opts.log_level
-        SolverLogging.clear_cache!(global_logger().leveldata[log_level])
+function clear_cache!(solver::AbstractSolver)
+    llevel = log_level(solver)
+    if is_verbose(solver)
+        SolverLogging.clear_cache!(global_logger().leveldata[llevel])
     end
 end

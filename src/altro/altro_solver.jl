@@ -1,61 +1,3 @@
-export
-    ALTROSolverOptions,
-    ALTROSolver
-
-
-"""$(TYPEDEF) Solver options for the ALTRO solver.
-$(FIELDS)
-"""
-@with_kw mutable struct ALTROSolverOptions{T} <: AbstractSolverOptions{T}
-
-    verbose::Bool=false
-
-    "Augmented Lagrangian solver options."
-    opts_al::AugmentedLagrangianSolverOptions=AugmentedLagrangianSolverOptions{Float64}()
-
-    "constraint tolerance"
-    constraint_tolerance::T = 1e-5
-
-    # Infeasible Start
-    "Use infeasible model (augment controls to make it fully actuated)"
-    infeasible::Bool = false
-
-    # "regularization term for infeasible controls."
-    # R_inf::T = 1.0
-
-    "project infeasible results to feasible space using TVLQR."
-    dynamically_feasible_projection::Bool = true
-
-    "resolve feasible problem after infeasible solve."
-    resolve_feasible_problem::Bool = true
-
-    "initial penalty term for infeasible controls."
-    penalty_initial_infeasible::T = 1.0
-
-    "penalty update rate for infeasible controls."
-    penalty_scaling_infeasible::T = 10.0
-
-    # Projected Newton
-    "finish with a projecte newton solve."
-    projected_newton::Bool = true
-
-    "options for projected newton solver."
-    opts_pn::ProjectedNewtonSolverOptions{T} = ProjectedNewtonSolverOptions{Float64}()
-
-    "constraint satisfaction tolerance that triggers the projected newton solver.
-    If set to a non-positive number it will kick out when the maximum penalty is reached."
-    projected_newton_tolerance::T = 1.0e-3
-
-end
-
-function ALTROSolverOptions(opts::SolverOptions)
-    ALTROSolverOptions(
-        opts_al=AugmentedLagrangianSolverOptions(opts),
-        opts_pn=ProjectedNewtonSolverOptions(opts),
-        verbose=opts.verbose,
-        constraint_tolerance=opts.constraint_tolerance
-    )
-end
 
 """$(TYPEDEF)
 Augmented Lagrangian Trajectory Optimizer (ALTRO) is a solver developed by the Robotic Exploration Lab at Stanford University.
@@ -66,18 +8,18 @@ ALTRO consists of two "phases":
 2) Projected Newton: A collocation-flavored active-set solver projects the solution from AL-iLQR onto the feasible subspace to achieve machine-precision constraint satisfaction.
 """
 struct ALTROSolver{T,S} <: ConstrainedSolver{T}
-    opts::ALTROSolverOptions{T}
+    opts::SolverOpts{T}
+    stats::SolverStats{T}
     solver_al::AugmentedLagrangianSolver{T,S}
     solver_pn::ProjectedNewtonSolver{T}
 end
 
-AbstractSolver(prob::Problem, opts::ALTROSolverOptions) = ALTROSolver(prob, opts)
-
-function ALTROSolver(prob::Problem{Q,T},
-        opts::SolverOptions=SolverOptions{T}();
-        infeasible=false,
-        R_inf=1.0,
-        solver_uncon=iLQRSolver) where {Q,T}
+function ALTROSolver(prob::Problem{Q,T}, opts::SolverOpts=SolverOpts();
+        infeasible::Bool=false,
+        R_inf::Real=1.0,
+        solver_uncon=iLQRSolver,
+        kwarg_opts...
+    ) where {Q,T}
     if infeasible
         # Convert to an infeasible problem
         prob = InfeasibleProblem(prob, prob.Z, R_inf/prob.Z[1].dt)
@@ -88,24 +30,25 @@ function ALTROSolver(prob::Problem{Q,T},
         # con_inf.params.μ0 = opts.penalty_initial_infeasible
         # con_inf.params.ϕ = opts.penalty_scaling_infeasible
     end
-    opts_altro = ALTROSolverOptions(opts)
-    solver_al = AugmentedLagrangianSolver(prob, opts, solver_uncon=solver_uncon)
-    solver_pn = ProjectedNewtonSolver(prob, opts)
+    set_options!(opts; kwarg_opts...)
+    stats = SolverStats{T}(parent=solvername(ALTROSolver))
+    solver_al = AugmentedLagrangianSolver(prob, opts, stats; solver_uncon=solver_uncon)
+    solver_pn = ProjectedNewtonSolver(prob, opts, stats)
     TO.link_constraints!(get_constraints(solver_pn), get_constraints(solver_al))
     S = typeof(solver_al.solver_uncon)
-    ALTROSolver{T,S}(opts_altro, solver_al, solver_pn)
+    solver = ALTROSolver{T,S}(opts, stats, solver_al, solver_pn)
+    reset!(solver)
+    # set_options!(solver; opts...)
+    solver
 end
 
+# Getters
 @inline Base.size(solver::ALTROSolver) = size(solver.solver_pn)
 @inline TO.get_trajectory(solver::ALTROSolver)::Traj = get_trajectory(solver.solver_al)
 @inline TO.get_objective(solver::ALTROSolver) = get_objective(solver.solver_al)
-function iterations(solver::ALTROSolver)
-    if !solver.opts.projected_newton
-        iterations(solver.solver_al)
-    else
-        iterations(solver.solver_al) + iterations(solver.solver_pn)
-    end
-end
+@inline TO.get_model(solver::ALTROSolver) = get_model(solver.solver_al)
+@inline get_initial_state(solver::ALTROSolver) = get_initial_state(solver.solver_al)
+solvername(::Type{<:ALTROSolver}) = :ALTRO
 
 function TO.get_constraints(solver::ALTROSolver)
     if solver.opts.projected_newton
@@ -116,13 +59,22 @@ function TO.get_constraints(solver::ALTROSolver)
 end
 
 
+# Solve Methods
 function solve!(solver::ALTROSolver)
-    conSet = get_constraints(solver)
+    reset!(solver)
+    conSet = get_constraints(solver.solver_al)
+
+    if isempty(conSet) 
+        ilqr = solver.solver_al.solver_uncon
+        solve!(ilqr)
+        return solver
+    end
 
     # Set terminal condition if using projected newton
     opts = solver.opts
+    ϵ_con = solver.opts.constraint_tolerance
     if opts.projected_newton
-        opts_al = opts.opts_al
+        opts_al = solver.solver_al.opts
         if opts.projected_newton_tolerance >= 0
             opts_al.constraint_tolerance = opts.projected_newton_tolerance
         else
@@ -138,12 +90,17 @@ function solve!(solver::ALTROSolver)
     i = solver.solver_al.stats.iterations
     c_max = solver.solver_al.stats.c_max[i]
 
+    opts.constraint_tolerance = ϵ_con
     if opts.projected_newton && c_max > opts.constraint_tolerance
         solve!(solver.solver_pn)
     end
 
+    terminate!(solver)
+    solver
 end
 
+
+# Infeasible methods
 function InfeasibleProblem(prob::Problem, Z0::Traj, R_inf::Real)
     @assert !isnan(sum(sum.(states(Z0))))
 
@@ -182,5 +139,3 @@ function infeasible_objective(obj::Objective, regularizer)
     TO.Objective(costs)
 end
 
-get_model(solver::ALTROSolver) = get_model(solver.solver_al)
-@inline get_initial_state(solver::ALTROSolver) = get_initial_state(solver.solver_al)

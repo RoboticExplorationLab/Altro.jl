@@ -1,7 +1,3 @@
-export
-    ProjectedNewtonSolverOptions,
-    ProjectedNewtonSolver
-
 struct DynamicsVals{T,N,A}
     fVal::Vector{SVector{N,T}}
     xMid::Vector{SVector{N,T}}
@@ -11,38 +7,6 @@ end
 function DynamicsVals(dyn_con::DynamicsConstraint)
 	DynamicsVals(dyn_con.fVal, dyn_con.xMid, dyn_con.∇f)
 end
-
-
-@with_kw mutable struct ProjectedNewtonStats{T}
-    iterations::Int = 0
-    c_max::Vector{T} = zeros(5)
-    cost::Vector{T} = zeros(5)
-end
-
-
-"""$(TYPEDEF)
-Solver options for the Projected Newton solver.
-$(FIELDS)
-"""
-@with_kw mutable struct ProjectedNewtonSolverOptions{T} <: DirectSolverOptions{T}
-    verbose::Bool = true
-    n_steps::Int = 2
-    solve_type::Symbol = :feasible
-    active_set_tolerance::T = 1e-3
-    constraint_tolerance::T = 1e-6
-    ρ_chol::T = 1e-2     # cholesky factorization regularization
-    ρ_primal::T = 1.0e-8 # primal regularization
-    r_threshold::T = 1.1
-end
-
-function ProjectedNewtonSolverOptions(opts::SolverOptions)
-    ProjectedNewtonSolverOptions(
-        constraint_tolerance=opts.constraint_tolerance,
-        active_set_tolerance=opts.active_set_tolerance,
-        verbose=opts.verbose,
-    )
-end
-
 
 struct ProblemInfo{T,N}
     model::AbstractModel
@@ -73,8 +37,8 @@ struct ProjectedNewtonSolver{T,N,M,NM} <: ConstrainedSolver{T}
     Z::Traj{N,M,T,KnotPoint{T,N,M,NM}}
     Z̄::Traj{N,M,T,KnotPoint{T,N,M,NM}}
 
-    opts::ProjectedNewtonSolverOptions{T}
-    stats::ProjectedNewtonStats{T}
+    opts::SolverOpts{T}
+    stats::SolverStats{T}
     P::Primals{T,N,M}
     P̄::Primals{T,N,M}
 
@@ -85,6 +49,7 @@ struct ProjectedNewtonSolver{T,N,M,NM} <: ConstrainedSolver{T}
 
     D::SparseMatrixCSC{T,Int}
     d::Vector{T}
+    λ::Vector{T}
 
     dyn_vals::DynamicsVals{T}
     active_set::Vector{Bool}
@@ -93,13 +58,13 @@ struct ProjectedNewtonSolver{T,N,M,NM} <: ConstrainedSolver{T}
     con_inds::Vector{<:Vector}
 end
 
-function ProjectedNewtonSolver(prob::Problem, opts=SolverOptions())
+function ProjectedNewtonSolver(prob::Problem, 
+        opts::SolverOpts=SolverOpts(), stats::SolverStats=SolverStats())
     Z = prob.Z  # grab trajectory before copy to keep associativity
     prob = copy(prob)  # don't modify original problem
 
     n,m,N = size(prob)
     NN = n*N + m*(N-1)
-    stats = ProjectedNewtonStats()
 
     # Add dynamics constraints
     TO.add_dynamics_constraints!(prob, integration(prob), 1)
@@ -122,6 +87,7 @@ function ProjectedNewtonSolver(prob::Problem, opts=SolverOptions())
 
     D = spzeros(NP,NN)
     d = zeros(NP)
+    λ = zeros(NP)
 
     fVal = [@SVector zeros(n) for k = 1:N]
     xMid = [@SVector zeros(n) for k = 1:N-1]
@@ -134,12 +100,10 @@ function ProjectedNewtonSolver(prob::Problem, opts=SolverOptions())
     # Set constant pieces of the Jacobian
     xinds,uinds = P.xinds, P.uinds
 
-    opts_pn = ProjectedNewtonSolverOptions(opts)
     dyn_inds = SVector{n,Int}[]
-    ProjectedNewtonSolver(prob_info, Z, Z̄, opts_pn, stats,
-        P, P̄, H, g, E, D, d, dyn_vals, active_set, dyn_inds, con_inds)
+    ProjectedNewtonSolver(prob_info, Z, Z̄, opts, stats,
+        P, P̄, H, g, E, D, d, λ, dyn_vals, active_set, dyn_inds, con_inds)
 end
-
 
 primals(solver::ProjectedNewtonSolver) = solver.P.Z
 primal_partition(solver::ProjectedNewtonSolver) = solver.P.xinds, solver.P.uinds
@@ -150,4 +114,6 @@ TO.get_model(solver::ProjectedNewtonSolver) = solver.prob.model
 TO.get_constraints(solver::ProjectedNewtonSolver) = solver.prob.conSet
 TO.get_trajectory(solver::ProjectedNewtonSolver) = solver.Z
 TO.get_objective(solver::ProjectedNewtonSolver) = solver.prob.obj
+iterations(solver::ProjectedNewtonSolver) = solver.stats.iterations_pn
 get_active_set(solver::ProjectedNewtonSolver) = solver.active_set
+solvername(::Type{<:ProjectedNewtonSolver}) = :PN

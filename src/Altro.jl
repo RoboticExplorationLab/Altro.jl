@@ -44,17 +44,16 @@ using RobotDynamics:
 # types
 export
     ALTROSolver,
-    ALTROSolverOptions,
-    iLQRSolver,
-    iLQRSolverOptions,
-    AugmentedLagrangianSolver,
-    AugmentedLagrangianSolverOptions,
-    SolverOptions
+    # iLQRSolver,
+    # AugmentedLagrangianSolver,
+    SolverStats,
+    SolverOpts
 
 export
     solve!,
     benchmark_solve!,
-    iterations
+    iterations,
+    set_options!
 
 # modules
 export
@@ -63,14 +62,15 @@ export
 
 include("utils.jl")
 include("infeasible_model.jl")
-include("solver_opts.jl")
 include("solvers.jl")
+include("solver_opts.jl")
 
 include("ilqr/ilqr.jl")
 include("ilqr/ilqr_solve.jl")
 include("ilqr/backwardpass.jl")
 include("ilqr/rollout.jl")
 include("augmented_lagrangian/al_solver.jl")
+include("augmented_lagrangian/al_objective.jl")
 include("augmented_lagrangian/al_methods.jl")
 include("direct/primals.jl")
 include("direct/pn.jl")
@@ -81,6 +81,6 @@ include("direct/copy_blocks.jl")
 include("direct/direct_constraints.jl")
 
 include("problems.jl")
-
+# include("deprecated.jl")
 
 end # module

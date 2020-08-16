@@ -1,6 +1,6 @@
-function Cartpole(method=:none)
+function Cartpole(method=:none; constrained::Bool=true)
 
-    opts = SolverOptions(
+    opts = SolverOpts(
         cost_tolerance_intermediate=1e-2,
         penalty_scaling=10.,
         penalty_initial=1.0
@@ -23,8 +23,10 @@ function Cartpole(method=:none)
     conSet = ConstraintList(n,m,N)
     bnd = BoundConstraint(n,m, u_min=-u_bnd, u_max=u_bnd)
     goal = GoalConstraint(xf)
-    add_constraint!(conSet, bnd, 1:N-1)
-    add_constraint!(conSet, goal, N:N)
+    if constrained
+        add_constraint!(conSet, bnd, 1:N-1)
+        add_constraint!(conSet, goal, N:N)
+    end
 
     X0 = [@SVector fill(NaN,n) for k = 1:N]
     u0 = @SVector fill(0.01,m)

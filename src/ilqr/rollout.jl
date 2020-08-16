@@ -29,8 +29,8 @@ function rollout!(solver::iLQRSolver{T,Q,n}, α) where {T,Q,n}
 end
 
 "Simulate the forward the dynamics open-loop"
-function rollout!(solver::iLQRSolver)
-    rollout!(solver.model, solver.Z, solver.x0)
+function rollout!(solver::iLQRSolver{<:Any,Q}) where Q
+    rollout!(Q, solver.model, solver.Z, solver.x0)
     for k in eachindex(solver.Z)
         solver.Z̄[k].t = solver.Z[k].t
     end

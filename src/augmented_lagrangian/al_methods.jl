@@ -10,33 +10,43 @@ function solve!(solver::AugmentedLagrangianSolver{T,S}) where {T,S}
     J_ = TO.get_J(get_objective(solver))
     J = sum(J_)
 
-    for i = 1:solver.opts.iterations
+    for i = 1:solver.opts.iterations_outer
 		set_tolerances!(solver, solver_uncon, i)
 
-        step!(solver)
-        J = sum(J_)
-        c_max = maximum(conSet.c_max)
+        # Solve the unconstrained problem
+        solve!(solver.solver_uncon)
 
+        # Record the updated information
+        J = sum(J_)
+        TO.max_violation!(conSet)
+        c_max = maximum(conSet.c_max)
         record_iteration!(solver, J, c_max)
 
+        # Check for convergence before doing the outer loop udpate
         converged = evaluate_convergence(solver)
         if converged
             break
         end
 
-        reset!(solver_uncon, false)
+        # Outer loop update
+        dual_update!(solver)
+        penalty_update!(solver)
+
+        # Reset verbosity level after it's modified
+        set_verbosity!(solver)
+
+        reset!(solver_uncon)
     end
+    terminate!(solver)
     return solver
 end
 
 function initialize!(solver::AugmentedLagrangianSolver)
-	set_verbosity!(solver.opts)
-	clear_cache!(solver.opts)
+	set_verbosity!(solver)
+	clear_cache!(solver)
 
 	# Reset solver
-    reset!(get_constraints(solver), solver.opts)
-    solver.stats.iterations = 0
-	solver.stats.iterations_total = 0
+    reset!(solver)
 
 	# Calculate cost
     TO.cost!(get_objective(solver), get_trajectory(solver))
@@ -53,38 +63,38 @@ function step!(solver::AugmentedLagrangianSolver)
     TO.max_violation!(get_constraints(solver))
 
 	# Reset verbosity level after it's modified
-	set_verbosity!(solver.opts)
+	set_verbosity!(solver)
 end
 
 function record_iteration!(solver::AugmentedLagrangianSolver{T,S}, J::T, c_max::T) where {T,S}
 
-    solver.stats.iterations += 1
-    i = solver.stats.iterations
-    solver.stats.iterations_total += solver.solver_uncon.stats.iterations
-    solver.stats.c_max[i] = c_max
-	solver.stats.cost[i] = J
-
 	conSet = get_constraints(solver)
 	TO.max_penalty!(conSet)
-	solver.stats.penalty_max[i] = maximum(conSet.c_max)
+    max_penalty = maximum(conSet.c_max)
+    J_prev = solver.stats.cost[solver.stats.iterations]
+    dJ = J_prev - J
+    
+    # Just update constraint violation and max penalty
+    record_iteration!(solver.stats, c_max=c_max, penalty_max=max_penalty, is_outer=true)
+    j = solver.stats.iterations_outer::Int
 
-	@logmsg OuterLoop :iter value=i
-	@logmsg OuterLoop :total value=solver.stats.iterations_total
+	@logmsg OuterLoop :iter value=j
+	@logmsg OuterLoop :total value=solver.stats.iterations
 	@logmsg OuterLoop :cost value=J
     @logmsg OuterLoop :c_max value=c_max
-	if solver.opts.verbose
+	if is_verbose(solver) 
 		print_level(OuterLoop, global_logger())
 	end
 end
 
 function set_tolerances!(solver::AugmentedLagrangianSolver{T},
         solver_uncon::AbstractSolver{T},i::Int) where T
-    if i != solver.opts.iterations
+    if i != solver.opts.iterations_outer
         solver_uncon.opts.cost_tolerance = solver.opts.cost_tolerance_intermediate
-        solver_uncon.opts.gradient_norm_tolerance = solver.opts.gradient_norm_tolerance_intermediate
+        solver_uncon.opts.gradient_tolerance = solver.opts.gradient_tolerance_intermediate
     else
         solver_uncon.opts.cost_tolerance = solver.opts.cost_tolerance
-        solver_uncon.opts.gradient_norm_tolerance = solver.opts.gradient_norm_tolerance
+        solver_uncon.opts.gradient_tolerance = solver.opts.gradient_tolerance
     end
 
     return nothing

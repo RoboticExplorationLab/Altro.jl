@@ -40,7 +40,7 @@ prob = Problem(model, obj, xf, tf, x0=x0, constraints=conSet)
 initial_controls!(prob, U0)
 
 # Solve with ALTRO
-opts = SolverOptions(
+opts = SolverOpts(
     cost_tolerance_intermediate=1e-2,
     penalty_scaling=10.,
     penalty_initial=1.0
@@ -57,9 +57,12 @@ iterations(altro)     # 40
 X = states(altro)
 U = controls(altro)
 
-# Solve with iLQR (ignores constraints)
-ilqr = iLQRSolver(prob, opts)
-initial_controls!(ilqr, U0)   # reset controls to initial guess, since they are modified by the previous solve
-solve!(ilqr)
-cost(ilqr)           # 1.45
-iterations(ilqr)     # 84
+# Extract the solver statistics
+stats = Altro.stats(solver)  # alternatively, solver.stats
+stats.iterations             # 40, equivalent to iterations(solver)
+stats.iterations_outer       # 4 (number of Augmented Lagrangian iterations)
+stats.iterations_pn          # 1 (number of projected newton iterations)
+stats.cost[end]              # terminal cost
+stats.c_max[end]             # terminal constraint satisfaction
+stats.gradient[end]          # terminal gradient of the Lagrangian
+dstats = Dict(stats)         # get the per-iteration stats as a dictionary (can be converted to DataFrame)

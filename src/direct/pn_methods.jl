@@ -3,20 +3,25 @@ function solve!(solver::ProjectedNewtonSolver)
 
     update_constraints!(solver)
     copy_constraints!(solver)
+    copy_multipliers!(solver)
     constraint_jacobian!(solver)
     copy_jacobians!(solver)
     TO.cost_expansion!(solver)
-    TO.update_active_set!(solver)
+    TO.update_active_set!(solver; tol=solver.opts.active_set_tolerance_pn)
     copy_active_set!(solver)
 
-    if solver.opts.verbose
+    if solver.opts.verbose_pn
         println("\nProjection:")
     end
     viol = projection_solve!(solver)
-    copyto!(solver.Z, solver.P)
+    # copyto!(solver.Z, solver.P)
+
+    # Copy the multipliers back to the ALConSet
+    copyback_multipliers!(solver.λ, solver)
+
+    terminate!(solver)
+    return solver
 end
-
-
 
 function projection_solve!(solver::ProjectedNewtonSolver)
     ϵ_feas = solver.opts.constraint_tolerance
@@ -26,24 +31,22 @@ function projection_solve!(solver::ProjectedNewtonSolver)
     count = 0
     while count < max_projection_iters && viol > ϵ_feas
         viol = _projection_solve!(solver)
+        if solver.opts.multiplier_projection
+            res = multiplier_projection!(solver)
+        else
+            res = Inf
+        end
         count += 1
-        record_iteration!(solver, viol)
+        record_iteration!(solver, viol, res)
     end
     return viol
 end
 
-function record_iteration!(solver::ProjectedNewtonSolver, viol)
-    solver.stats.iterations += 1
-    i = solver.stats.iterations
-    solver.stats.cost[i] = TO.cost(solver)
-    solver.stats.c_max[i] = viol
-end
-
-function reset!(solver::ProjectedNewtonSolver)
-    solver.stats.iterations = 0
-    solver.stats.cost .*= 0
-    solver.stats.c_max .*= 0
-    return nothing
+function record_iteration!(solver::ProjectedNewtonSolver, viol, res)
+    J = TO.cost(solver)
+    J_prev = solver.stats.cost[solver.stats.iterations]
+    record_iteration!(solver.stats, cost=TO.cost(solver), c_max=viol, is_pn=true,
+        dJ=J_prev-J, gradient=res, penalty_max=NaN)
 end
 
 function _projection_solve!(solver::ProjectedNewtonSolver)
@@ -62,7 +65,7 @@ function _projection_solve!(solver::ProjectedNewtonSolver)
     # Update everything
     update_constraints!(solver)
     constraint_jacobian!(solver)
-    TO.update_active_set!(solver)
+    TO.update_active_set!(solver; tol=solver.opts.active_set_tolerance_pn)
     TO.cost_expansion!(solver)
 
     # Copy results from constraint sets to sparse arrays
@@ -75,7 +78,7 @@ function _projection_solve!(solver::ProjectedNewtonSolver)
     D,d = active_constraints(solver)
 
     viol0 = norm(d,Inf)
-    if solver.opts.verbose
+    if solver.opts.verbose_pn
         println("feas0: $viol0")
     end
 
@@ -98,7 +101,7 @@ function _projection_solve!(solver::ProjectedNewtonSolver)
         viol_prev = viol
         count += 1
 
-        if solver.opts.verbose
+        if solver.opts.verbose_pn
             println("conv rate: $convergence_rate")
         end
 
@@ -107,6 +110,7 @@ function _projection_solve!(solver::ProjectedNewtonSolver)
             break
         end
     end
+    copyto!(solver.Z, solver.P)
     return viol_prev
 end
 
@@ -141,7 +145,7 @@ function _projection_linesearch!(solver::ProjectedNewtonSolver,
         d = solver.d[a]
         viol = norm(d,Inf)
 
-        if solver.opts.verbose
+        if solver.opts.verbose_pn
             println("feas: ", viol, " (α = ", α, ")")
         end
         if viol < viol0 || count > 10
@@ -209,6 +213,38 @@ function copy_expansion!(H, g, E, xinds, uinds)
     return nothing
 end
 
+function multiplier_projection!(solver::ProjectedNewtonSolver)
+    λ = solver.λ[solver.active_set]
+    D,d = active_constraints(solver)
+    g = solver.g
+    res0 = g + D'λ
+    A = D*D'
+    Areg = A + I*solver.opts.ρ_primal
+    b = D*res0
+    δλ = -reg_solve(A, b, Areg)
+    λ += δλ
+    res = g + D'λ  # primal residual
+    return norm(res)
+end
+
+
+function primal_residual(solver::ProjectedNewtonSolver, update::Bool=false)
+    if update
+        update_constraints!(solver)
+        copy_constraints!(solver)
+        TO.update_active_set!(solver; tol=solver.opts.active_set_tolerance_pn)
+        copy_active_set!(solver)
+        constraint_jacobian!(solver)
+        copy_jacobians!(solver)
+        TO.cost_expansion!(solver)
+    end
+    λ = solver.λ[solver.active_set]
+    D,d = active_constraints(solver)
+    g = solver.g
+    return norm(D'λ + g)
+end
+
 @inline copy_constraints!(solver::ProjectedNewtonSolver) = copy_constraints!(solver.d, solver)
+@inline copy_multipliers!(solver::ProjectedNewtonSolver) = copy_multipliers!(solver.λ, solver)
 @inline copy_jacobians!(solver::ProjectedNewtonSolver) = copy_jacobians!(solver.D, solver)
 @inline copy_active_set!(solver::ProjectedNewtonSolver) = copy_active_set!(solver.active_set, solver)

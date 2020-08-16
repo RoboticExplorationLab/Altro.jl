@@ -1,7 +1,7 @@
 function initialize!(solver::iLQRSolver)
 	reset!(solver)
-    set_verbosity!(solver.opts)
-    clear_cache!(solver.opts)
+    set_verbosity!(solver)
+    clear_cache!(solver)
 
     solver.ρ[1] = solver.opts.bp_reg_initial
     solver.dρ[1] = 0.0
@@ -16,7 +16,6 @@ end
 function solve!(solver::iLQRSolver{T}) where T<:AbstractFloat
 	initialize!(solver)
 
-    solver.stats.iterations = 0
     Z = solver.Z; Z̄ = solver.Z̄;
 
     n,m,N = size(solver)
@@ -39,9 +38,17 @@ function solve!(solver::iLQRSolver{T}) where T<:AbstractFloat
         J_prev = copy(J)
         gradient_todorov!(solver)
 
+        # Record iteration and evaluate convergence
         record_iteration!(solver, J, dJ)
-        evaluate_convergence(solver) ? break : nothing
+        exit = evaluate_convergence(solver)
+
+        # Print iteration
+        if is_verbose(solver) 
+            print_level(InnerLoop, global_logger())
+        end
+        exit && break
     end
+    terminate!(solver)
     return solver
 end
 
@@ -148,20 +155,21 @@ end
 Stash iteration statistics
 """
 function record_iteration!(solver::iLQRSolver, J, dJ)
-    solver.stats.iterations += 1
+    gradient = mean(solver.grad)
+    record_iteration!(solver.stats, cost=J, dJ=dJ, gradient=gradient)
     i = solver.stats.iterations::Int
-    solver.stats.cost[i] = J
-    solver.stats.dJ[i] = dJ
-    solver.stats.gradient[i] = mean(solver.grad)
+    
+    if dJ ≈ 0
+        solver.stats.dJ_zero_counter += 1
+    else
+        solver.stats.dJ_zero_counter = 0
+    end
 
     @logmsg InnerLoop :iter value=i
     @logmsg InnerLoop :cost value=J
     @logmsg InnerLoop :dJ   value=dJ
-    @logmsg InnerLoop :grad value=solver.stats.gradient[i]
+    @logmsg InnerLoop :grad value=gradient
     # @logmsg InnerLoop :zero_count value=solver.stats[:dJ_zero_counter][end]
-    if solver.opts.verbose
-        print_level(InnerLoop, global_logger())
-    end
     return nothing
 end
 
@@ -187,25 +195,25 @@ Check convergence conditions for iLQR
 function evaluate_convergence(solver::iLQRSolver)
     # Get current iterations
     i = solver.stats.iterations
+    grad = solver.stats.gradient[i]
+    dJ = solver.stats.dJ[i]
 
     # Check for cost convergence
-    # note the  dJ > 0 criteria exists to prevent loop exit when forward pass makes no improvement
-    if 0.0 < solver.stats.dJ[i] < solver.opts.cost_tolerance
-        return true
-    end
-
-    # Check for gradient convergence
-    if solver.stats.gradient[i] < solver.opts.gradient_norm_tolerance
+    # must satisfy both 
+    if (0.0 <= dJ < solver.opts.cost_tolerance) && (grad < solver.opts.gradient_tolerance)
+        @logmsg InnerLoop "Cost criteria satisfied."
         return true
     end
 
     # Check total iterations
     if i >= solver.opts.iterations
+        @logmsg InnerLoop "Hit max iterations. Terminating."
         return true
     end
 
     # Outer loop update if forward pass is repeatedly unsuccessful
     if solver.stats.dJ_zero_counter > solver.opts.dJ_counter_limit
+        @logmsg InnerLoop "dJ Counter hit max. Terminating."
         return true
     end
 
