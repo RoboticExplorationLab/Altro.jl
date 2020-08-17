@@ -98,6 +98,14 @@ function solve!(solver::ALTROSolver)
     if opts.projected_newton && c_max > opts.constraint_tolerance && status(solver) <= SOLVE_SUCCEEDED
         solve!(solver.solver_pn)
     end
+    
+    # Back-up check
+    if status(solver) == UNSOLVED
+        # TODO: improve this check
+        if max_violation(solver) < solver.opts.constraint_tolerance
+            solver.stats.status = SOLVE_SUCCEEDED
+        end
+    end
 
     terminate!(solver)
     solver
