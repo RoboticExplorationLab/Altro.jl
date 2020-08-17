@@ -10,9 +10,6 @@ set_options!(solver,
     cost_tolerance_intermediate=1e-10, 
     gradient_tolerance_intermediate=1e-10, 
     constraint_tolerance=1e-10,
-    show_summary=true, 
-    projected_newton=false, 
-    verbose=2
 )
 solve!(solver)
 status(solver)
