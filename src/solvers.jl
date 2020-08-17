@@ -232,7 +232,7 @@ function rollout!(solver::AbstractSolver)
     Z = get_trajectory(solver)
     model = get_model(solver)
     x0 = get_initial_state(solver)
-    rollout!(model, Z, x0)
+    rollout!(integration(solver), model, Z, x0)
 end
 
 TO.states(solver::AbstractSolver) = [state(z) for z in get_trajectory(solver)]
