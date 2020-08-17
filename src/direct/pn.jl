@@ -116,4 +116,4 @@ TO.get_trajectory(solver::ProjectedNewtonSolver) = solver.Z
 TO.get_objective(solver::ProjectedNewtonSolver) = solver.prob.obj
 iterations(solver::ProjectedNewtonSolver) = solver.stats.iterations_pn
 get_active_set(solver::ProjectedNewtonSolver) = solver.active_set
-solvername(::Type{<:ProjectedNewtonSolver}) = :PN
+solvername(::Type{<:ProjectedNewtonSolver}) = :ProjectedNewton

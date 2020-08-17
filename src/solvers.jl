@@ -83,7 +83,7 @@ function terminate!(solver::AbstractSolver)
     # Print solve summary
     if solver.opts.show_summary && is_parentsolver(solver)
         print_summary(solver)
-end
+    end
 end
 
 """
@@ -152,9 +152,10 @@ get_constraints(::ConstrainedSolver)::ConstrainSet
 """
 abstract type ConstrainedSolver{T} <: AbstractSolver{T} end
 
-is_constrained(::AbstractSolver)::Bool = true
-is_constrained(::ConstrainedSolver)::Bool = true
-is_constrained(::UnconstrainedSolver)::Bool = false
+is_constrained(::Type{<:AbstractSolver})::Bool = true
+is_constrained(::Type{<:ConstrainedSolver})::Bool = true
+is_constrained(::Type{<:UnconstrainedSolver})::Bool = false
+is_constrained(solver::AbstractSolver) = is_constrained(typeof(solver)) && !isempty(get_constraints(solver))
 
 @inline get_duals(solver::ConstrainedSolver) = get_duals(get_constraints(solver))
 

@@ -49,6 +49,8 @@ end
 @inline TO.get_model(solver::ALTROSolver) = get_model(solver.solver_al)
 @inline get_initial_state(solver::ALTROSolver) = get_initial_state(solver.solver_al)
 solvername(::Type{<:ALTROSolver}) = :ALTRO
+TrajectoryOptimization.integration(solver::ALTROSolver) = integration(solver.solver_al)
+is_constrained(solver::ALTROSolver) = isempty(get_constraints(solver.solver_al))
 
 function TO.get_constraints(solver::ALTROSolver)
     if solver.opts.projected_newton
@@ -57,6 +59,7 @@ function TO.get_constraints(solver::ALTROSolver)
         get_constraints(solver.solver_al)
     end
 end
+
 
 
 # Solve Methods

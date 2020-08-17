@@ -65,7 +65,8 @@ Base.size(solver::AugmentedLagrangianSolver) = size(solver.solver_uncon)
 @inline TO.get_objective(solver::AugmentedLagrangianSolver) = get_objective(solver.solver_uncon)
 @inline TO.get_model(solver::AugmentedLagrangianSolver) = get_model(solver.solver_uncon)
 @inline get_initial_state(solver::AugmentedLagrangianSolver) = get_initial_state(solver.solver_uncon)
-solvername(::Type{<:AugmentedLagrangianSolver}) = :AL
+@inline TrajectoryOptimization.integration(solver::AugmentedLagrangianSolver) = integration(solver.solver_uncon)
+solvername(::Type{<:AugmentedLagrangianSolver}) = :AugmentedLagrangian
 
 function TO.get_constraints(solver::AugmentedLagrangianSolver{T}) where T
     obj = get_objective(solver)::ALObjective{T}
