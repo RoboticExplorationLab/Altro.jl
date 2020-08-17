@@ -10,8 +10,12 @@ function solve!(solver::AugmentedLagrangianSolver{T,S}) where {T,S}
     J_ = TO.get_J(get_objective(solver))
     J = sum(J_)
 
+    # Terminal tolerances
+    cost_tol = solver.opts.cost_tolerance
+    grad_tol = solver.opts.gradient_tolerance
+
     for i = 1:solver.opts.iterations_outer
-		set_tolerances!(solver, solver_uncon, i)
+		set_tolerances!(solver, solver_uncon, i, cost_tol, grad_tol)
 
         # Solve the unconstrained problem
         solve!(solver.solver_uncon)
@@ -40,6 +44,8 @@ function solve!(solver::AugmentedLagrangianSolver{T,S}) where {T,S}
 
         reset!(solver_uncon)
     end
+    solver.opts.cost_tolerance = cost_tol
+    solver.opts.gradient_tolerance = grad_tol
     terminate!(solver)
     return solver
 end
@@ -91,13 +97,16 @@ function record_iteration!(solver::AugmentedLagrangianSolver{T,S}, J::T, c_max::
 end
 
 function set_tolerances!(solver::AugmentedLagrangianSolver{T},
-        solver_uncon::AbstractSolver{T},i::Int) where T
+        solver_uncon::AbstractSolver{T}, i::Int, 
+        cost_tol=solver.opts.cost_tolerance, 
+        grad_tol=solver.opts.gradient_tolerance
+    ) where T
     if i != solver.opts.iterations_outer
         solver_uncon.opts.cost_tolerance = solver.opts.cost_tolerance_intermediate
         solver_uncon.opts.gradient_tolerance = solver.opts.gradient_tolerance_intermediate
     else
-        solver_uncon.opts.cost_tolerance = solver.opts.cost_tolerance
-        solver_uncon.opts.gradient_tolerance = solver.opts.gradient_tolerance
+        solver_uncon.opts.cost_tolerance = cost_tol 
+        solver_uncon.opts.gradient_tolerance = grad_tol 
     end
 
     return nothing
