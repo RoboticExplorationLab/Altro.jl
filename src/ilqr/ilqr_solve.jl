@@ -29,12 +29,6 @@ function solve!(solver::iLQRSolver{T}) where T<:AbstractFloat
         # check for a change in solver status
         status(solver) > SOLVE_SUCCEEDED && break
 
-        # check for cost blow up
-        if J > solver.opts.max_cost_value
-            # @warn "Cost exceeded maximum cost"
-            solver.stats.status = MAXIMUM_COST
-            break
-        end
 
         copy_trajectories!(solver)
 
@@ -51,6 +45,13 @@ function solve!(solver::iLQRSolver{T}) where T<:AbstractFloat
             print_level(InnerLoop, global_logger())
         end
         exit && break
+
+        # check for cost blow up
+        if J > solver.opts.max_cost_value
+            # @warn "Cost exceeded maximum cost"
+            solver.stats.status = MAXIMUM_COST
+            break
+        end
     end
     terminate!(solver)
     return solver
