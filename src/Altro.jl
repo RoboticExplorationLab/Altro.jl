@@ -9,6 +9,7 @@ using BenchmarkTools
 using Interpolations
 using UnsafeArrays
 using SolverLogging
+using Crayons
 
 using SparseArrays
 using LinearAlgebra

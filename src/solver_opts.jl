@@ -85,6 +85,7 @@ end
     # General options
     projected_newton::Bool = true
     iterations::Int = 1000   # max number of iterations
+    show_summary::Bool = false
     verbose::Int = 0 
 end
 
@@ -137,6 +138,8 @@ end
     dJ_zero_counter::Int = 0
 
     # Other
+    tstart::Float64 = time()
+    tsolve::Float64 = Inf 
     status::TerminationStatus = UNSOLVED
     is_reset::Bool = false
     "Which solver is the top-level solver and responsible for resetting and trimming."
@@ -168,6 +171,8 @@ function reset!(stats::SolverStats, N::Int=0)
     reset!(stats.c_max, N)
     reset!(stats.gradient, N)
     reset!(stats.penalty_max, N)
+    stats.tstart = time_ns()
+    stats.tsolve = Inf
     stats.dJ_zero_counter = 0
     stats.is_reset = true
     return nothing

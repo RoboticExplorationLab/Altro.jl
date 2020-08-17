@@ -67,6 +67,7 @@ function solve!(solver::ALTROSolver)
     if isempty(conSet) 
         ilqr = solver.solver_al.solver_uncon
         solve!(ilqr)
+        terminate!(solver)
         return solver
     end
 

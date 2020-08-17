@@ -50,6 +50,7 @@ iterations(solver::AbstractSolver) = stats(solver).iterations
 set_options!(solver::AbstractSolver; opts...) = set_options!(options(solver); opts...)
 reset!(solver::AbstractSolver) = reset_solver!(solver)  # default method
 solvername(solver::S) where S <: AbstractSolver = solvername(S)
+is_parentsolver(solver::AbstractSolver) = stats(solver).parent == solvername(solver)
 
 """
     reset_solver!(solver::AbstractSolver)
@@ -72,10 +73,17 @@ end
 Perform any necessary actions after finishing the solve.
 """
 function terminate!(solver::AbstractSolver)
+    # Time solve
+    stat = stats(solver)
+    stat.tsolve = (time_ns() - stat.tstart)*1e-6  # in ms
+
     # Delete extra stats entries, only if terminal solver
     trim!(stats(solver), solvername(solver))
 
-    # TODO: Print an optional summary
+    # Print solve summary
+    if solver.opts.show_summary && is_parentsolver(solver)
+        print_summary(solver)
+end
 end
 
 """
@@ -94,6 +102,39 @@ end
     STATE_LIMIT, CONTROL_LIMIT, NO_PROGRESS, COST_INCREASE)
 
 @inline status(solver::AbstractSolver) = stats(solver).status
+
+function print_summary(solver::S) where S <: AbstractSolver
+    stat = stats(solver)
+    col_h1 = crayon"bold green"
+    col_h2 = crayon"bold blue"
+    col0 = Crayon(reset=true)
+    get_color(v::Bool) = v ? crayon"green" : crayon"red" 
+
+    # Info header
+    println(col_h1, "\nSOLVE COMPLETED")
+    print(col0," solved using the ")
+    print(col0, crayon"bold cyan", solvername(solver))
+    print(col0, " Solver,\n part of the Altro.jl package developed by the REx Lab at Stanford and Carnegie Mellon Universities\n")
+
+    # Stats
+    println(col_h2, "\n  Solve Statistics")
+    println(col0, "    Total Iterations: ", iterations(solver))
+    println(col0, "    Solve Time: ", stat.tsolve, " (ms)")
+
+    # Convergence
+    println(col_h2, "\n  Covergence")
+    if iterations(solver) == 0
+        println(crayon"red", "    Solver failed to make it through the first iteration.")
+    else
+        println(col0, "    Terminal Cost: ", stat.cost[end])
+        println(col0, "    Terminal dJ: ", get_color(stat.dJ[end] < solver.opts.cost_tolerance), stat.dJ[end])
+        println(col0, "    Terminal gradient: ", get_color(stat.gradient[end] < solver.opts.gradient_tolerance), stat.gradient[end])
+        if is_constrained(solver)
+            println(col0, "    Terminal constraint violation: ", get_color(stat.c_max[end] < solver.opts.constraint_tolerance), stat.c_max[end])
+        end
+    end
+    println(col0, "    Solve Status: ", crayon"bold", get_color(status(solver) == SOLVE_SUCCEEDED), status(solver))
+end
 
 "$(TYPEDEF) Unconstrained optimization solver. Will ignore
 any constraints in the problem"

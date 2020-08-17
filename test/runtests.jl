@@ -12,6 +12,7 @@ end
 
 @testset "Solvers" begin
     include("constructors.jl")
+    include("solve_tests.jl")
 end
 
 @testset "Solver Options" begin
