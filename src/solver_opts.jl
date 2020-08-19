@@ -156,7 +156,7 @@ end
 
 function reset!(stats::SolverStats, N::Int=0)
     stats.is_reset && return nothing
-    stats.iterations = 0
+    stats.iterations = 1
     stats.iterations_outer = 0
     stats.iterations_pn = 0
     function reset!(v::AbstractVector{T}, N::Int) where T 
