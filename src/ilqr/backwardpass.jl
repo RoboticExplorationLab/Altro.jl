@@ -144,7 +144,7 @@ function _bp_reg!(Quu_reg::SizedMatrix{m,m}, Qux_reg, Q, fdx, fdu, ρ, ver=:cont
     if ver == :state
         Quu_reg .= Q.R #+ solver.ρ[1]*fdu'fdu
 		mul!(Quu_reg, Transpose(fdu), fdu, ρ, 1.0)
-        Qux_reg .= Q.J #+ solver.ρ[1]*fdu'fdx
+        Qux_reg .= Q.H #+ solver.ρ[1]*fdu'fdx
 		mul!(Qux_reg, fdu', fdx, ρ, 1.0)
     elseif ver == :control
         Quu_reg .= Q.R #+ solver.ρ[1]*I
