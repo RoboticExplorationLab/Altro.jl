@@ -58,7 +58,7 @@ X = states(altro)
 U = controls(altro)
 
 # Extract the solver statistics
-stats = Altro.stats(solver)  # alternatively, solver.stats
+stats = Altro.stats(altro)  # alternatively, solver.stats
 stats.iterations             # 40, equivalent to iterations(solver)
 stats.iterations_outer       # 4 (number of Augmented Lagrangian iterations)
 stats.iterations_pn          # 1 (number of projected newton iterations)
