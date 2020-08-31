@@ -21,12 +21,12 @@ function rollout!(solver::iLQRSolver{T,Q,n}, α) where {T,Q,n}
             control(Z[k+1])]
 
         max_x = norm(state(Z̄[k+1]),Inf)
-        if max_x > solver.opts.max_state_value
+        if max_x > solver.opts.max_state_value || isnan(max_x)
             solver.stats.status = STATE_LIMIT
             return false
         end
         max_u = norm(control(Z̄[k+1]),Inf)
-        if max_u > solver.opts.max_control_value
+        if max_u > solver.opts.max_control_value || isnan(max_u)
             solver.stats.status = CONTROL_LIMIT 
             return false
         end

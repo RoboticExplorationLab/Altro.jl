@@ -20,14 +20,14 @@ function solve!(solver::AugmentedLagrangianSolver{T,S}) where {T,S}
         # Solve the unconstrained problem
         solve!(solver.solver_uncon)
 
+        # Check solver status
+        status(solver) > SOLVE_SUCCEEDED && break
+
         # Record the updated information
         J = sum(J_)
         TO.max_violation!(conSet)
         c_max = maximum(conSet.c_max)
         record_iteration!(solver, J, c_max)
-
-        # Check solver status
-        status(solver) > SOLVE_SUCCEEDED && break
 
         # Check for convergence before doing the outer loop udpate
         converged = evaluate_convergence(solver)
@@ -43,6 +43,10 @@ function solve!(solver::AugmentedLagrangianSolver{T,S}) where {T,S}
         set_verbosity!(solver)
 
         reset!(solver_uncon)
+
+        if i == solver.opts.iterations_outer
+            solver.stats.status = MAX_ITERATIONS
+        end
     end
     solver.opts.cost_tolerance = cost_tol
     solver.opts.gradient_tolerance = grad_tol

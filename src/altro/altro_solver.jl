@@ -90,20 +90,23 @@ function solve!(solver::ALTROSolver)
     # Solve with AL
     solve!(solver.solver_al)
 
-    # Check convergence
-    i = solver.solver_al.stats.iterations
-    c_max = solver.solver_al.stats.c_max[i]
+    if status(solver) <= SOLVE_SUCCEEDED
+        # Check convergence
+        i = solver.solver_al.stats.iterations
+        c_max = solver.solver_al.stats.c_max[i]
 
-    opts.constraint_tolerance = ϵ_con
-    if opts.projected_newton && c_max > opts.constraint_tolerance && status(solver) <= SOLVE_SUCCEEDED
-        solve!(solver.solver_pn)
-    end
-    
-    # Back-up check
-    if status(solver) == UNSOLVED
-        # TODO: improve this check
-        if max_violation(solver) < solver.opts.constraint_tolerance
-            solver.stats.status = SOLVE_SUCCEEDED
+        opts.constraint_tolerance = ϵ_con
+        if opts.projected_newton && c_max > opts.constraint_tolerance && 
+                (status(solver) <= SOLVE_SUCCEEDED || status(solver) == MAX_ITERATIONS_OUTER)
+            solve!(solver.solver_pn)
+        end
+
+        # Back-up check
+        if status(solver) <= SOLVE_SUCCEEDED 
+            # TODO: improve this check
+            if TO.max_violation(solver) < solver.opts.constraint_tolerance
+                solver.stats.status = SOLVE_SUCCEEDED
+            end
         end
     end
 

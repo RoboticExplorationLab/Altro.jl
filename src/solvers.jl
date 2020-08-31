@@ -92,14 +92,15 @@ end
 * `UNSOLVED`: Initial value. Solve either hasn't been attempted or is in process.. 
 * `SOLVE_SUCCEEDED`: Solve met all the required convergence criteria.
 * `MAX_ITERATIONS`: Solve was unable to meet the required convergence criteria within the maximum number of iterations.
+* `MAX_ITERATIONS_OUTER`: Solve was unable to meet the required constraint satisfaction the maximum number of outer loop iterations.
 * `MAXIMUM_COST`: Cost exceeded maximum allowable cost.
 * `STATE_LIMIT`: State values exceeded the imposed numerical limits.
 * `CONTROL_LIMIT`: Control values exceeded the imposed numerical limits.
 * `NO_PROGRESS`: iLQR was unable to make any progress for `dJ_counter_limit` consecutive iterations.
 * `COST_INCREASE`: The cost increased during the iLQR forward pass.
 """
-@enum(TerminationStatus, UNSOLVED, SOLVE_SUCCEEDED, MAX_ITERATIONS, MAXIMUM_COST, 
-    STATE_LIMIT, CONTROL_LIMIT, NO_PROGRESS, COST_INCREASE)
+@enum(TerminationStatus, UNSOLVED, SOLVE_SUCCEEDED, MAX_ITERATIONS, MAX_ITERATIONS_OUTER,
+    MAXIMUM_COST, STATE_LIMIT, CONTROL_LIMIT, NO_PROGRESS, COST_INCREASE)
 
 @inline status(solver::AbstractSolver) = stats(solver).status
 
@@ -134,6 +135,7 @@ function print_summary(solver::S) where S <: AbstractSolver
         end
     end
     println(col0, "    Solve Status: ", crayon"bold", get_color(status(solver) == SOLVE_SUCCEEDED), status(solver))
+    print(Crayon(reset=true))  # reset output color
 end
 
 "$(TYPEDEF) Unconstrained optimization solver. Will ignore

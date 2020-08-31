@@ -175,6 +175,7 @@ function reset!(stats::SolverStats, N::Int=0)
     stats.tsolve = Inf
     stats.dJ_zero_counter = 0
     stats.is_reset = true
+    stats.status = UNSOLVED
     return nothing
 end
 
