@@ -102,6 +102,15 @@ if !Sys.iswindows()   # not sure why this fails on Windows?
     @test status(solver) == Altro.SOLVE_SUCCEEDED 
 end
 
+solver = ALTROSolver(Problems.Quadrotor(:zigzag)..., projected_newton=false, 
+    infeasible=true, static_bp=false, constraint_tolerance=1e-4)
+b = benchmark_solve!(solver, samples=2, evals=2)
+if !Sys.iswindows()
+    @test b.allocs == 0
+end
+@test iterations(solver) == 20
+@test status(solver) == Altro.SOLVE_SUCCEEDED
+
 # Barrell Roll
 solver = ALTROSolver(Problems.YakProblems()...)
 b = benchmark_solve!(solver)
