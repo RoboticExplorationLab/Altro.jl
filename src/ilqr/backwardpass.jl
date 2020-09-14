@@ -19,28 +19,29 @@ function backwardpass!(solver::iLQRSolver{T,QUAD,L,O,n,n̄,m}) where {T,QUAD<:Qu
 
     # Terminal cost-to-go
 	Q = solver.Q[N]
-    S[N].xx .= Q.xx
-    S[N].x .= Q.x
+    S[N].Q .= Q.Q
+    S[N].q .= Q.q
 
     # Initialize expecte change in cost-to-go
     ΔV = @SVector zeros(2)
 
-    k = N-1
+	k = N-1
     while k > 0
         ix = Z[k]._x
         iu = Z[k]._u
 
 		# Get error state expanions
-		fdx,fdu = error_expansion(solver.D[k], model)
-		Q = solver.Q[k]
+		fdx,fdu = TO.error_expansion(solver.D[k], model)
+		cost_exp = solver.Q[k]
+		Q = solver.Q_tmp 
 
 		# Calculate action-value expansion
-		_calc_Q!(Q, S[k+1], S[k], fdx, fdu)
+		_calc_Q!(Q, cost_exp, S[k+1], fdx, fdu, S[k])
 
 		# Regularization
-		Quu_reg .= Q.uu #+ solver.ρ[1]*I
+		Quu_reg .= Q.R #+ solver.ρ[1]*I
 		Quu_reg .+= solver.ρ[1]*Diagonal(@SVector ones(m))
-		Qux_reg .= Q.ux
+		Qux_reg .= Q.H
 
 	    if solver.opts.bp_reg
 	        vals = eigvals(Hermitian(Quu_reg))
@@ -54,9 +55,9 @@ function backwardpass!(solver::iLQRSolver{T,QUAD,L,O,n,n̄,m}) where {T,QUAD<:Qu
 	    end
 
         # Compute gains
-		_calc_gains!(K[k], d[k], Quu_reg, Qux_reg, Q.u)
+		_calc_gains!(K[k], d[k], Quu_reg, Qux_reg, Q.r)
 
-        # Calculate cost-to-go (using unregularized Quu and Qux)
+		# Calculate cost-to-go (using unregularized Quu and Qux)
 		ΔV += _calc_ctg!(S[k], Q, K[k], d[k])
 
         k -= 1
@@ -91,7 +92,7 @@ function static_backwardpass!(solver::iLQRSolver{T,QUAD,L,O,n,n̄,m}) where {T,Q
     # Initialize expected change in cost-to-go
     ΔV = @SVector zeros(2)
 
-    k = N-1
+	k = N-1
     while k > 0
         ix = Z[k]._x
         iu = Z[k]._u
@@ -123,8 +124,9 @@ function static_backwardpass!(solver::iLQRSolver{T,QUAD,L,O,n,n̄,m}) where {T,Q
         # Compute gains
 		K_, d_ = _calc_gains!(K[k], d[k], Quu_reg, Qux_reg, Q.u)
 
-        # Calculate cost-to-go (using unregularized Quu and Qux)
+		# Calculate cost-to-go (using unregularized Quu and Qux)
 		Sxx, Sx, ΔV_ = _calc_ctg!(Q, K_, d_)
+		# k >= N-2 && println(diag(Sxx))
 		if solver.opts.save_S
 			S[k].xx .= Sxx
 			S[k].x .= Sx
@@ -137,7 +139,6 @@ function static_backwardpass!(solver::iLQRSolver{T,QUAD,L,O,n,n̄,m}) where {T,Q
     regularization_update!(solver, :decrease)
 
     return ΔV
-
 end
 
 function _bp_reg!(Quu_reg::SizedMatrix{m,m}, Qux_reg, Q, fdx, fdu, ρ, ver=:control) where {m}
@@ -165,25 +166,30 @@ function _bp_reg!(Q, fdx, fdu, ρ, ver=:control)
 	Quu_reg, Qux_reg
 end
 
-function _calc_Q!(Q, S1, S, fdx, fdu)
+function _calc_Q!(Q, cost_exp, S1, fdx, fdu, Q_tmp)
 	# Compute the cost-to-go, stashing temporary variables in S[k]
-    # Qx =  Q.x[k] + fdx'S.x[k+1]
-	mul!(Q.x, Transpose(fdx), S1.x, 1.0, 1.0)
+	# Qx =  Q.x[k] + fdx'S.x[k+1]
+	mul!(Q.q, Transpose(fdx), S1.q)
+	Q.q .+= cost_exp.q
 
     # Qu =  Q.u[k] + fdu'S.x[k+1]
-	mul!(Q.u, Transpose(fdu), S1.x, 1.0, 1.0)
+	mul!(Q.r, Transpose(fdu), S1.q)
+	Q.r .+= cost_exp.r
 
     # Qxx = Q.xx[k] + fdx'S.xx[k+1]*fdx
-	mul!(S.xx, Transpose(fdx), S1.xx)
-	mul!(Q.xx, S.xx, fdx, 1.0, 1.0)
+	mul!(Q_tmp.Q, Transpose(fdx), S1.Q)
+	mul!(Q.Q, Q_tmp.Q, fdx)
+	Q.Q .+= cost_exp.Q
 
     # Quu = Q.uu[k] + fdu'S.xx[k+1]*fdu
-	mul!(S.ux, Transpose(fdu), S1.xx)
-	mul!(Q.uu, S.ux, fdu, 1.0, 1.0)
+	mul!(Q_tmp.H, Transpose(fdu), S1.Q)
+	mul!(Q.R, Q_tmp.H, fdu)
+	Q.R .+= cost_exp.R
 
     # Qux = Q.ux[k] + fdu'S.xx[k+1]*fdx
-	mul!(S.ux, Transpose(fdu), S1.xx)
-	mul!(Q.ux, S.ux, fdx, 1.0, 1.0)
+	mul!(Q_tmp.H, Transpose(fdu), S1.Q)
+	mul!(Q.H, Q_tmp.H, fdx)
+	Q.H .+= cost_exp.H
 
 	return nothing
 end
@@ -219,28 +225,28 @@ end
 
 function _calc_ctg!(S, Q, K, d)
 	# S.x[k]  =  Qx + K[k]'*Quu*d[k] + K[k]'* Qu + Qux'd[k]
-	tmp1 = S.u
-	S.x .= Q.x
-	mul!(tmp1, Q.uu, d)
-	mul!(S.x, Transpose(K), tmp1, 1.0, 1.0)
-	mul!(S.x, Transpose(K), Q.u, 1.0, 1.0)
-	mul!(S.x, Transpose(Q.ux), d, 1.0, 1.0)
+	tmp1 = S.r
+	S.q .= Q.q
+	mul!(tmp1, Q.R, d)
+	mul!(S.q, Transpose(K), tmp1, 1.0, 1.0)
+	mul!(S.q, Transpose(K), Q.r, 1.0, 1.0)
+	mul!(S.q, Transpose(Q.H), d, 1.0, 1.0)
 
 	# S.xx[k] = Qxx + K[k]'*Quu*K[k] + K[k]'*Qux + Qux'K[k]
-	tmp2 = S.ux
-	S.xx .= Q.xx
-	mul!(tmp2, Q.uu, K)
-	mul!(S.xx, Transpose(K), tmp2, 1.0, 1.0)
-	mul!(S.xx, Transpose(K), Q.ux, 1.0, 1.0)
-	mul!(S.xx, Transpose(Q.ux), K, 1.0, 1.0)
-	transpose!(Q.xx, S.xx)
-	S.xx .+= Q.xx
-	S.xx .*= 0.5
+	tmp2 = S.H
+	S.Q .= Q.Q
+	mul!(tmp2, Q.R, K)
+	mul!(S.Q, Transpose(K), tmp2, 1.0, 1.0)
+	mul!(S.Q, Transpose(K), Q.H, 1.0, 1.0)
+	mul!(S.Q, Transpose(Q.H), K, 1.0, 1.0)
+	transpose!(Q.Q, S.Q)
+	S.Q .+= Q.Q
+	S.Q .*= 0.5
 
     # calculated change is cost-to-go over entire trajectory
-	t1 = d'Q.u
-	mul!(Q.u, Q.uu, d)
-	t2 = 0.5*d'Q.u
+	t1 = dot(d, Q.r)
+	mul!(Q.r, Q.R, d)
+	t2 = 0.5*dot(d, Q.r)
     return @SVector [t1, t2]
 end
 

@@ -32,6 +32,16 @@ TEST_TIME && @test minimum(b).time / 1e6 <  10
 @test solver.stats.gradient[end] < 1e-2
 @test status(solver) == Altro.SOLVE_SUCCEEDED 
 
+solver = ALTROSolver(Problems.Cartpole()..., projected_newton=false)
+if !Sys.iswindows()
+    @test b = benchmark_solve!(solver).allocs == 0
+end
+
+solver = ALTROSolver(Problems.Cartpole()..., projected_newton=false, static_bp=false)
+if !Sys.iswindows()
+    @test b = benchmark_solve!(solver).allocs == 0
+end
+
 # Acrobot
 solver = ALTROSolver(Problems.Acrobot()...)
 b = benchmark_solve!(solver)
