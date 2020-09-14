@@ -116,7 +116,7 @@ end
 
 
 # Infeasible methods
-function InfeasibleProblem(prob::Problem, Z0::Traj, R_inf::Real)
+function InfeasibleProblem(prob::Problem{RK}, Z0::Traj, R_inf::Real) where RK
     @assert !isnan(sum(sum.(states(Z0))))
 
     n,m,N = size(prob)  # original sizes
@@ -139,7 +139,7 @@ function InfeasibleProblem(prob::Problem, Z0::Traj, R_inf::Real)
     obj = infeasible_objective(prob.obj, R_inf)
 
     # Create new problem
-    Problem(model_inf, obj, conSet, prob.x0, prob.xf, Z, N, prob.t0, prob.tf)
+    Problem{RK}(model_inf, obj, conSet, prob.x0, prob.xf, Z, N, prob.t0, prob.tf)
 end
 
 function infeasible_objective(obj::Objective, regularizer)

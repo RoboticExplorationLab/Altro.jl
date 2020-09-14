@@ -17,19 +17,38 @@ to be zero by the end of the solve.
 InfeasibleModel(model::AbstractModel)
 ```
 """
-struct InfeasibleModel{N,M,D<:AbstractModel} <: AbstractModel
+
+struct Infeasible{N,M,D<:AbstractModel} <: AbstractModel
     model::D
     _u::SVector{M,Int}  # inds to original controls
     _ui::SVector{N,Int} # inds to infeasible controls
 end
 
+struct InfeasibleLie{N,M,D<:AbstractModel} <: RobotDynamics.LieGroupModel 
+    model::D
+    _u::SVector{M,Int}  # inds to original controls
+    _ui::SVector{N,Int} # inds to infeasible controls
+end
+
+const InfeasibleModel{N,M,D} = Union{Infeasible{N,M,D},InfeasibleLie{N,M,D}} where {N,M,D}
+
 function InfeasibleModel(model::AbstractModel)
     n,m = size(model)
     _u  = SVector{m}(1:m)
     _ui = SVector{n}((1:n) .+ m)
-    InfeasibleModel(model, _u, _ui)
+    Infeasible(model, _u, _ui)
 end
 
+function InfeasibleModel(model::RobotDynamics.LieGroupModel)
+    n,m = size(model)
+    _u  = SVector{m}(1:m)
+    _ui = SVector{n}((1:n) .+ m)
+    InfeasibleLie(model, _u, _ui)
+end
+
+RobotDynamics.LieState(model::InfeasibleLie) = RobotDynamics.LieState(model.model)
+
+# Generic Infeasible Methods
 function Base.size(model::InfeasibleModel)
     n,m = size(model.model)
     return n, n+m
@@ -109,7 +128,7 @@ function infeasible_trajectory(model::InfeasibleModel{n,m}, Z0::Traj) where {T,n
     Z = [KnotPoint(state(z), [control(z); ui], z.dt, z.t) for z in Z0]
     N = length(Z0)
     for k = 1:N-1
-        RobotDynamics.propagate_dynamics(RobotDynamics.RK3, model, Z[k+1], Z[k])
+        RobotDynamics.propagate_dynamics(RobotDynamics.RK4, model, Z[k+1], Z[k])
         x′ = state(Z[k+1])
         u_slack = state(Z0[k+1]) - x′
         u = [control(Z0[k]); u_slack]
@@ -118,6 +137,7 @@ function infeasible_trajectory(model::InfeasibleModel{n,m}, Z0::Traj) where {T,n
     end
     return Traj(Z)
 end
+
 
 ############################################################################################
 #  								INFEASIBLE CONSTRAINT 									   #
