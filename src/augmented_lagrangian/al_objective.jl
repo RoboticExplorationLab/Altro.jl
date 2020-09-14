@@ -14,6 +14,8 @@ end
 
 @inline TO.get_J(obj::ALObjective) = obj.obj.J
 @inline Base.length(obj::ALObjective) = length(obj.obj)
+@inline RobotDynamics.state_dim(obj::ALObjective) = RobotDynamics.state_dim(obj.obj)
+@inline RobotDynamics.control_dim(obj::ALObjective) = RobotDynamics.control_dim(obj.obj)
 
 
 function Base.copy(obj::ALObjective)

@@ -245,7 +245,7 @@ function TO.controls(solver::AbstractSolver)
     [control(Z[k]) for k = 1:N-1]
 end
 
-set_initial_state!(solver::AbstractSolver, x0) = copyto!(get_initial_state(solver), x0)
+TO.set_initial_state!(solver::AbstractSolver, x0) = copyto!(get_initial_state(solver), x0)
 
 @inline TO.initial_states!(solver::AbstractSolver, X0) = RobotDynamics.set_states!(get_trajectory(solver), X0)
 @inline TO.initial_controls!(solver::AbstractSolver, U0) = RobotDynamics.set_controls!(get_trajectory(solver), U0)
