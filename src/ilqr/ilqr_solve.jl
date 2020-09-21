@@ -38,7 +38,7 @@ function solve!(solver::iLQRSolver{T}) where T<:AbstractFloat
 
         # Record iteration and evaluate convergence
         record_iteration!(solver, J, dJ)
-        exit = evaluate_convergence(solver)
+        exit = evaluate_convergence(solver, i)
 
         # Print iteration
         if is_verbose(solver) 
@@ -199,7 +199,7 @@ end
 $(SIGNATURES)
 Check convergence conditions for iLQR
 """
-function evaluate_convergence(solver::iLQRSolver)
+function evaluate_convergence(solver::iLQRSolver, ilqr_iterations::Int)
     # Get current iterations
     i = solver.stats.iterations
     grad = solver.stats.gradient[i]
@@ -217,6 +217,12 @@ function evaluate_convergence(solver::iLQRSolver)
     if i >= solver.opts.iterations
         @logmsg InnerLoop "Hit max iterations. Terminating."
         solver.stats.status = MAX_ITERATIONS
+        return true
+    end
+
+    # Exit iLQR and continue solving if the maximum number of iLQR iterations
+    # has been reached.
+    if ilqr_iterations >= solver.opts.iterations_inner
         return true
     end
 
