@@ -89,34 +89,6 @@ end
     verbose::Int = 0 
 end
 
-function reset!(conSet::ALConstraintSet{T}, opts::SolverOptions{T}) where T
-    if !isnan(opts.dual_max)
-        for params in conSet.params
-            params.λ_max = opts.dual_max
-        end
-    end
-    if !isnan(opts.penalty_max)
-        for params in conSet.params
-            params.μ_max = opts.penalty_max
-        end
-    end
-    if !isnan(opts.penalty_initial)
-        for params in conSet.params
-            params.μ0 = opts.penalty_initial
-        end
-    end
-    if !isnan(opts.penalty_scaling)
-        for params in conSet.params
-            params.ϕ = opts.penalty_scaling
-        end
-    end
-    if opts.reset_duals
-        TO.reset_duals!(conSet)
-    end
-    if opts.reset_penalties
-        TO.reset_penalties!(conSet)
-    end
-end
 
 @with_kw mutable struct SolverStats{T}
     # Iteration counts

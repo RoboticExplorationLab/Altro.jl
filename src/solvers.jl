@@ -183,10 +183,10 @@ function update_constraints!(solver::ConstrainedSolver, Z::Traj=get_trajectory(s
     TO.evaluate!(conSet, Z)
 end
 
-function TO.update_active_set!(solver::ConstrainedSolver, 
+function update_active_set!(solver::ConstrainedSolver, 
         Z=get_trajectory(solver); tol=solver.opts.active_set_tolerance)
     conSet = get_constraints(solver)
-    TO.update_active_set!(conSet, Val(tol))
+    update_active_set!(conSet, Val(tol))
 end
 
 """ $(SIGNATURES)

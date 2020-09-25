@@ -7,7 +7,7 @@ function solve!(solver::ProjectedNewtonSolver)
     constraint_jacobian!(solver)
     copy_jacobians!(solver)
     TO.cost_expansion!(solver)
-    TO.update_active_set!(solver; tol=solver.opts.active_set_tolerance_pn)
+    update_active_set!(solver; tol=solver.opts.active_set_tolerance_pn)
     copy_active_set!(solver)
 
     if solver.opts.verbose_pn
@@ -65,7 +65,7 @@ function _projection_solve!(solver::ProjectedNewtonSolver)
     # Update everything
     update_constraints!(solver)
     constraint_jacobian!(solver)
-    TO.update_active_set!(solver; tol=solver.opts.active_set_tolerance_pn)
+    update_active_set!(solver; tol=solver.opts.active_set_tolerance_pn)
     TO.cost_expansion!(solver)
 
     # Copy results from constraint sets to sparse arrays
@@ -232,7 +232,7 @@ function primal_residual(solver::ProjectedNewtonSolver, update::Bool=false)
     if update
         update_constraints!(solver)
         copy_constraints!(solver)
-        TO.update_active_set!(solver; tol=solver.opts.active_set_tolerance_pn)
+        update_active_set!(solver; tol=solver.opts.active_set_tolerance_pn)
         copy_active_set!(solver)
         constraint_jacobian!(solver)
         copy_jacobians!(solver)

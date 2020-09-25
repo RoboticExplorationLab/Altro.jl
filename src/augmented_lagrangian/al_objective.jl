@@ -28,7 +28,7 @@ function TO.cost!(obj::ALObjective, Z::AbstractTrajectory)
 
     # Calculate constrained cost
     TO.evaluate!(obj.constraints, Z)
-    TO.update_active_set!(obj.constraints, Val(0.0))
+    update_active_set!(obj.constraints, Val(0.0))
     TO.cost!(TO.get_J(obj), obj.constraints)
 end
 

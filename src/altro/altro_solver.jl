@@ -34,7 +34,7 @@ function ALTROSolver(prob::Problem{Q,T}, opts::SolverOptions=SolverOptions();
     stats = SolverStats{T}(parent=solvername(ALTROSolver))
     solver_al = AugmentedLagrangianSolver(prob, opts, stats; solver_uncon=solver_uncon)
     solver_pn = ProjectedNewtonSolver(prob, opts, stats)
-    TO.link_constraints!(get_constraints(solver_pn), get_constraints(solver_al))
+    link_constraints!(get_constraints(solver_pn), get_constraints(solver_al))
     S = typeof(solver_al.solver_uncon)
     solver = ALTROSolver{T,S}(opts, stats, solver_al, solver_pn)
     reset!(solver)

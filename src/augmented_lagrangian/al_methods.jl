@@ -82,7 +82,7 @@ end
 function record_iteration!(solver::AugmentedLagrangianSolver{T,S}, J::T, c_max::T) where {T,S}
 
 	conSet = get_constraints(solver)
-	TO.max_penalty!(conSet)
+	max_penalty!(conSet)
     max_penalty = maximum(conSet.c_max)
     J_prev = solver.stats.cost[solver.stats.iterations]
     dJ = J_prev - J
@@ -125,11 +125,11 @@ end
 "General Dual Update"
 function dual_update!(solver::AugmentedLagrangianSolver) where {T,Q,N,M,NM}
     conSet = get_constraints(solver)
-	TO.dual_update!(conSet)
+	dual_update!(conSet)
 end
 
 "General Penalty Update"
 function penalty_update!(solver::AugmentedLagrangianSolver)
     conSet = get_constraints(solver)
-	TO.penalty_update!(conSet)
+	penalty_update!(conSet)
 end

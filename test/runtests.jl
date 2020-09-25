@@ -2,6 +2,7 @@ using Test
 using Altro
 using BenchmarkTools
 using TrajectoryOptimization
+const TO = TrajectoryOptimization
 
 TEST_TIME = false
 
@@ -12,6 +13,7 @@ end
 
 @testset "Solvers" begin
     include("constructors.jl")
+    include("augmented_lagrangian_tests.jl")
     include("solve_tests.jl")
 end
 
