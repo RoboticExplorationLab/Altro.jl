@@ -177,9 +177,28 @@ function TO.cost!(J::Vector{<:Real}, conval::TO.ConVal, λ::Vector{<:StaticVecto
 		μ::Vector{<:StaticVector}, a::Vector{<:StaticVector})
 	for (i,k) in enumerate(conval.inds)
 		c = SVector(conval.vals[i])
-		Iμ = Diagonal(SVector(μ[i] .* a[i]))
-		J[k] += λ[i]'c .+ 0.5*c'Iμ*c
+		if TO.sense(conval.con) == TO.Inequality()
+			c_pen = penalty(c, λ[i])
+		else
+			c_pen = c
+		end
+		Iμ = Diagonal(SVector(μ[i]))
+		# c_pen = c
+		# Iμ = Diagonal(SVector(μ[i] .* a[i]))
+		J[k] += λ[i]'c .+ 0.5*c_pen'Iμ*c_pen
 	end
+end
+
+function penalty(c, λ)
+	is_incone = all(c .<= 0)	   # check if primals are in the cone
+	inactive = norm(λ,Inf) < 1e-9  # check duals are near the origin
+	if is_incone && inactive
+		return zero(c)
+	else                           # penalize the projection onto the cone
+		return max.(0, c)
+	end
+	a = @. (c >= 0) | (λ > 0)
+	return a .* c
 end
 
 
