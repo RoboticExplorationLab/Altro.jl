@@ -38,9 +38,10 @@ penalties and/or multipliers can be reset using
 struct ALConstraintSet{T} <: TO.AbstractConstraintSet
     convals::Vector{TO.ConVal}
     errvals::Vector{TO.ConVal}
+	∇c_proj::Vector{<:Vector}        # Jacobians of projected constraints
     λ::Vector{<:Vector}
     μ::Vector{<:Vector}
-    active::Vector{<:Vector}
+	active::Vector{<:Vector}
     c_max::Vector{T}
     μ_max::Vector{T}
     μ_maxes::Vector{Vector{T}}
@@ -62,23 +63,26 @@ function ALConstraintSet(cons::TO.ConstraintList, model::RD.AbstractModel)
     end
 	errvals = convert(Vector{TO.ConVal}, errvals)
 	convals = convert(Vector{TO.ConVal}, convals)
+	∇c_proj = map(1:ncon) do i
+		[copy(errvals[i].jac[j,1]) for j in eachindex(cons.inds[i])]
+	end
     λ = map(1:ncon) do i
         p = length(cons[i])
-        [@SVector zeros(p) for i in cons.inds[i]]
+        [@SVector zeros(p) for j in cons.inds[i]]
     end
     μ = map(1:ncon) do i
         p = length(cons[i])
-        [@SVector ones(p) for i in cons.inds[i]]
+        [@SVector ones(p) for j in cons.inds[i]]
     end
     a = map(1:ncon) do i
         p = length(cons[i])
-        [@SVector ones(Bool,p) for i in cons.inds[i]]
+        [@SVector ones(Bool,p) for j in cons.inds[i]]
     end
     c_max = zeros(ncon)
     μ_max = zeros(ncon)
     μ_maxes = [zeros(length(ind)) for ind in cons.inds]
 	params = [TO.ConstraintParams() for con in cons.constraints]
-    ALConstraintSet(convals, errvals, λ, μ, a, c_max, μ_max, μ_maxes, params, copy(cons.p))
+    ALConstraintSet(convals, errvals, ∇c_proj, λ, μ, a, c_max, μ_max, μ_maxes, params, copy(cons.p))
 end
 
 @inline ALConstraintSet(prob::Problem) = ALConstraintSet(prob.constraints, prob.model)
@@ -162,12 +166,80 @@ function max_penalty!(μ_max::Vector{<:Real}, μ::Vector{<:StaticVector})
     return nothing
 end
 
+############################################################################################
+#                             Constraint Penalties
+############################################################################################
+"""
+	constraint_penalty!(conSet::ALConstraintSet)
+
+Evaluate the penalty of the constraints. For equality constraints, this is the constraint 
+itself. For generalized inequalities, this is the projection of the constraint onto the
+appropriate cone.
+"""
+function constraint_penalty!(conSet::ALConstraintSet)
+	for i in eachindex(conSet.convals)
+		constraint_penalty!(conSet.convals[i], conSet.λ[i])
+	end
+end
+
+function constraint_penalty!(conval::TO.ConVal, λ)
+	for i in eachindex(conval.inds)
+		conval.vals2[i] = penalty(TO.sense(conval.con), conval.vals[i], λ[i])
+	end
+end
+
+penalty(::TO.Equality, c, λ) = c
+
+function penalty(::TO.Inequality, c, λ)
+	# is_incone = all(c .<= 0)	   # check if primals are in the cone
+	# inactive = norm(λ,Inf) < 1e-9  # check duals are near the origin
+	# if is_incone && inactive
+	# 	return zero(c)
+	# else                           # penalize the projection onto the cone
+	# 	return max.(0, c)
+	# end
+	a = @. (c >= 0) | (λ > 0)
+	return a .* c
+end
+
+function ∇penalty!(∇c_proj, ∇c, c, λ)
+	# is_incone = all(c .<= 0)	   # check if primals are in the cone
+	# inactive = norm(λ,Inf) < 1e-9  # check duals are near the origin
+	a = @. (c >= 0) | (λ > 0)
+	for i in eachindex(c)
+		∇c_proj[i,:] = ∇c[i,:] * a[i]
+	end
+end
+
+"""
+	penalty_jacobian!(conSet::ALConstraintSet)
+
+Evaluate the Jacobian of the constraint penalty. For equality constraints, this is simply
+the Jacobian of the constraint itself. For generalized inequalities, this is `∇proj*∇c`
+where `∇proj` is the Jacobian of the projection of the constraint onto the corresponding 
+cone.
+"""
+function penalty_jacobian!(conSet::ALConstraintSet)
+	for i in eachindex(conSet.errvals)
+		penalty_jacobian!(conSet.∇c_proj[i], conSet.errvals[i], conSet.λ[i])
+	end
+end
+
+function penalty_jacobian!(∇c_proj::Vector, conval::TO.ConVal, λ::Vector)
+	if size(conval.jac, 2) > 1
+		throw(ErrorException("Constraint projection not supported for CoupledConstraints"))
+	end
+	for i in eachindex(conval.inds)
+		∇penalty!(∇c_proj[i], conval.jac[i], conval.vals[i], λ[i])
+	end
+end
 
 ############################################################################################
 #                                        Cost
 ############################################################################################
 
 function TO.cost!(J::Vector{<:Real}, conSet::ALConstraintSet)
+	constraint_penalty!(conSet)
 	for i in eachindex(conSet.convals)
 		TO.cost!(J, conSet.convals[i], conSet.λ[i], conSet.μ[i], conSet.active[i])
 	end
@@ -176,51 +248,37 @@ end
 function TO.cost!(J::Vector{<:Real}, conval::TO.ConVal, λ::Vector{<:StaticVector},
 		μ::Vector{<:StaticVector}, a::Vector{<:StaticVector})
 	for (i,k) in enumerate(conval.inds)
-		c = SVector(conval.vals[i])
-		if TO.sense(conval.con) == TO.Inequality()
-			c_pen = penalty(c, λ[i])
-		else
-			c_pen = c
-		end
+		c = SVector(conval.vals[i])    # constraint value
+		c̄ = SVector(conval.vals2[i])   # constraint penalty 
 		Iμ = Diagonal(SVector(μ[i]))
-		# c_pen = c
-		# Iμ = Diagonal(SVector(μ[i] .* a[i]))
-		J[k] += λ[i]'c .+ 0.5*c_pen'Iμ*c_pen
+		J[k] += λ[i]'c .+ 0.5*c̄'Iμ*c̄
 	end
-end
-
-function penalty(c, λ)
-	is_incone = all(c .<= 0)	   # check if primals are in the cone
-	inactive = norm(λ,Inf) < 1e-9  # check duals are near the origin
-	if is_incone && inactive
-		return zero(c)
-	else                           # penalize the projection onto the cone
-		return max.(0, c)
-	end
-	a = @. (c >= 0) | (λ > 0)
-	return a .* c
 end
 
 
 function TO.cost_expansion!(E::Objective, conSet::ALConstraintSet, Z::AbstractTrajectory,
 		init::Bool=false, rezero::Bool=false)
+	penalty_jacobian!(conSet)
 	for i in eachindex(conSet.errvals)
-		TO.cost_expansion!(E, conSet.convals[i], conSet.λ[i], conSet.μ[i], conSet.active[i])
+		TO.cost_expansion!(E, conSet.convals[i], 
+			conSet.λ[i], conSet.μ[i], conSet.active[i], conSet.∇c_proj[i])
 	end
 end
 
-@generated function TO.cost_expansion!(E::QuadraticObjective{n,m}, conval::TO.ConVal{C}, λ, μ, a) where {n,m,C}
+@generated function TO.cost_expansion!(E::QuadraticObjective{n,m}, conval::TO.ConVal{C}, λ, μ, a, ∇c_proj) where {n,m,C}
 	if C <: TO.StateConstraint
 		expansion = quote
 			cx = ∇c
-			E[k].Q .+= cx'Iμ*cx
-			E[k].q .+= cx'g
+			cx̄ = ∇c̄
+			E[k].Q .+= cx̄'Iμ*cx̄
+			E[k].q .+= cx'λ[i] + cx̄'Iμ*c̄
 		end
 	elseif C <: TO.ControlConstraint
 		expansion = quote
 			cu = ∇c
-			E[k].R .+= cu'Iμ*cu
-			E[k].r .+= cu'g
+			cū = ∇c̄
+			E[k].R .+= cū'Iμ*cū
+			E[k].r .+= cu'λ[i] + cū'Iμ*c̄
 		end
 	elseif C<: TO.StageConstraint
 		ix = SVector{n}(1:n)
@@ -228,11 +286,13 @@ end
 		expansion = quote
 			cx = ∇c[:,$ix]
 			cu = ∇c[:,$iu]
-			E[k].Q .+= cx'Iμ*cx
-			E[k].q .+= cx'g
-			E[k].H .+= cu'Iμ*cx
-			E[k].R .+= cu'Iμ*cu
-			E[k].r .+= cu'g
+			cx̄ = ∇c̄[:,$ix]
+			cū = ∇c̄[:,$iu]
+			E[k].Q .+= cx̄'Iμ*cx̄
+			E[k].q .+= cx'λ[i] + cx̄'Iμ*c̄
+			E[k].H .+= cū'Iμ*cx̄
+			E[k].R .+= cū'Iμ*cū
+			E[k].r .+= cu'λ[i] + cū'Iμ*c̄
 		end
 	else
 		throw(ArgumentError("cost expansion not supported for CoupledConstraints"))
@@ -240,7 +300,11 @@ end
 	quote
 		for (i,k) in enumerate(conval.inds)
 			∇c = SMatrix(conval.jac[i])
+			∇c̄ = SMatrix(∇c_proj[i])
+			∇c̄ = ∇c
 			c = conval.vals[i]
+			c̄ = conval.vals2[i]
+			# c̄ = c
 			Iμ = Diagonal(a[i] .* μ[i])
 			g = Iμ*c .+ λ[i]
 
