@@ -31,7 +31,7 @@ function TO.cost(::TO.Inequality, λ, c, μ)
 end
 
 function TO.cost(cone::TO.SecondOrderCone, λ, c, μ)
-	λbar = projection(cone, λ - μ .* c)
+	λbar = TO.projection(cone, λ - μ .* c)
 	Iμ = Diagonal(1 ./ μ)
 	return 0.5 * (λbar'Iμ*λbar - λ'Iμ*λ)
 end
@@ -75,24 +75,26 @@ function TO.cost_expansion!(cone::SecondOrderCone, conval, i)
     λ = SVector(conval.λ[i])
     μ = SVector(conval.μ[i])
     Iμ = Diagonal(μ)
-    ∇proj = conval.jac_proj[i]  # pxp projection jacobian
+    ∇proj = conval.∇proj[i]  # pxp projection jacobian
+    ∇²proj = conval.∇²proj[i]
 
     # The term inside the projection operator
     λbar = λ - μ .* c
 
     # Evaluate the projection and it's derivatives
-    λp = projection(cone, λbar)      # TODO: don't project more than you need to!
-    ∇projection!(∇proj, λbar)        # evaluate the Jacobian of the projection operation
-    ∇²projection!(∇²proj, λbar, λp)  # evalute the Jacobian of ∇Π(λ - μ*c)'Π(λ - μ*c)
+    λp = TO.projection(cone, λbar)      # TODO: don't project more than you need to!
+    TO.∇projection!(cone, ∇proj, λbar)        # evaluate the Jacobian of the projection operation
+    TO.∇²projection!(cone, ∇²proj, λbar, λp)  # evalute the Jacobian of ∇Π(λ - μ*c)'Π(λ - μ*c)
     
     # Apply the chain rule
-	λbar = projection(cone, λ - μ .* c)
-	∇cproj = -∇proj*Iμ*∇c
-	∇²cproj = ∇c'*Iμ*∇²proj*Iμ*∇c
+    μ = μ[1]
+	∇cproj = -μ*∇proj*∇c
+	∇²cproj = μ^2*∇c'*∇²proj*∇c
     
     # Combine and store the result
-	conval.grad[i] = ∇cproj'*(Iμ\λbar)
-	conval.hess[i] = ∇cproj'∇cproj .+ ∇²cproj
+	conval.grad[i] = ∇cproj'*λp / μ
+    conval.hess[i] = (∇cproj'∇cproj .+ ∇²cproj) / μ
+
 end
 
 function copy_expansion!(E::QuadraticObjective{n,m}, conval::ALConVal{<:TO.StateConstraint}) where {n,m}
@@ -112,7 +114,7 @@ function copy_expansion!(E::QuadraticObjective{n,m}, conval::ALConVal{<:TO.Contr
 end
 
 function copy_expansion!(E::QuadraticObjective{n,m}, conval::ALConVal{<:TO.StageConstraint}) where {n,m}
-    ix,iu = SVector{n}(1:n), SVector{m}(1:m) .+ n
+    ix,iu = SVector{n}(1:n), SVector{m}((1:m) .+ n)
     for (i,k) in enumerate(conval.inds)
         E[k].q .+= conval.grad[i][ix]
         E[k].r .+= conval.grad[i][iu]

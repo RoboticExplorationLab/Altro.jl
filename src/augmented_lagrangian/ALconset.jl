@@ -125,7 +125,7 @@ function dual_update(::Inequality, λ, c, μ, λmax)
 	return clamp.(λbar, 0, λmax)  # project onto the dual cone via max(0,x)
 end
 
-function dual_update(cone::SecondOrderCone, λ, c, μ)
+function dual_update(cone::SecondOrderCone, λ, c, μ, λmax)
 	 λbar = λ - μ .* c
 	 return TO.projection(cone, λbar)  # project onto the dual cone
 end
