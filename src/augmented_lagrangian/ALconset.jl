@@ -36,8 +36,8 @@ penalties and/or multipliers can be reset using
 	ALConstraintSet(::Problem)
 """
 struct ALConstraintSet{T} <: TO.AbstractConstraintSet
-    convals::Vector{TO.ConVal}
-    errvals::Vector{TO.ConVal}
+    convals::Vector{ALConVal}
+    errvals::Vector{ALConVal}
 	∇c_proj::Vector{<:Vector}        # Jacobians of projected constraints
     λ::Vector{<:Vector}
     μ::Vector{<:Vector}
@@ -54,15 +54,15 @@ function ALConstraintSet(cons::TO.ConstraintList, model::RD.AbstractModel)
     n̄ = RobotDynamics.state_diff_size(model)
     ncon = length(cons)
     useG = model isa RD.LieGroupModel
-    errvals = map(1:ncon) do i
+	errvals = map(1:ncon) do i
         C,c = TO.gen_convals(n̄, m, cons[i], cons.inds[i])
-        TO.ConVal(n̄, m, cons[i], cons.inds[i], C, c, useG)
+        ALConVal(n̄, m, cons[i], cons.inds[i], C, c, useG)
     end
     convals = map(errvals) do errval
-        TO.ConVal(n, m, errval)
+        ALConVal(n, m, errval)
     end
-	errvals = convert(Vector{TO.ConVal}, errvals)
-	convals = convert(Vector{TO.ConVal}, convals)
+	errvals = convert(Vector{ALConVal}, errvals)
+	convals = convert(Vector{ALConVal}, convals)
 	∇c_proj = map(1:ncon) do i
 		[copy(errvals[i].jac[j,1]) for j in eachindex(cons.inds[i])]
 	end
@@ -101,13 +101,30 @@ function dual_update!(conSet::ALConstraintSet)
     end
 end
 
-function dual_update!(conval::TO.ConVal, λ::Vector{<:SVector}, μ::Vector{<:SVector}, params::TO.ConstraintParams)
+function dual_update!(conval::ALConVal, λ::Vector{<:SVector}, μ::Vector{<:SVector}, 
+		params::TO.ConstraintParams)
     c = conval.vals
 	λ_max = params.λ_max
-	λ_min = TO.sense(conval.con) == TO.Equality() ? -λ_max : zero(λ_max)
+	cone = TO.sense(conval.con)
+	# λ_min = TO.sense(conval.con) == Equality() ? -λ_max : zero(λ_max)
 	for i in eachindex(conval.inds)
-		λ[i] = clamp.(λ[i] + μ[i] .* c[i], λ_min, λ_max)
+		λ[i] = dual_update(cone, λ[i], c[i], μ[i], λ_max) 
 	end
+end
+
+function dual_update(::Equality, λ, c, μ, λmax)
+ 	λbar = λ + μ .* c
+	return clamp.(λbar, -λmax, λmax)
+end
+
+function dual_update(::Inequality, λ, c, μ, λmax)
+ 	λbar = λ + μ .* c
+	return clamp.(λbar, 0, λmax)  # project onto the dual cone via max(0,x)
+end
+
+function dual_update(cone::SecondOrderCone, λ, c, μ)
+	 λbar = λ - μ .* c
+	 return TO.projection(cone, λbar)  # project onto the dual cone
 end
 
 function penalty_update!(conSet::ALConstraintSet)
@@ -132,7 +149,7 @@ function update_active_set!(conSet::ALConstraintSet, val::Val{tol}=Val(0.0)) whe
 end
 
 function update_active_set!(a::Vector{<:StaticVector}, λ::Vector{<:StaticVector},
-		conval::TO.ConVal, ::Val{tol}) where tol
+		conval::ALConVal, ::Val{tol}) where tol
 	if TO.sense(conval.con) == TO.Inequality()
 		for i in eachindex(a)
 			a[i] = @. (conval.vals[i] >= -tol) | (λ[i] > zero(tol))
@@ -169,6 +186,13 @@ end
 ############################################################################################
 #                             Constraint Penalties
 ############################################################################################
+function projection_jacobians!(conSet::ALConstraintSet)
+	for i in eachindex(conSet.convals)
+		projection_jacobians!(conSet.convals[i])
+	end
+end
+
+
 """
 	constraint_penalty!(conSet::ALConstraintSet)
 
@@ -188,28 +212,7 @@ function constraint_penalty!(conval::TO.ConVal, λ)
 	end
 end
 
-penalty(::TO.Equality, c, λ) = c
 
-function penalty(::TO.Inequality, c, λ)
-	# is_incone = all(c .<= 0)	   # check if primals are in the cone
-	# inactive = norm(λ,Inf) < 1e-9  # check duals are near the origin
-	# if is_incone && inactive
-	# 	return zero(c)
-	# else                           # penalize the projection onto the cone
-	# 	return max.(0, c)
-	# end
-	a = @. (c >= 0) | (λ > 0)
-	return a .* c
-end
-
-function ∇penalty!(∇c_proj, ∇c, c, λ)
-	# is_incone = all(c .<= 0)	   # check if primals are in the cone
-	# inactive = norm(λ,Inf) < 1e-9  # check duals are near the origin
-	a = @. (c >= 0) | (λ > 0)
-	for i in eachindex(c)
-		∇c_proj[i,:] = ∇c[i,:] * a[i]
-	end
-end
 
 """
 	penalty_jacobian!(conSet::ALConstraintSet)
@@ -230,7 +233,7 @@ function penalty_jacobian!(∇c_proj::Vector, conval::TO.ConVal, λ::Vector)
 		throw(ErrorException("Constraint projection not supported for CoupledConstraints"))
 	end
 	for i in eachindex(conval.inds)
-		∇penalty!(∇c_proj[i], conval.jac[i], conval.vals[i], λ[i])
+		∇penalty!(TO.sense(conval.con), ∇c_proj[i], conval.jac[i], conval.vals[i], λ[i])
 	end
 end
 
@@ -239,46 +242,39 @@ end
 ############################################################################################
 
 function TO.cost!(J::Vector{<:Real}, conSet::ALConstraintSet)
-	constraint_penalty!(conSet)
 	for i in eachindex(conSet.convals)
 		TO.cost!(J, conSet.convals[i], conSet.λ[i], conSet.μ[i], conSet.active[i])
 	end
 end
 
-function TO.cost!(J::Vector{<:Real}, conval::TO.ConVal, λ::Vector{<:StaticVector},
+function TO.cost!(J::Vector{<:Real}, conval::ALConVal, λ::Vector{<:StaticVector},
 		μ::Vector{<:StaticVector}, a::Vector{<:StaticVector})
 	for (i,k) in enumerate(conval.inds)
-		c = SVector(conval.vals[i])    # constraint value
-		c̄ = SVector(conval.vals2[i])   # constraint penalty 
-		Iμ = Diagonal(SVector(μ[i]))
-		J[k] += λ[i]'c .+ 0.5*c̄'Iμ*c̄
+		c = SVector(conval.vals[i])
+		Iμ = Diagonal(SVector(μ[i] .* a[i]))
+		J[k] += λ[i]'c .+ 0.5*c'Iμ*c
 	end
 end
-
 
 function TO.cost_expansion!(E::Objective, conSet::ALConstraintSet, Z::AbstractTrajectory,
 		init::Bool=false, rezero::Bool=false)
-	penalty_jacobian!(conSet)
 	for i in eachindex(conSet.errvals)
-		TO.cost_expansion!(E, conSet.convals[i], 
-			conSet.λ[i], conSet.μ[i], conSet.active[i], conSet.∇c_proj[i])
+		TO.cost_expansion!(E, conSet.convals[i], conSet.λ[i], conSet.μ[i], conSet.active[i])
 	end
 end
 
-@generated function TO.cost_expansion!(E::QuadraticObjective{n,m}, conval::TO.ConVal{C}, λ, μ, a, ∇c_proj) where {n,m,C}
+@generated function TO.cost_expansion!(E::QuadraticObjective{n,m}, conval::ALConVal{C}, λ, μ, a) where {n,m,C}
 	if C <: TO.StateConstraint
 		expansion = quote
 			cx = ∇c
-			cx̄ = ∇c̄
-			E[k].Q .+= cx̄'Iμ*cx̄
-			E[k].q .+= cx'λ[i] + cx̄'Iμ*c̄
+			E[k].Q .+= cx'Iμ*cx
+			E[k].q .+= cx'g
 		end
 	elseif C <: TO.ControlConstraint
 		expansion = quote
 			cu = ∇c
-			cū = ∇c̄
-			E[k].R .+= cū'Iμ*cū
-			E[k].r .+= cu'λ[i] + cū'Iμ*c̄
+			E[k].R .+= cu'Iμ*cu
+			E[k].r .+= cu'g
 		end
 	elseif C<: TO.StageConstraint
 		ix = SVector{n}(1:n)
@@ -286,13 +282,11 @@ end
 		expansion = quote
 			cx = ∇c[:,$ix]
 			cu = ∇c[:,$iu]
-			cx̄ = ∇c̄[:,$ix]
-			cū = ∇c̄[:,$iu]
-			E[k].Q .+= cx̄'Iμ*cx̄
-			E[k].q .+= cx'λ[i] + cx̄'Iμ*c̄
-			E[k].H .+= cū'Iμ*cx̄
-			E[k].R .+= cū'Iμ*cū
-			E[k].r .+= cu'λ[i] + cū'Iμ*c̄
+			E[k].Q .+= cx'Iμ*cx
+			E[k].q .+= cx'g
+			E[k].H .+= cu'Iμ*cx
+			E[k].R .+= cu'Iμ*cu
+			E[k].r .+= cu'g
 		end
 	else
 		throw(ArgumentError("cost expansion not supported for CoupledConstraints"))
@@ -300,11 +294,7 @@ end
 	quote
 		for (i,k) in enumerate(conval.inds)
 			∇c = SMatrix(conval.jac[i])
-			∇c̄ = SMatrix(∇c_proj[i])
-			∇c̄ = ∇c
 			c = conval.vals[i]
-			c̄ = conval.vals2[i]
-			# c̄ = c
 			Iμ = Diagonal(a[i] .* μ[i])
 			g = Iμ*c .+ λ[i]
 
