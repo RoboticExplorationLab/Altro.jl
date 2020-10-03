@@ -99,13 +99,14 @@ end
 
 function dual_update!(conSet::ALConstraintSet)
     for i in eachindex(conSet.λ)
-        dual_update!(conSet.convals[i], conSet.λ[i], conSet.μ[i], conSet.params[i])
+        dual_update!(conSet.convals[i], conSet.params[i])
 	end
 end
 
-function dual_update!(conval::ALConVal, λ::Vector{<:StaticVector}, μ::Vector{<:StaticVector}, 
-		params::TO.ConstraintParams)
-    c = conval.vals
+function dual_update!(conval::ALConVal, params::TO.ConstraintParams)
+	c = conval.vals
+	λ = conval.λ
+	μ = conval.μ
 	λ_max = params.λ_max
 	cone = TO.sense(conval.con)
 	# λ_min = TO.sense(conval.con) == Equality() ? -λ_max : zero(λ_max)
@@ -131,11 +132,12 @@ end
 
 function penalty_update!(conSet::ALConstraintSet)
 	for i in eachindex(conSet.μ)
-		penalty_update!(conSet.μ[i], conSet.params[i])
+		penalty_update!(conSet.convals[i], conSet.params[i])
 	end
 end
 
-function penalty_update!(μ::Vector{<:StaticVector}, params::TO.ConstraintParams)
+function penalty_update!(cval::ALConVal, params::TO.ConstraintParams)
+	μ = cval.μ
 	ϕ = params.ϕ
 	μ_max = params.μ_max
 	for i in eachindex(μ)
@@ -243,67 +245,67 @@ end
 #                                        Cost
 ############################################################################################
 
-function TO.cost!(J::Vector{<:Real}, conSet::ALConstraintSet)
-	for i in eachindex(conSet.convals)
-		TO.cost!(J, conSet.convals[i], conSet.λ[i], conSet.μ[i], conSet.active[i])
-	end
-end
+# function TO.cost!(J::Vector{<:Real}, conSet::ALConstraintSet)
+# 	for i in eachindex(conSet.convals)
+# 		TO.cost!(J, conSet.convals[i], conSet.λ[i], conSet.μ[i], conSet.active[i])
+# 	end
+# end
 
-function TO.cost!(J::Vector{<:Real}, conval::ALConVal, λ::Vector{<:StaticVector},
-		μ::Vector{<:StaticVector}, a::Vector{<:StaticVector})
-	for (i,k) in enumerate(conval.inds)
-		c = SVector(conval.vals[i])
-		Iμ = Diagonal(SVector(μ[i] .* a[i]))
-		J[k] += λ[i]'c .+ 0.5*c'Iμ*c
-	end
-end
+# function TO.cost!(J::Vector{<:Real}, conval::ALConVal, λ::Vector{<:StaticVector},
+# 		μ::Vector{<:StaticVector}, a::Vector{<:StaticVector})
+# 	for (i,k) in enumerate(conval.inds)
+# 		c = SVector(conval.vals[i])
+# 		Iμ = Diagonal(SVector(μ[i] .* a[i]))
+# 		J[k] += λ[i]'c .+ 0.5*c'Iμ*c
+# 	end
+# end
 
-function TO.cost_expansion!(E::Objective, conSet::ALConstraintSet, Z::AbstractTrajectory,
-		init::Bool=false, rezero::Bool=false)
-	for i in eachindex(conSet.errvals)
-		TO.cost_expansion!(E, conSet.convals[i], conSet.λ[i], conSet.μ[i], conSet.active[i])
-	end
-end
+# function TO.cost_expansion!(E::Objective, conSet::ALConstraintSet, Z::AbstractTrajectory,
+# 		init::Bool=false, rezero::Bool=false)
+# 	for i in eachindex(conSet.errvals)
+# 		TO.cost_expansion!(E, conSet.convals[i], conSet.λ[i], conSet.μ[i], conSet.active[i])
+# 	end
+# end
 
-@generated function TO.cost_expansion!(E::QuadraticObjective{n,m}, conval::ALConVal{C}, λ, μ, a) where {n,m,C}
-	if C <: TO.StateConstraint
-		expansion = quote
-			cx = ∇c
-			E[k].Q .+= cx'Iμ*cx
-			E[k].q .+= cx'g
-		end
-	elseif C <: TO.ControlConstraint
-		expansion = quote
-			cu = ∇c
-			E[k].R .+= cu'Iμ*cu
-			E[k].r .+= cu'g
-		end
-	elseif C<: TO.StageConstraint
-		ix = SVector{n}(1:n)
-		iu = SVector{m}(n .+ (1:m))
-		expansion = quote
-			cx = ∇c[:,$ix]
-			cu = ∇c[:,$iu]
-			E[k].Q .+= cx'Iμ*cx
-			E[k].q .+= cx'g
-			E[k].H .+= cu'Iμ*cx
-			E[k].R .+= cu'Iμ*cu
-			E[k].r .+= cu'g
-		end
-	else
-		throw(ArgumentError("cost expansion not supported for CoupledConstraints"))
-	end
-	quote
-		for (i,k) in enumerate(conval.inds)
-			∇c = SMatrix(conval.jac[i])
-			c = conval.vals[i]
-			Iμ = Diagonal(a[i] .* μ[i])
-			g = Iμ*c .+ λ[i]
+# @generated function TO.cost_expansion!(E::QuadraticObjective{n,m}, conval::ALConVal{C}, λ, μ, a) where {n,m,C}
+# 	if C <: TO.StateConstraint
+# 		expansion = quote
+# 			cx = ∇c
+# 			E[k].Q .+= cx'Iμ*cx
+# 			E[k].q .+= cx'g
+# 		end
+# 	elseif C <: TO.ControlConstraint
+# 		expansion = quote
+# 			cu = ∇c
+# 			E[k].R .+= cu'Iμ*cu
+# 			E[k].r .+= cu'g
+# 		end
+# 	elseif C<: TO.StageConstraint
+# 		ix = SVector{n}(1:n)
+# 		iu = SVector{m}(n .+ (1:m))
+# 		expansion = quote
+# 			cx = ∇c[:,$ix]
+# 			cu = ∇c[:,$iu]
+# 			E[k].Q .+= cx'Iμ*cx
+# 			E[k].q .+= cx'g
+# 			E[k].H .+= cu'Iμ*cx
+# 			E[k].R .+= cu'Iμ*cu
+# 			E[k].r .+= cu'g
+# 		end
+# 	else
+# 		throw(ArgumentError("cost expansion not supported for CoupledConstraints"))
+# 	end
+# 	quote
+# 		for (i,k) in enumerate(conval.inds)
+# 			∇c = SMatrix(conval.jac[i])
+# 			c = conval.vals[i]
+# 			Iμ = Diagonal(a[i] .* μ[i])
+# 			g = Iμ*c .+ λ[i]
 
-			$expansion
-		end
-	end
-end
+# 			$expansion
+# 		end
+# 	end
+# end
 
 ############################################################################################
 #                                  RESET

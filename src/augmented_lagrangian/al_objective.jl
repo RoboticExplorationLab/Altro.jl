@@ -40,5 +40,6 @@ function TO.cost_expansion!(E::QuadraticObjective, obj::ALObjective, Z::Traj, in
     TO.cost_expansion!(E, obj.obj, Z, true, rezero)
 
     # Add in expansion of constraints
-    TO.cost_expansion!(E, obj.constraints, Z, true)
+    TO.cost_expansion!(E, obj.constraints)
+    # TO.cost_expansion!(E, obj.constraints, Z, true)
 end
