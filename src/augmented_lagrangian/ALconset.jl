@@ -67,12 +67,14 @@ function ALConstraintSet(cons::TO.ConstraintList, model::RD.AbstractModel)
 		[copy(errvals[i].jac[j,1]) for j in eachindex(cons.inds[i])]
 	end
     λ = map(1:ncon) do i
-        p = length(cons[i])
-        [@SVector zeros(p) for j in cons.inds[i]]
+		p = length(cons[i])
+		convals[i].λ
+        # [@SVector zeros(p) for j in cons.inds[i]]
     end
     μ = map(1:ncon) do i
-        p = length(cons[i])
-        [@SVector ones(p) for j in cons.inds[i]]
+		p = length(cons[i])
+		convals[i].μ
+        # [@SVector ones(p) for j in cons.inds[i]]
     end
     a = map(1:ncon) do i
         p = length(cons[i])
@@ -98,10 +100,10 @@ end
 function dual_update!(conSet::ALConstraintSet)
     for i in eachindex(conSet.λ)
         dual_update!(conSet.convals[i], conSet.λ[i], conSet.μ[i], conSet.params[i])
-    end
+	end
 end
 
-function dual_update!(conval::ALConVal, λ::Vector{<:SVector}, μ::Vector{<:SVector}, 
+function dual_update!(conval::ALConVal, λ::Vector{<:StaticVector}, μ::Vector{<:StaticVector}, 
 		params::TO.ConstraintParams)
     c = conval.vals
 	λ_max = params.λ_max
@@ -113,7 +115,7 @@ function dual_update!(conval::ALConVal, λ::Vector{<:SVector}, μ::Vector{<:SVec
 end
 
 function dual_update(::Equality, λ, c, μ, λmax)
- 	λbar = λ + μ .* c
+	λbar = λ + μ .* c
 	return clamp.(λbar, -λmax, λmax)
 end
 
@@ -133,7 +135,7 @@ function penalty_update!(conSet::ALConstraintSet)
 	end
 end
 
-function penalty_update!(μ::Vector{<:SVector}, params::TO.ConstraintParams)
+function penalty_update!(μ::Vector{<:StaticVector}, params::TO.ConstraintParams)
 	ϕ = params.ϕ
 	μ_max = params.μ_max
 	for i in eachindex(μ)
@@ -313,7 +315,7 @@ function reset!(conSet::ALConstraintSet)
 end
 
 function reset_duals!(conSet::ALConstraintSet)
-	function _reset!(V::Vector{<:SVector})
+	function _reset!(V::Vector{<:StaticVector})
 	    for i in eachindex(V)
 	        V[i] = zero(V[i])
 	    end
@@ -324,7 +326,7 @@ function reset_duals!(conSet::ALConstraintSet)
 end
 
 function reset_penalties!(conSet::ALConstraintSet)
-	function _reset!(V::Vector{<:SVector}, params::TO.ConstraintParams)
+	function _reset!(V::Vector{<:StaticVector}, params::TO.ConstraintParams)
 	    for i in eachindex(V)
 	        V[i] = zero(V[i]) .+ params.μ0
 	    end

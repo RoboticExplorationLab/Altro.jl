@@ -1,6 +1,5 @@
 function solve!(solver::ProjectedNewtonSolver)
-    reset!(solver)
-
+    # reset!(solver)
     update_constraints!(solver)
     copy_constraints!(solver)
     copy_multipliers!(solver)
@@ -214,7 +213,8 @@ function copy_expansion!(H, g, E, xinds, uinds)
 end
 
 function multiplier_projection!(solver::ProjectedNewtonSolver)
-    λ = solver.λ[solver.active_set]
+    # λ = view(solver.λ,solver.active_set)
+    λ = solver.λ[solver.active_set] 
     D,d = active_constraints(solver)
     g = solver.g
     res0 = g + D'λ
@@ -224,9 +224,9 @@ function multiplier_projection!(solver::ProjectedNewtonSolver)
     δλ = -reg_solve(A, b, Areg)
     λ += δλ
     res = g + D'λ  # primal residual
+    solver.λ[solver.active_set] = λ
     return norm(res)
 end
-
 
 function primal_residual(solver::ProjectedNewtonSolver, update::Bool=false)
     if update
