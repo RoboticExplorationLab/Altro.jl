@@ -128,9 +128,9 @@ function static_backwardpass!(solver::iLQRSolver{T,QUAD,L,O,n,n̄,m}) where {T,Q
 		Sxx, Sx, ΔV_ = _calc_ctg!(Q, K_, d_)
 		# k >= N-2 && println(diag(Sxx))
 		if solver.opts.save_S
-			S[k].xx .= Sxx
-			S[k].x .= Sx
-			S[k].c .= ΔV_
+			S[k].Q .= Sxx
+			S[k].q .= Sx
+			S[k].c = ΔV_
 		end
 		ΔV += ΔV_
         k -= 1

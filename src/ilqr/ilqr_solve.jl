@@ -62,7 +62,7 @@ function step!(solver::iLQRSolver, J)
 	TO.dynamics_expansion!(integration(solver), solver.D, solver.model, solver.Z)
 	TO.error_expansion!(solver.D, solver.model, solver.G)
     TO.cost_expansion!(solver.quad_obj, solver.obj, solver.Z, true, true)
-	TO.error_expansion!(solver.Q, solver.quad_obj, solver.model, solver.Z, solver.G)
+    TO.error_expansion!(solver.Q, solver.quad_obj, solver.model, solver.Z, solver.G)
 	if solver.opts.static_bp
     	ΔV = static_backwardpass!(solver)
 	else
@@ -146,6 +146,7 @@ function forwardpass!(solver::iLQRSolver, ΔV, J_prev)
     @logmsg InnerLoop :z value=z
     @logmsg InnerLoop :α value=2*α
     @logmsg InnerLoop :ρ value=solver.ρ[1]
+    @logmsg InnerLoop :dJ_zero value=solver.dJ
 
     return J
 
@@ -245,6 +246,7 @@ function regularization_update!(solver::iLQRSolver,status::Symbol=:increase)
     elseif status == :decrease # decrease regularization
         # TODO: Avoid divides by storing the decrease factor (divides are 10x slower)
         solver.dρ[1] = min(solver.dρ[1]/solver.opts.bp_reg_increase_factor, 1.0/solver.opts.bp_reg_increase_factor)
-        solver.ρ[1] = solver.ρ[1]*solver.dρ[1]*(solver.ρ[1]*solver.dρ[1]>solver.opts.bp_reg_min)
+        # solver.ρ[1] = solver.ρ[1]*solver.dρ[1]*(solver.ρ[1]*solver.dρ[1]>solver.opts.bp_reg_min)
+        solver.ρ[1] = max(solver.opts.bp_reg_min, solver.ρ[1]*solver.dρ[1])
     end
 end

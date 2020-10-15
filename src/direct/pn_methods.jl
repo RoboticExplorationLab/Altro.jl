@@ -28,7 +28,7 @@ function projection_solve!(solver::ProjectedNewtonSolver)
     max_projection_iters = solver.opts.n_steps
 
     count = 0
-    while count < max_projection_iters && viol > ϵ_feas
+    while count <= max_projection_iters && viol > ϵ_feas
         viol = _projection_solve!(solver)
         if solver.opts.multiplier_projection
             res = multiplier_projection!(solver)
@@ -59,7 +59,7 @@ function _projection_solve!(solver::ProjectedNewtonSolver)
     ρ_primal = solver.opts.ρ_primal
 
     # Assume constant, diagonal cost Hessian (for now)
-    H = Diagonal(solver.H)
+    H = solver.H
 
     # Update everything
     update_constraints!(solver)
@@ -88,7 +88,11 @@ function _projection_solve!(solver::ProjectedNewtonSolver)
         end
     end
 
-    HinvD = H\D'
+    if isdiag(H)
+        HinvD = Diagonal(H)\D'
+    else
+        HinvD = H \ Matrix(D')  # TODO: find a better way to do this
+    end
 
     S = Symmetric(D*HinvD)
     Sreg = cholesky(S + ρ_chol*I) #TODO is this fast or slow? try above

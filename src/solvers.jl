@@ -296,8 +296,8 @@ function TO.norm_violation(solver::ConstrainedSolver, Z::Traj=get_trajectory(sol
     TO.norm_violation(conSet, p)
 end
 
-@inline findmax_violation(solver::ConstrainedSolver) =
-    findmax_violation(get_constraints(solver))
+@inline TO.findmax_violation(solver::ConstrainedSolver) =
+    TO.findmax_violation(get_constraints(solver))
 
 function second_order_correction!(solver::ConstrainedSolver)
     conSet = get_constraints(solver)

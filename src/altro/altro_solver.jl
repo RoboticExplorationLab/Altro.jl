@@ -51,6 +51,7 @@ end
 solvername(::Type{<:ALTROSolver}) = :ALTRO
 TrajectoryOptimization.integration(solver::ALTROSolver) = integration(solver.solver_al)
 is_constrained(solver::ALTROSolver) = !isempty(get_constraints(solver.solver_al))
+@inline get_ilqr(solver::ALTROSolver) = solver.solver_al.solver_uncon
 
 function TO.get_constraints(solver::ALTROSolver)
     if solver.opts.projected_newton
