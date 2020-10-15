@@ -1,3 +1,15 @@
+Base.@kwdef mutable struct ConstraintParams{T}
+	ϕ::T = NaN 	      # penalty scaling parameter
+	μ0::T = NaN 	  # initial penalty parameter
+	μ_max::T = NaN    # max penalty parameter
+	λ_max::T = NaN    # max Lagrange multiplier
+end
+
+function ConstraintParams(ϕ::Real, μ0::Real, μ_max::Real, λ_max::Real)
+    params = promote(ϕ, μ0, μ_max, λ_max)
+	ConstraintParams{eltype(params)}(params...)
+end
+
 struct ALConVal{C,V,M} <: TO.AbstractConstraintValues{C}
     con::C
     inds::Vector{Int}
@@ -7,13 +19,16 @@ struct ALConVal{C,V,M} <: TO.AbstractConstraintValues{C}
     μ::Vector{V}
     λbar::Vector{V}
     c_max::Vector{Float64}
-    is_const::Vector{Vector{Bool}}
+    is_const::BitArray{2}
     iserr::Bool
+	params::ConstraintParams{Float64}
 
+    tmp::M
     ∇proj::Vector{Matrix{Float64}}   # (p,p) projection Jacobian
     ∇²proj::Vector{Matrix{Float64}}  # (p,p) projection "Hessian," or Jacobian of ∇Π'Π
     grad::Vector{Vector{Float64}}    # gradient of augmented Lagrangian wrt inputs
     hess::Vector{Matrix{Float64}}    # hessian of augmented Lagrangian wrt inputs
+    const_hess::BitVector
 
 	function ALConVal(n::Int, m::Int, con::TO.AbstractConstraint, inds::AbstractVector{Int}, 
 			jac, vals, iserr::Bool=false)
@@ -30,18 +45,22 @@ struct ALConVal{C,V,M} <: TO.AbstractConstraintValues{C}
         ix = 1:n
         iu = n .+ (1:m)
         c_max = zeros(P)
-        is_const = [zeros(Bool,P), zeros(Bool,P)]
-        
+        is_const = BitArray(undef, size(jac)) 
+        params = ConstraintParams()
+
+        # jac = [jac; jac[end:end,:]]  # append extra for temporary array
+        tmp = zero(jac[1])
         
         ni = size(jac[1],2)  # size of inputs to the constraint
         ∇proj  = [zeros(p,p) for i = 1:P]
         ∇²proj = [zeros(p,p) for i = 1:P]
         grad = [zeros(ni) for i = 1:P]
         hess = [zeros(ni,ni) for i = 1:P]
+        const_hess = BitArray(undef, P)
 
         new{typeof(con), eltype(vals), eltype(jac)}(con,
-            collect(inds), vals,jac, λ, μ, λbar, c_max, is_const, iserr,
-            ∇proj, ∇²proj, grad, hess)
+            collect(inds), vals,jac, λ, μ, λbar, c_max, is_const, iserr, params,
+            tmp, ∇proj, ∇²proj, grad, hess, const_hess)
     end
 end
 
@@ -64,3 +83,30 @@ function ALConVal(n::Int, m::Int, con::TO.AbstractConstraint, inds::UnitRange{In
 end
 
 TO.sense(cval::ALConVal) = TO.sense(cval.con)
+
+function reset_duals!(con::ALConVal)
+    for i in eachindex(con.λ)
+        con.λ[i] .*= 0
+    end
+end
+
+function reset_penalties!(con::ALConVal)
+    for i in eachindex(con.μ)
+        con.μ[i] .= con.params.μ0
+    end
+end
+
+function set_params!(cval::ALConVal, opts)
+    if isnan(cval.params.ϕ)
+        cval.params.ϕ = opts.penalty_scaling
+    end
+    if isnan(cval.params.μ0)
+        cval.params.μ0 = opts.penalty_initial
+    end
+    if isnan(cval.params.μ_max)
+        cval.params.μ_max = opts.penalty_max
+    end
+    if isnan(cval.params.λ_max)
+        cval.params.λ_max = opts.dual_max
+    end
+end

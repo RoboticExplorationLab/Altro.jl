@@ -99,15 +99,15 @@ end
 
 function dual_update!(conSet::ALConstraintSet)
     for i in eachindex(conSet.λ)
-        dual_update!(conSet.convals[i], conSet.params[i])
+        dual_update!(conSet.convals[i])
 	end
 end
 
-function dual_update!(conval::ALConVal, params::TO.ConstraintParams)
+function dual_update!(conval::ALConVal)
 	c = conval.vals
 	λ = conval.λ
 	μ = conval.μ
-	λ_max = params.λ_max
+	λ_max = conval.params.λ_max
 	cone = TO.sense(conval.con)
 	# λ_min = TO.sense(conval.con) == Equality() ? -λ_max : zero(λ_max)
 	for i in eachindex(conval.inds)
@@ -132,14 +132,14 @@ end
 
 function penalty_update!(conSet::ALConstraintSet)
 	for i in eachindex(conSet.μ)
-		penalty_update!(conSet.convals[i], conSet.params[i])
+		penalty_update!(conSet.convals[i])
 	end
 end
 
-function penalty_update!(cval::ALConVal, params::TO.ConstraintParams)
+function penalty_update!(cval::ALConVal)
 	μ = cval.μ
-	ϕ = params.ϕ
-	μ_max = params.μ_max
+	ϕ = cval.params.ϕ
+	μ_max = cval.params.μ_max
 	for i in eachindex(μ)
 		μ[i] = clamp.(ϕ * μ[i], 0.0, μ_max)
 	end
@@ -317,27 +317,15 @@ function reset!(conSet::ALConstraintSet)
 end
 
 function reset_duals!(conSet::ALConstraintSet)
-	function _reset!(V::Vector{<:StaticVector})
-	    for i in eachindex(V)
-	        V[i] = zero(V[i])
-	    end
+	for i = 1:length(conSet)
+		reset_duals!(conSet.convals[i])
 	end
-    for i in eachindex(conSet.λ)
-        _reset!(conSet.λ[i])
-    end
 end
 
 function reset_penalties!(conSet::ALConstraintSet)
-	function _reset!(V::Vector{<:StaticVector}, params::TO.ConstraintParams)
-	    for i in eachindex(V)
-	        V[i] = zero(V[i]) .+ params.μ0
-	    end
+	for i = 1:length(conSet)
+		reset_penalties!(conSet.convals[i])
 	end
-    for i in eachindex(conSet.μ)
-        # reset!(conSet.μ[i], conSet.params[i].μ0)
-		# μ0 = conSet.params[i].μ0
-        _reset!(conSet.μ[i], conSet.params[i])
-    end
 end
 
 
@@ -392,7 +380,10 @@ function reset!(conSet::ALConstraintSet{T}, opts::SolverOptions{T}) where T
         for params in conSet.params
             params.ϕ = opts.penalty_scaling
         end
-    end
+	end
+	for i = 1:length(conSet)
+		set_params!(conSet.convals[i], opts)
+	end
     if opts.reset_duals
         reset_duals!(conSet)
     end

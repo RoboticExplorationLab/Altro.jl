@@ -47,7 +47,7 @@ end
     max_cost_value::T = 1.0e8
     max_state_value::T = 1.0e8
     max_control_value::T = 1.0e8
-	static_bp::Bool = true
+    static_bp::Bool = true
 	save_S::Bool = false
 
     # Backward pass regularization
@@ -60,11 +60,11 @@ end
     bp_reg_fp::T = 10.0
 
     # Augmented Lagrangian
-    penalty_initial::T = NaN
-    penalty_scaling::T = NaN
+    penalty_initial::T = 1.0 
+    penalty_scaling::T = 10.0
     active_set_tolerance_al::T = 1e-3
-    dual_max::T = NaN
-    penalty_max::T = NaN
+    dual_max::T = 1e8 
+    penalty_max::T = 1e8 
     iterations_outer::Int = 30
     kickout_max_penalty::Bool = false
     reset_duals::Bool = true
