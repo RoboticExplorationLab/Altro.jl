@@ -15,6 +15,7 @@ using SparseArrays
 using LinearAlgebra
 using Logging
 using Statistics
+using TimerOutputs
 
 const TO = TrajectoryOptimization
 const RD = RobotDynamics

@@ -192,7 +192,8 @@ function TO.cost_expansion!(solver::ProjectedNewtonSolver)
     Z = get_trajectory(solver)
     E = solver.E
     obj = get_objective(solver)
-    TO.cost_expansion!(E, obj, Z)
+    init = !solver.opts.reuse_jacobians
+    TO.cost_expansion!(E, obj, Z, init)
 
     xinds, uinds = solver.P.xinds, solver.P.uinds
     H = solver.H
