@@ -260,10 +260,14 @@ add_constraint!(cons, GoalConstraint(xf), N)
 add_constraint!(cons, connorm, 1:N-1)
 
 prob = Problem(model, obj, xf, tf, x0=x0, constraints=cons)
-solver = ALTROSolver(prob, show_summary=true, verbose=true, projected_newton=false) 
-solve!(solver)
-unorm = norm.(controls(solver))
-println(unorm)
-maximum(norm.(controls(solver)))
+solver = ALTROSolver(prob, show_summary=true, verbose=2, projected_newton=false) 
+@test benchmark_solve!(solver).allocs == 0
 
-norm(states(solver)[end] - xf)
+prob = Problem(model, obj, xf, tf, x0=x0, constraints=cons)
+solver = ALTROSolver(prob, projected_newton=false) 
+solve!(solver)
+@test iterations(solver) == 20
+
+unorm = norm.(controls(solver))
+@test abs(maximum(norm.(controls(solver))) - 400) < 1e-6
+@test norm(states(solver)[end] - xf) < 1e-6

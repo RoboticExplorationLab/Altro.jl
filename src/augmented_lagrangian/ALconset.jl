@@ -111,7 +111,7 @@ function dual_update!(conval::ALConVal)
 	cone = TO.sense(conval.con)
 	# λ_min = TO.sense(conval.con) == Equality() ? -λ_max : zero(λ_max)
 	for i in eachindex(conval.inds)
-		λ[i] = dual_update(cone, λ[i], c[i], μ[i], λ_max) 
+		λ[i] .= dual_update(cone, SVector(λ[i]), SVector(c[i]), SVector(μ[i]), λ_max) 
 	end
 end
 
@@ -140,8 +140,9 @@ function penalty_update!(cval::ALConVal)
 	μ = cval.μ
 	ϕ = cval.params.ϕ
 	μ_max = cval.params.μ_max
-	for i in eachindex(μ)
-		μ[i] = clamp.(ϕ * μ[i], 0.0, μ_max)
+	for i = 1:length(μ) 
+		μ[i] .*= ϕ
+		clamp!(μ[i], 0, μ_max)
 	end
 end
 

@@ -91,11 +91,11 @@ function record_iteration!(solver::AugmentedLagrangianSolver{T,S}, J::T, c_max::
     record_iteration!(solver.stats, c_max=c_max, penalty_max=max_penalty, is_outer=true)
     j = solver.stats.iterations_outer::Int
 
-	@logmsg OuterLoop :iter value=j
-	@logmsg OuterLoop :total value=solver.stats.iterations
-	@logmsg OuterLoop :cost value=J
-    @logmsg OuterLoop :c_max value=c_max
 	if is_verbose(solver) 
+        @logmsg OuterLoop :iter value=j
+        @logmsg OuterLoop :total value=solver.stats.iterations
+        @logmsg OuterLoop :cost value=J
+        @logmsg OuterLoop :c_max value=c_max
 		print_level(OuterLoop, global_logger())
 	end
 end

@@ -22,9 +22,11 @@ obj = LQRObjective(Q,R,Qf,xf,N)
 U0 = [randn(m) for k = 1:N-1]
 
 # Linear Constraints
-cons_linear = ConstraintList(n,m,N)
+cons0 = ConstraintList(n,m,N)
+add_constraint!(cons0, GoalConstraint(xf), N)
+
+cons_linear = copy(cons0)
 add_constraint!(cons_linear, BoundConstraint(n,m, x_min=-2, x_max=2, u_min=-rand(m), u_max=rand(m)), 1:N-1)
-add_constraint!(cons_linear, GoalConstraint(xf), N)
 add_constraint!(cons_linear, LinearConstraint(n,m,rand(3,n+m), rand(3),Inequality()), 1:N-1)
 
 cons_nonlinear = copy(cons_linear)
@@ -39,9 +41,13 @@ cost_expansion!(E, obj, Z)
 @test TO.is_quadratic(E)
 
 # AL Objective
-alobj = Altro.ALObjective(obj, cons_linear, model)
+alobj = Altro.ALObjective(obj, cons0, model)
 cost_expansion!(E, alobj, Z)
 @test TO.is_quadratic(E)
+
+alobj = Altro.ALObjective(obj, cons_linear, model)
+cost_expansion!(E, alobj, Z)
+@test !TO.is_quadratic(E)
 
 # with with nonlinear constraint, should no longer be quadratic
 alobj = Altro.ALObjective(obj, cons_nonlinear, model)

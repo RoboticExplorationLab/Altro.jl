@@ -92,9 +92,11 @@ function TO.cost_expansion!(cone::SecondOrderCone, conval, i)
     Iμ = Diagonal(μ)
     ∇proj = conval.∇proj[i]  # pxp projection jacobian
     ∇²proj = conval.∇²proj[i]
+    tmp = conval.tmp
 
     # The term inside the projection operator
     λbar = λ - μ .* c
+    conval.const_hess[i] = false
 
     # Evaluate the projection and it's derivatives
     λp = TO.projection(cone, λbar)      # TODO: don't project more than you need to!
@@ -103,13 +105,19 @@ function TO.cost_expansion!(cone::SecondOrderCone, conval, i)
     
     # Apply the chain rule
     μ = μ[1]
-	∇cproj = -∇proj*∇c
-	∇²cproj = ∇c'*∇²proj*∇c
+    mul!(tmp.data, ∇proj, ∇c.data)
+    mul!(conval.grad[i], Transpose(tmp), λp)
+    conval.grad[i] .*= -1                      # -∇cproj'λp
+    mul!(conval.hess[i], Transpose(tmp), tmp)  # ∇cproj'∇cproj
+    mul!(tmp.data, ∇²proj, ∇c.data)
+    mul!(conval.hess[i], ∇c.data', tmp.data, 1.0, 1.0)
+    conval.hess[i] .*= μ
     
     # Combine and store the result
-	conval.grad[i] = ∇cproj'*λp 
-    conval.hess[i] = μ*(∇cproj'∇cproj .+ ∇²cproj)
-    conval.const_hess[i] = false
+	# ∇cproj = -∇proj*∇c
+	# ∇²cproj = ∇c'*∇²proj*∇c
+	# conval.grad[i] = ∇cproj'*λp 
+    # conval.hess[i] = μ*(∇cproj'∇cproj .+ ∇²cproj)
 end
 
 function copy_expansion!(E::QuadraticObjective{n,m}, conval::ALConVal{<:TO.StateConstraint}) where {n,m}
@@ -117,7 +125,7 @@ function copy_expansion!(E::QuadraticObjective{n,m}, conval::ALConVal{<:TO.State
     for (i,k) in enumerate(conval.inds)
         E[k].q .+= conval.grad[i]
         E[k].Q .+= conval.hess[i]
-        E.const_hess[k] &= conval.is_const[i]
+        E.const_hess[k] &= conval.is_const[i] & conval.const_hess[i]
     end
 end
 
@@ -126,7 +134,7 @@ function copy_expansion!(E::QuadraticObjective{n,m}, conval::ALConVal{<:TO.Contr
     for (i,k) in enumerate(conval.inds)
         E[k].r .+= conval.grad[i]
         E[k].R .+= conval.hess[i]
-        E.const_hess[k] &= conval.is_const[i]
+        E.const_hess[k] &= conval.is_const[i] & conval.const_hess[i]
     end
 end
 
@@ -138,7 +146,7 @@ function copy_expansion!(E::QuadraticObjective{n,m}, conval::ALConVal{<:TO.Stage
         E[k].Q .+= conval.hess[i][ix,ix]
         E[k].R .+= conval.hess[i][iu,iu]
         E[k].H .+= conval.hess[i][iu,ix]
-        E.const_hess[k] &= conval.is_const[i]
+        E.const_hess[k] &= conval.is_const[i] & conval.const_hess[i]
     end
 end
 
@@ -155,6 +163,6 @@ function copy_expansion!(E::QuadraticObjective{n,m}, conval::ALConVal{<:TO.Coupl
         E[k+1].Q .+= conval.hess[i,2][ix,ix]
         E[k+1].R .+= conval.hess[i,2][iu,iu]
         E[k+1].H .+= conval.hess[i,2][iu,ix]
-        E.const_hess[k] &= conval.is_const[i]
+        E.const_hess[k] &= conval.is_const[i] & conval.const_hess[i]
     end
 end
