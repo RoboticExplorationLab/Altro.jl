@@ -57,9 +57,15 @@ function TO.cost_expansion!(::Equality, conval, i)
     conval.const_hess[i] = true
     # conval.grad[i] = ∇c'λbar
     # conval.hess[i] = μ*∇c'∇c
-    mul!(conval.grad[i], Transpose(∇c.data), λbar)
-    mul!(conval.hess[i], Transpose(∇c), ∇c)
-    conval.hess[i] .*= μ
+    if prod(size(∇c)) < 24*24
+        ∇c = SMatrix(∇c)
+        conval.grad[i] .= ∇c'λbar
+        conval.hess[i] .= μ*∇c'∇c
+    else
+        mul!(conval.grad[i], Transpose(∇c.data), λbar)
+        mul!(conval.hess[i], Transpose(∇c), ∇c)
+        conval.hess[i] .*= μ
+    end
     return
 end
 
@@ -78,10 +84,16 @@ function TO.cost_expansion!(::Inequality, conval, i)
     # conval.grad[i] = ∇c'λbar
     # conval.hess[i] = μ*∇c'Iμ*∇c
 
-    mul!(conval.grad[i], Transpose(∇c.data), λbar)
-    mul!(tmp.data, Iμ, ∇c.data)  # TODO: do this directly on the SizedArrays
-    mul!(conval.hess[i], Transpose(∇c), tmp)
-    conval.hess[i] .*= μ
+    if prod(size(∇c)) < 24*24
+        ∇c = SMatrix(∇c)
+        conval.grad[i] .= ∇c'λbar
+        conval.hess[i] .= μ*∇c'Iμ*∇c
+    else
+        mul!(conval.grad[i], Transpose(∇c.data), λbar)
+        mul!(tmp.data, Iμ, ∇c.data)  # TODO: do this directly on the SizedArrays
+        mul!(conval.hess[i], Transpose(∇c), tmp)
+        conval.hess[i] .*= μ
+    end
 end
 
 function TO.cost_expansion!(cone::SecondOrderCone, conval, i)
