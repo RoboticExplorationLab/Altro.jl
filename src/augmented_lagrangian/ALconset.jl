@@ -358,6 +358,12 @@ function link_constraints!(set1::ALConstraintSet, set2::ALConstraintSet)
 	return links
 end
 
+function shift_fill!(conSet::ALConstraintSet, n=1)
+	for i = 1:length(conSet)
+		shift_fill!(conSet.convals[i], n)
+	end
+end
+
 ############################################################################################
 #                                    Solver Options
 ############################################################################################
