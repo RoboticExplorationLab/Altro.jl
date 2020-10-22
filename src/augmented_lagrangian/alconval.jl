@@ -110,3 +110,8 @@ function set_params!(cval::ALConVal, opts)
         cval.params.λ_max = opts.dual_max
     end
 end
+
+function shift_fill!(cval::ALConVal, n=1)
+    shift_fill!(cval.λ, n)
+    shift_fill!(cval.μ, n)
+end
