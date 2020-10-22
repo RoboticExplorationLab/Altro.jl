@@ -155,7 +155,7 @@ function reset!(stats::SolverStats, N::Int=0)
 end
 
 function record_iteration!(stats::SolverStats; 
-        cost=Inf, dJ=Inf, c_max=Inf, gradient=Inf, penalty_max=Inf, 
+        cost=NaN, dJ=NaN, c_max=NaN, gradient=NaN, penalty_max=NaN, 
         is_pn::Bool=false, is_outer::Bool=false
     )
     # don't increment the iteration for an outer loop
@@ -166,8 +166,8 @@ function record_iteration!(stats::SolverStats;
     end
     i = stats.iterations
     function record!(vec, val, i)
-        if val == Inf
-            val = i > 1 ? vec[i-1] : val
+        if isnan(val)
+            val = i > 1 ? vec[i-1] : vec[i] 
         end
         vec[i] = val
     end
