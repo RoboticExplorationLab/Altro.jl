@@ -135,7 +135,7 @@ function static_backwardpass!(solver::iLQRSolver{T,QUAD,L,O,n,n̄,m}, grad_only=
 		if solver.opts.save_S
 			S[k].Q .= Sxx
 			S[k].q .= Sx
-			S[k].c = ΔV_
+			S[k].c = ΔV_[1]
 		end
 		ΔV += ΔV_
         k -= 1
