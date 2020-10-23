@@ -160,6 +160,7 @@ is_constrained(::Type{<:UnconstrainedSolver})::Bool = false
 is_constrained(solver::AbstractSolver) = is_constrained(typeof(solver)) && !isempty(get_constraints(solver))
 
 @inline get_duals(solver::ConstrainedSolver) = get_duals(get_constraints(solver))
+@inline set_duals!(solver::ConstrainedSolver, λ) = set_duals!(get_constraints(solver), λ)
 
 
 function TO.cost(solver::AbstractSolver, Z=get_trajectory(solver))

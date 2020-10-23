@@ -92,6 +92,17 @@ end
 @inline TO.get_convals(conSet::ALConstraintSet) = conSet.convals
 @inline TO.get_errvals(conSet::ALConstraintSet) = conSet.errvals
 
+get_duals(conSet::ALConstraintSet) = [cval.λ for cval in conSet.convals]
+function set_duals!(conSet::ALConstraintSet, λ)
+	for i = 1:length(conSet)
+		set_duals!(conSet.convals[i], λ[i])
+	end
+end
+function set_duals!(cval::ALConVal, λ)
+	for i = 1:length(cval.λ)
+		cval.λ[i] .= λ[i]
+	end
+end
 
 ############################################################################################
 #                             Augmented Lagrangian Updates

@@ -28,12 +28,14 @@ end
 
 function benchmark_solve!(solver; samples=10, evals=10)
     Z0 = deepcopy(get_trajectory(solver))
+    λ0 = deepcopy(get_duals(solver))
     v0 = solver.opts.verbose
     s0 = solver.opts.show_summary
     solver.opts.verbose = 0
     solver.opts.show_summary = false
     b = @benchmark begin
         TO.initial_trajectory!($solver,$Z0)
+        set_duals!($solver, $λ0)
         solve!($solver)
     end samples=samples evals=evals
     solver.opts.verbose = v0 
