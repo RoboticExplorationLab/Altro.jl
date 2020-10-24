@@ -35,9 +35,11 @@ struct ALConVal{C,V,M} <: TO.AbstractConstraintValues{C}
 		if !iserr && size(TO.gen_jacobian(con)) != size(jac[1])
 			throw(DimensionMismatch("size of jac[i] $(size(jac[1])) does not match the expected size of $(size(gen_jacobian(con)))"))
 		end
+        params = ConstraintParams()
+
         vals2 = deepcopy(vals)
         λ = deepcopy(vals)
-        μ = deepcopy(vals)
+        μ = [zero(v) .+ 1.0 for v in vals] 
         λbar = deepcopy(vals)
 
         p = length(con)
@@ -46,7 +48,6 @@ struct ALConVal{C,V,M} <: TO.AbstractConstraintValues{C}
         iu = n .+ (1:m)
         c_max = zeros(P)
         is_const = BitArray(undef, size(jac)) 
-        params = ConstraintParams()
 
         # jac = [jac; jac[end:end,:]]  # append extra for temporary array
         tmp = zero(jac[1])
