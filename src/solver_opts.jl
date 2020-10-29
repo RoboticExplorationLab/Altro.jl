@@ -71,6 +71,7 @@ end
     reset_penalties::Bool = true
 
     # Projected Newton
+    force_pn::Bool = false
     verbose_pn::Bool = false
     n_steps::Int = 2
     solve_type::Symbol = :feasible

@@ -91,14 +91,15 @@ function solve!(solver::ALTROSolver)
     # Solve with AL
     solve!(solver.solver_al)
 
-    if status(solver) <= SOLVE_SUCCEEDED
+    if status(solver) <= SOLVE_SUCCEEDED || opts.force_pn
         # Check convergence
         i = solver.solver_al.stats.iterations
         c_max = solver.solver_al.stats.c_max[i]
 
         opts.constraint_tolerance = ϵ_con
-        if opts.projected_newton && c_max > opts.constraint_tolerance && 
-                (status(solver) <= SOLVE_SUCCEEDED || status(solver) == MAX_ITERATIONS_OUTER)
+        if (opts.projected_newton && c_max > opts.constraint_tolerance && 
+                (status(solver) <= SOLVE_SUCCEEDED || status(solver) == MAX_ITERATIONS_OUTER)) ||
+                opts.force_pn
             solve!(solver.solver_pn)
         end
 
