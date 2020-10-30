@@ -62,8 +62,8 @@ function TO.cost_expansion!(::Equality, conval, i)
         conval.grad[i] .= ∇c'λbar
         conval.hess[i] .= μ*∇c'∇c
     else
-        mul!(conval.grad[i], Transpose(∇c.data), λbar)
-        mul!(conval.hess[i], Transpose(∇c), ∇c)
+        mul!(conval.grad[i].data, Transpose(∇c.data), λbar)
+        mul!(conval.hess[i].data, Transpose(∇c), ∇c)
         conval.hess[i] .*= μ
     end
     return
@@ -89,9 +89,9 @@ function TO.cost_expansion!(::Inequality, conval, i)
         conval.grad[i] .= ∇c'λbar
         conval.hess[i] .= μ*∇c'Iμ*∇c
     else
-        mul!(conval.grad[i], Transpose(∇c.data), λbar)
+        mul!(conval.grad[i].data, Transpose(∇c.data), λbar)
         mul!(tmp.data, Iμ, ∇c.data)  # TODO: do this directly on the SizedArrays
-        mul!(conval.hess[i], Transpose(∇c), tmp)
+        mul!(conval.hess[i].data, Transpose(∇c), tmp)
         conval.hess[i] .*= μ
     end
 end
@@ -117,12 +117,12 @@ function TO.cost_expansion!(cone::SecondOrderCone, conval, i)
     
     # Apply the chain rule
     μ = μ[1]
-    mul!(tmp.data, ∇proj, ∇c.data)
+    mul!(tmp, ∇proj, ∇c)
     mul!(conval.grad[i], Transpose(tmp), λp)
     conval.grad[i] .*= -1                      # -∇cproj'λp
     mul!(conval.hess[i], Transpose(tmp), tmp)  # ∇cproj'∇cproj
-    mul!(tmp.data, ∇²proj, ∇c.data)
-    mul!(conval.hess[i], ∇c.data', tmp.data, 1.0, 1.0)
+    mul!(tmp, ∇²proj, ∇c)
+    mul!(conval.hess[i], Transpose(∇c), tmp, 1.0, 1.0)
     conval.hess[i] .*= μ
     
     # Combine and store the result
@@ -153,11 +153,11 @@ end
 function copy_expansion!(E::QuadraticObjective{n,m}, conval::ALConVal{<:TO.StageConstraint}) where {n,m}
     ix,iu = SVector{n}(1:n), SVector{m}((1:m) .+ n)
     for (i,k) in enumerate(conval.inds)
-        E[k].q .+= conval.grad[i][ix]
-        E[k].r .+= conval.grad[i][iu]
-        E[k].Q .+= conval.hess[i][ix,ix]
-        E[k].R .+= conval.hess[i][iu,iu]
-        E[k].H .+= conval.hess[i][iu,ix]
+        E[k].q .+= conval.grad[i].data[ix]
+        E[k].r .+= conval.grad[i].data[iu]
+        E[k].Q .+= conval.hess[i].data[ix,ix]
+        E[k].R .+= conval.hess[i].data[iu,iu]
+        E[k].H .+= conval.hess[i].data[iu,ix]
         E.const_hess[k] &= conval.is_const[i] & conval.const_hess[i]
     end
 end

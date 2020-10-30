@@ -10,11 +10,13 @@ function ConstraintParams(ϕ::Real, μ0::Real, μ_max::Real, λ_max::Real)
 	ConstraintParams{eltype(params)}(params...)
 end
 
-struct ALConVal{C,V,M} <: TO.AbstractConstraintValues{C}
+struct ALConVal{C,P,W,V,M} <: TO.AbstractConstraintValues{C}
     con::C
     inds::Vector{Int}
     vals::Vector{V}
     jac::Matrix{M}
+    viol::Vector{V}
+    ∇viol::Matrix{M}
     λ::Vector{V}
     μ::Vector{V}
     λbar::Vector{V}
@@ -24,10 +26,10 @@ struct ALConVal{C,V,M} <: TO.AbstractConstraintValues{C}
 	params::ConstraintParams{Float64}
 
     tmp::M
-    ∇proj::Vector{Matrix{Float64}}   # (p,p) projection Jacobian
-    ∇²proj::Vector{Matrix{Float64}}  # (p,p) projection "Hessian," or Jacobian of ∇Π'Π
-    grad::Vector{Vector{Float64}}    # gradient of augmented Lagrangian wrt inputs
-    hess::Vector{Matrix{Float64}}    # hessian of augmented Lagrangian wrt inputs
+    ∇proj::Vector{SizedMatrix{P,P,Float64,2}}   # (p,p) projection Jacobian
+    ∇²proj::Vector{SizedMatrix{P,P,Float64,2}}  # (p,p) projection "Hessian," or Jacobian of ∇Π'Π
+    grad::Vector{SizedVector{W,Float64,1}}    # gradient of augmented Lagrangian wrt inputs
+    hess::Vector{SizedMatrix{W,W,Float64,2}}    # hessian of augmented Lagrangian wrt inputs
     const_hess::BitVector
 
 	function ALConVal(n::Int, m::Int, con::TO.AbstractConstraint, inds::AbstractVector{Int}, 
@@ -37,7 +39,8 @@ struct ALConVal{C,V,M} <: TO.AbstractConstraintValues{C}
 		end
         params = ConstraintParams()
 
-        vals2 = deepcopy(vals)
+        viol = deepcopy(vals)
+        ∇viol = deepcopy(jac)
         λ = deepcopy(vals)
         μ = [zero(v) .+ 1.0 for v in vals] 
         λbar = deepcopy(vals)
@@ -59,8 +62,8 @@ struct ALConVal{C,V,M} <: TO.AbstractConstraintValues{C}
         hess = [zeros(ni,ni) for i = 1:P]
         const_hess = BitArray(undef, P)
 
-        new{typeof(con), eltype(vals), eltype(jac)}(con,
-            collect(inds), vals,jac, λ, μ, λbar, c_max, is_const, iserr, params,
+        new{typeof(con), p, ni, eltype(vals), eltype(jac)}(con,
+            collect(inds), vals, jac, viol, ∇viol, λ, μ, λbar, c_max, is_const, iserr, params,
             tmp, ∇proj, ∇²proj, grad, hess, const_hess)
     end
 end
@@ -84,6 +87,33 @@ function ALConVal(n::Int, m::Int, con::TO.AbstractConstraint, inds::UnitRange{In
 end
 
 TO.sense(cval::ALConVal) = TO.sense(cval.con)
+
+"""
+    violation!(::ALConVal)
+
+Calculate the constraint violations. For equality constraints, this is simply the 
+constraint value. For conic constraints, this is the difference between the projected 
+and current constraint value. Assumes the constraint values have already been computed.
+"""
+function violation!(cval::ALConVal)
+    cone = TO.sense(cval)
+    for i = 1:length(cval.inds)
+        cval.viol[i] .= TO.violation(cone, SVector(cval.vals[i]))
+    end
+end
+
+"""
+    ∇violation!(::ALConVal)
+
+Calculate the Jacobian of the constraint violation. Assumes the constraint value and Jacobian
+have already been computed.
+"""
+function ∇violation!(cval::ALConVal)
+    cone = TO.sense(cval)
+    for i = 1:length(cval.inds)
+        TO.∇violation!(cone, cval.∇viol[i], cval.jac[i], SVector(cval.vals[i]), cval.∇proj[i])
+    end
+end
 
 function reset_duals!(con::ALConVal)
     for i in eachindex(con.λ)

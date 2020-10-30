@@ -104,15 +104,23 @@ function set_duals!(cval::ALConVal, λ)
 	end
 end
 
+for method in (:violation!, :∇violation!, :dual_update!, :penalty_update!, :reset_duals!, :reset_penalties!)
+	@eval function $method(conSet::ALConstraintSet)
+		for i = 1:length(conSet)
+			$method(conSet.convals[i])
+		end
+	end
+end
+
 ############################################################################################
 #                             Augmented Lagrangian Updates
 ############################################################################################
 
-function dual_update!(conSet::ALConstraintSet)
-    for i in eachindex(conSet.λ)
-        dual_update!(conSet.convals[i])
-	end
-end
+# function dual_update!(conSet::ALConstraintSet)
+#     for i in eachindex(conSet.λ)
+#         dual_update!(conSet.convals[i])
+# 	end
+# end
 
 function dual_update!(conval::ALConVal)
 	c = conval.vals
@@ -141,11 +149,11 @@ function dual_update(cone::SecondOrderCone, λ, c, μ, λmax)
 	 return TO.projection(cone, λbar)  # project onto the dual cone
 end
 
-function penalty_update!(conSet::ALConstraintSet)
-	for i in eachindex(conSet.μ)
-		penalty_update!(conSet.convals[i])
-	end
-end
+# function penalty_update!(conSet::ALConstraintSet)
+# 	for i in eachindex(conSet.μ)
+# 		penalty_update!(conSet.convals[i])
+# 	end
+# end
 
 function penalty_update!(cval::ALConVal)
 	μ = cval.μ
@@ -202,56 +210,56 @@ end
 ############################################################################################
 #                             Constraint Penalties
 ############################################################################################
-function projection_jacobians!(conSet::ALConstraintSet)
-	for i in eachindex(conSet.convals)
-		projection_jacobians!(conSet.convals[i])
-	end
-end
+# function projection_jacobians!(conSet::ALConstraintSet)
+# 	for i in eachindex(conSet.convals)
+# 		projection_jacobians!(conSet.convals[i])
+# 	end
+# end
 
 
-"""
-	constraint_penalty!(conSet::ALConstraintSet)
+# """
+# 	constraint_penalty!(conSet::ALConstraintSet)
 
-Evaluate the penalty of the constraints. For equality constraints, this is the constraint 
-itself. For generalized inequalities, this is the projection of the constraint onto the
-appropriate cone.
-"""
-function constraint_penalty!(conSet::ALConstraintSet)
-	for i in eachindex(conSet.convals)
-		constraint_penalty!(conSet.convals[i], conSet.λ[i])
-	end
-end
+# Evaluate the penalty of the constraints. For equality constraints, this is the constraint 
+# itself. For generalized inequalities, this is the projection of the constraint onto the
+# appropriate cone.
+# """
+# function constraint_penalty!(conSet::ALConstraintSet)
+# 	for i in eachindex(conSet.convals)
+# 		constraint_penalty!(conSet.convals[i], conSet.λ[i])
+# 	end
+# end
 
-function constraint_penalty!(conval::TO.ConVal, λ)
-	for i in eachindex(conval.inds)
-		conval.vals2[i] = penalty(TO.sense(conval.con), conval.vals[i], λ[i])
-	end
-end
+# function constraint_penalty!(conval::TO.ConVal, λ)
+# 	for i in eachindex(conval.inds)
+# 		conval.vals2[i] = penalty(TO.sense(conval.con), conval.vals[i], λ[i])
+# 	end
+# end
 
 
 
-"""
-	penalty_jacobian!(conSet::ALConstraintSet)
+# """
+# 	penalty_jacobian!(conSet::ALConstraintSet)
 
-Evaluate the Jacobian of the constraint penalty. For equality constraints, this is simply
-the Jacobian of the constraint itself. For generalized inequalities, this is `∇proj*∇c`
-where `∇proj` is the Jacobian of the projection of the constraint onto the corresponding 
-cone.
-"""
-function penalty_jacobian!(conSet::ALConstraintSet)
-	for i in eachindex(conSet.errvals)
-		penalty_jacobian!(conSet.∇c_proj[i], conSet.errvals[i], conSet.λ[i])
-	end
-end
+# Evaluate the Jacobian of the constraint penalty. For equality constraints, this is simply
+# the Jacobian of the constraint itself. For generalized inequalities, this is `∇proj*∇c`
+# where `∇proj` is the Jacobian of the projection of the constraint onto the corresponding 
+# cone.
+# """
+# function penalty_jacobian!(conSet::ALConstraintSet)
+# 	for i in eachindex(conSet.errvals)
+# 		penalty_jacobian!(conSet.∇c_proj[i], conSet.errvals[i], conSet.λ[i])
+# 	end
+# end
 
-function penalty_jacobian!(∇c_proj::Vector, conval::TO.ConVal, λ::Vector)
-	if size(conval.jac, 2) > 1
-		throw(ErrorException("Constraint projection not supported for CoupledConstraints"))
-	end
-	for i in eachindex(conval.inds)
-		∇penalty!(TO.sense(conval.con), ∇c_proj[i], conval.jac[i], conval.vals[i], λ[i])
-	end
-end
+# function penalty_jacobian!(∇c_proj::Vector, conval::TO.ConVal, λ::Vector)
+# 	if size(conval.jac, 2) > 1
+# 		throw(ErrorException("Constraint projection not supported for CoupledConstraints"))
+# 	end
+# 	for i in eachindex(conval.inds)
+# 		∇penalty!(TO.sense(conval.con), ∇c_proj[i], conval.jac[i], conval.vals[i], λ[i])
+# 	end
+# end
 
 ############################################################################################
 #                                        Cost
@@ -328,17 +336,17 @@ function reset!(conSet::ALConstraintSet)
     reset_penalties!(conSet)
 end
 
-function reset_duals!(conSet::ALConstraintSet)
-	for i = 1:length(conSet)
-		reset_duals!(conSet.convals[i])
-	end
-end
+# function reset_duals!(conSet::ALConstraintSet)
+# 	for i = 1:length(conSet)
+# 		reset_duals!(conSet.convals[i])
+# 	end
+# end
 
-function reset_penalties!(conSet::ALConstraintSet)
-	for i = 1:length(conSet)
-		reset_penalties!(conSet.convals[i])
-	end
-end
+# function reset_penalties!(conSet::ALConstraintSet)
+# 	for i = 1:length(conSet)
+# 		reset_penalties!(conSet.convals[i])
+# 	end
+# end
 
 
 """
