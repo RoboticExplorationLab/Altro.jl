@@ -91,6 +91,9 @@ end
     verbose::Int = 0 
 end
 
+function Base.copy(opts::SolverOptions)
+    SolverOptions([getfield(opts, fname) for fname in fieldnames(SolverOptions)]...)
+end
 
 @with_kw mutable struct SolverStats{T}
     # Iteration counts
@@ -168,7 +171,13 @@ function record_iteration!(stats::SolverStats;
     i = stats.iterations
     function record!(vec, val, i)
         if isnan(val)
-            val = i > 1 ? vec[i-1] : vec[i] 
+            if vec[i] != 0
+                val = vec[i]
+            elseif i > 1
+                val = vec[i-1]
+            else
+                val = vec[i]
+            end
         end
         vec[i] = val
     end
