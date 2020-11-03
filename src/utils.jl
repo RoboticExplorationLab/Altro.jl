@@ -54,10 +54,11 @@ function benchmark_solve!(solver, data::Dict; samples=10, evals=10)
 end
 
 function shift_fill!(A::Vector, n=1, mode=:copy)
-	N = length(A)
+    N = length(A)
+    N <= 1 && return nothing
 	@inbounds for k = n+1:N
 		A[k-n] = A[k]
-	end
+    end
     if mode == :copy
         a_last = A[N-n]
         @inbounds for k = N-n:N
