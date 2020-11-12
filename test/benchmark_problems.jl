@@ -32,6 +32,16 @@ TEST_TIME && @test minimum(b).time / 1e6 <  10
 @test solver.stats.gradient[end] < 1e-2
 @test status(solver) == Altro.SOLVE_SUCCEEDED 
 
+solver = ALTROSolver(Problems.Cartpole()..., projected_newton=false)
+if !Sys.iswindows()
+    @test b = benchmark_solve!(solver).allocs == 0
+end
+
+solver = ALTROSolver(Problems.Cartpole()..., projected_newton=false, static_bp=false)
+if !Sys.iswindows()
+    @test b = benchmark_solve!(solver).allocs == 0
+end
+
 # Acrobot
 solver = ALTROSolver(Problems.Acrobot()...)
 b = benchmark_solve!(solver)
@@ -91,6 +101,15 @@ if !Sys.iswindows()   # not sure why this fails on Windows?
     @test benchmark_solve!(solver).allocs == 0
     @test status(solver) == Altro.SOLVE_SUCCEEDED 
 end
+
+solver = ALTROSolver(Problems.Quadrotor(:zigzag)..., projected_newton=false, 
+    infeasible=true, static_bp=false, constraint_tolerance=1e-4)
+b = benchmark_solve!(solver, samples=2, evals=2)
+if !Sys.iswindows()
+    @test b.allocs == 0
+end
+@test iterations(solver) == 20
+@test status(solver) == Altro.SOLVE_SUCCEEDED
 
 # Barrell Roll
 solver = ALTROSolver(Problems.YakProblems()...)
