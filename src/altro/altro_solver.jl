@@ -94,7 +94,11 @@ function solve!(solver::ALTROSolver)
     if status(solver) <= SOLVE_SUCCEEDED || opts.force_pn
         # Check convergence
         i = solver.solver_al.stats.iterations
-        c_max = solver.solver_al.stats.c_max[i]
+        if i > 1
+            c_max = solver.solver_al.stats.c_max[i]
+        else
+            c_max = TO.max_violation(solver.solver_al)
+        end
 
         opts.constraint_tolerance = ϵ_con
         if (opts.projected_newton && c_max > opts.constraint_tolerance && 
