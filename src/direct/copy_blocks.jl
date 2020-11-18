@@ -29,7 +29,7 @@ end
 function copy_multipliers!(λ, solver::ConstrainedSolver)
     conSet = get_constraints(solver)
     for (i,con) in enumerate(conSet.errvals)
-        copy_inds(λ, conSet.λ[i], solver.con_inds[i])
+        copy_inds(λ, con.λ, solver.con_inds[i])
     end
     return nothing
 end
@@ -37,7 +37,7 @@ end
 function copyback_multipliers!(λ, solver::ConstrainedSolver)
     conSet = get_constraints(solver)
     for (i,con) in enumerate(conSet.errvals)
-        copyback_inds(λ, conSet.λ[i], solver.con_inds[i])
+        copyback_inds(λ, con.λ, solver.con_inds[i])
     end
     return nothing
 end
@@ -46,7 +46,7 @@ end
 function copy_active_set!(a, solver::ConstrainedSolver)
     conSet = get_constraints(solver)
     for i = 1:length(conSet.errvals)
-        copy_inds(solver.active_set, conSet.active[i], solver.con_inds[i])
+        copy_inds(solver.active_set, conSet.convals[i].active, solver.con_inds[i])
     end
 end
 

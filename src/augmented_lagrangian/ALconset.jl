@@ -38,14 +38,14 @@ penalties and/or multipliers can be reset using
 struct ALConstraintSet{T} <: TO.AbstractConstraintSet
     convals::Vector{ALConVal}
     errvals::Vector{ALConVal}
-	∇c_proj::Vector{<:Vector}        # Jacobians of projected constraints
-    λ::Vector{<:Vector}
-    μ::Vector{<:Vector}
-	active::Vector{<:Vector}
+	# ∇c_proj::Vector{<:Vector}        # Jacobians of projected constraints
+    # λ::Vector{<:Vector}
+    # μ::Vector{<:Vector}
+	# active::Vector{<:Vector}
     c_max::Vector{T}
     μ_max::Vector{T}
     μ_maxes::Vector{Vector{T}}
-	params::Vector{TO.ConstraintParams{T}}
+	# params::Vector{TO.ConstraintParams{T}}
 	p::Vector{Int}
 end
 
@@ -63,28 +63,35 @@ function ALConstraintSet(cons::TO.ConstraintList, model::RD.AbstractModel)
     end
 	errvals = convert(Vector{ALConVal}, errvals)
 	convals = convert(Vector{ALConVal}, convals)
-	∇c_proj = map(1:ncon) do i
-		[copy(errvals[i].jac[j,1]) for j in eachindex(cons.inds[i])]
-	end
-    λ = map(1:ncon) do i
-		p = length(cons[i])
-		convals[i].λ
-        # [@SVector zeros(p) for j in cons.inds[i]]
-    end
-    μ = map(1:ncon) do i
-		p = length(cons[i])
-		convals[i].μ
-        # [@SVector ones(p) for j in cons.inds[i]]
-    end
-    a = map(1:ncon) do i
-        p = length(cons[i])
-        [@SVector ones(Bool,p) for j in cons.inds[i]]
-    end
+	# ∇c_proj = map(1:ncon) do i
+	# 	[copy(errvals[i].jac[j,1]) for j in eachindex(cons.inds[i])]
+	# end
+    # λ = map(1:ncon) do i
+	# 	p = length(cons[i])
+	# 	convals[i].λ
+    #     # [@SVector zeros(p) for j in cons.inds[i]]
+    # end
+    # μ = map(1:ncon) do i
+	# 	p = length(cons[i])
+	# 	convals[i].μ
+    #     # [@SVector ones(p) for j in cons.inds[i]]
+    # end
+    # a = map(1:ncon) do i
+    #     p = length(cons[i])
+    #     [@SVector ones(Bool,p) for j in cons.inds[i]]
+	# end
+	# if ncon == 0
+	# 	∇c_proj = Vector{Float64}[]
+	# 	λ = Vector{Float64}[]
+	# 	μ = Vector{Float64}[]
+	# 	a = Vector{Float64}[]
+	# end
     c_max = zeros(ncon)
     μ_max = zeros(ncon)
     μ_maxes = [zeros(length(ind)) for ind in cons.inds]
-	params = [TO.ConstraintParams() for con in cons.constraints]
-    ALConstraintSet(convals, errvals, ∇c_proj, λ, μ, a, c_max, μ_max, μ_maxes, params, copy(cons.p))
+	# params = [TO.ConstraintParams() for con in cons.constraints]
+    # ALConstraintSet(convals, errvals, ∇c_proj, λ, μ, a, c_max, μ_max, μ_maxes, params, copy(cons.p))
+    ALConstraintSet(convals, errvals, c_max, μ_max, μ_maxes, copy(cons.p))
 end
 
 @inline ALConstraintSet(prob::Problem) = ALConstraintSet(prob.constraints, prob.model)
@@ -167,13 +174,15 @@ end
 
 # Active Set
 function update_active_set!(conSet::ALConstraintSet, val::Val{tol}=Val(0.0)) where tol
-	for i in eachindex(conSet.active)
-		update_active_set!(conSet.active[i], conSet.λ[i], conSet.convals[i], val)
+	for i in 1:length(conSet) 
+		# update_active_set!(conSet.active[i], conSet.λ[i], conSet.convals[i], val)
+		update_active_set!(conSet.convals[i], val)
 	end
 end
 
-function update_active_set!(a::Vector{<:StaticVector}, λ::Vector{<:StaticVector},
-		conval::ALConVal, ::Val{tol}) where tol
+function update_active_set!(conval::ALConVal, ::Val{tol}) where tol
+	a = conval.active
+	λ = conval.λ
 	if TO.sense(conval.con) == TO.Inequality()
 		for i in eachindex(a)
 			a[i] = @. (conval.vals[i] >= -tol) | (λ[i] > zero(tol))
@@ -193,16 +202,16 @@ end
 
 function max_penalty!(conSet::ALConstraintSet{T}) where T
     conSet.c_max .*= 0
-    for i in eachindex(conSet.μ)
-        maxes = conSet.μ_maxes[i]::Vector{T}
-        max_penalty!(maxes, conSet.μ[i])
+	for i in 1:length(conSet) 
+		maxes = conSet.μ_maxes[i]::Vector{T}
+        max_penalty!(maxes, conSet.convals[i])
         conSet.μ_max[i] = maximum(maxes)
     end
 end
 
-function max_penalty!(μ_max::Vector{<:Real}, μ::Vector{<:StaticVector})
-    for i in eachindex(μ)
-        μ_max[i] = maximum(μ[i])
+function max_penalty!(μ_max::Vector{<:Real}, cval::ALConVal)
+    for i in eachindex(cval.μ)
+        μ_max[i] = maximum(cval.μ[i])
     end
     return nothing
 end
@@ -370,9 +379,9 @@ function link_constraints!(set1::ALConstraintSet, set2::ALConstraintSet)
 	for (i,j) in links
 		set1.convals[i] = set2.convals[j]
 		set1.errvals[i] = set2.errvals[j]
-		set1.active[i] = set2.active[j]
-		set1.λ[i] = set2.λ[j]
-		set1.μ[i] = set2.μ[j]
+		# set1.active[i] = set2.active[j]
+		# set1.λ[i] = set2.λ[j]
+		# set1.μ[i] = set2.μ[j]
 	end
 	return links
 end
@@ -387,26 +396,26 @@ end
 #                                    Solver Options
 ############################################################################################
 function reset!(conSet::ALConstraintSet{T}, opts::SolverOptions{T}) where T
-    if !isnan(opts.dual_max)
-        for params in conSet.params
-            params.λ_max = opts.dual_max
-        end
-    end
-    if !isnan(opts.penalty_max)
-        for params in conSet.params
-            params.μ_max = opts.penalty_max
-        end
-    end
-    if !isnan(opts.penalty_initial)
-        for params in conSet.params
-            params.μ0 = opts.penalty_initial
-        end
-    end
-    if !isnan(opts.penalty_scaling)
-        for params in conSet.params
-            params.ϕ = opts.penalty_scaling
-        end
-	end
+    # if !isnan(opts.dual_max)
+    #     for params in conSet.params
+    #         params.λ_max = opts.dual_max
+    #     end
+    # end
+    # if !isnan(opts.penalty_max)
+    #     for params in conSet.params
+    #         params.μ_max = opts.penalty_max
+    #     end
+    # end
+    # if !isnan(opts.penalty_initial)
+    #     for params in conSet.params
+    #         params.μ0 = opts.penalty_initial
+    #     end
+    # end
+    # if !isnan(opts.penalty_scaling)
+    #     for params in conSet.params
+    #         params.ϕ = opts.penalty_scaling
+    #     end
+	# end
 	for i = 1:length(conSet)
 		set_params!(conSet.convals[i], opts)
 	end

@@ -20,10 +20,11 @@ struct ALConVal{C,P,W,V,M} <: TO.AbstractConstraintValues{C}
     λ::Vector{V}
     μ::Vector{V}
     λbar::Vector{V}
+    active::Vector{BitVector}
     c_max::Vector{Float64}
     is_const::BitArray{2}
     iserr::Bool
-	params::ConstraintParams{Float64}
+    params::ConstraintParams{Float64}
 
     tmp::M
     ∇proj::Vector{SizedMatrix{P,P,Float64,2}}   # (p,p) projection Jacobian
@@ -38,15 +39,16 @@ struct ALConVal{C,P,W,V,M} <: TO.AbstractConstraintValues{C}
 			throw(DimensionMismatch("size of jac[i] $(size(jac[1])) does not match the expected size of $(size(gen_jacobian(con)))"))
 		end
         params = ConstraintParams()
+        p = length(con)
+        P = length(vals)
 
         viol = deepcopy(vals)
         ∇viol = deepcopy(jac)
         λ = deepcopy(vals)
         μ = [zero(v) .+ 1.0 for v in vals] 
         λbar = deepcopy(vals)
+        active = [ones(Bool,p) for i = 1:P]
 
-        p = length(con)
-        P = length(vals)
         ix = 1:n
         iu = n .+ (1:m)
         c_max = zeros(P)
@@ -56,14 +58,14 @@ struct ALConVal{C,P,W,V,M} <: TO.AbstractConstraintValues{C}
         tmp = zero(jac[1])
         
         ni = size(jac[1],2)  # size of inputs to the constraint
-        ∇proj  = [zeros(p,p) for i = 1:P]
-        ∇²proj = [zeros(p,p) for i = 1:P]
-        grad = [zeros(ni) for i = 1:P]
-        hess = [zeros(ni,ni) for i = 1:P]
+        ∇proj  = [SizedMatrix{p,p}(zeros(p,p)) for i = 1:P]
+        ∇²proj = [SizedMatrix{p,p}(zeros(p,p)) for i = 1:P]
+        grad = [SizedVector{ni}(zeros(ni)) for i = 1:P]
+        hess = [SizedMatrix{ni,ni}(zeros(ni,ni)) for i = 1:P]
         const_hess = BitArray(undef, P)
 
         new{typeof(con), p, ni, eltype(vals), eltype(jac)}(con,
-            collect(inds), vals, jac, viol, ∇viol, λ, μ, λbar, c_max, is_const, iserr, params,
+            collect(inds), vals, jac, viol, ∇viol, λ, μ, λbar, active, c_max, is_const, iserr, params,
             tmp, ∇proj, ∇²proj, grad, hess, const_hess)
     end
 end
@@ -112,6 +114,13 @@ function ∇violation!(cval::ALConVal)
     cone = TO.sense(cval)
     for i = 1:length(cval.inds)
         TO.∇violation!(cone, cval.∇viol[i], cval.jac[i], SVector(cval.vals[i]), cval.∇proj[i])
+    end
+end
+
+function TO.max_violation!(cval::ALConVal)
+	s = TO.sense(cval.con)
+    for i in eachindex(cval.inds)
+        cval.c_max[i] = TO.max_violation(s, SVector(cval.vals[i]))
     end
 end
 
