@@ -1,7 +1,7 @@
 name = "Altro"
 uuid = "5dcf52e5-e2fb-48e0-b826-96f46d2e3e73"
 authors = ["Brian Jackson <bjack205@gmail.com>"]
-version = "0.2.0"
+version = "0.3.0"
 
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
@@ -28,11 +28,11 @@ Crayons = "4"
 DocStringExtensions = "0.8"
 Interpolations = "0.12"
 Parameters = "0.12"
-RobotDynamics = "0.1,0.2"
+RobotDynamics = "0.1,0.2,0.3"
 RobotZoo = "0.1"
 Rotations = "1"
 SolverLogging = "0.1"
 StaticArrays = "0.12"
-TrajectoryOptimization = "0.3"
+TrajectoryOptimization = "0.3,0.4"
 UnsafeArrays = "1"
 julia = "1"
