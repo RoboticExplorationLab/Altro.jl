@@ -2,6 +2,7 @@ using Test
 using Altro
 using BenchmarkTools
 using TrajectoryOptimization
+using RobotDynamics
 const TO = TrajectoryOptimization
 
 TEST_TIME = false

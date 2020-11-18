@@ -169,5 +169,6 @@ end
 function TO.jacobian!(∇c, con::InfeasibleConstraint{n}, u::SVector) where n
 	for (i,j) in enumerate(con.ui)
 		∇c[i,j] = 1
-	end
+    end
+    return true
 end
