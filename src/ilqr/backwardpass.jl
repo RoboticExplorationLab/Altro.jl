@@ -89,6 +89,11 @@ function static_backwardpass!(solver::iLQRSolver{T,QUAD,L,O,n,n̄,m}, grad_only=
 	Sxx = SMatrix(Q.Q)
 	Sx = SVector(Q.q)
 
+	if solver.opts.save_S
+		S[end].Q .= Sxx
+		S[end].q .= Sx
+	end
+
     # Initialize expected change in cost-to-go
 	ΔV = @SVector zeros(2)
 	

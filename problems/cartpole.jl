@@ -1,4 +1,4 @@
-function Cartpole(method=:none; constrained::Bool=true)
+function Cartpole(method=:none; constrained::Bool=true, N=101)
 
     opts = SolverOptions(
         cost_tolerance_intermediate=1e-2,
@@ -8,7 +8,6 @@ function Cartpole(method=:none; constrained::Bool=true)
 
     model = RobotZoo.Cartpole()
     n,m = size(model)
-    N = 101
     tf = 5.
     dt = tf/(N-1)
 
