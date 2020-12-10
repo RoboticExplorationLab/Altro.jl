@@ -47,7 +47,7 @@ end
     max_cost_value::T = 1.0e8
     max_state_value::T = 1.0e8
     max_control_value::T = 1.0e8
-	static_bp::Bool = true
+    static_bp::Bool = true
 	save_S::Bool = false
 
     # Backward pass regularization
@@ -60,17 +60,18 @@ end
     bp_reg_fp::T = 10.0
 
     # Augmented Lagrangian
-    penalty_initial::T = NaN
-    penalty_scaling::T = NaN
+    penalty_initial::T = 1.0 
+    penalty_scaling::T = 10.0
     active_set_tolerance_al::T = 1e-3
-    dual_max::T = NaN
-    penalty_max::T = NaN
+    dual_max::T = 1e8 
+    penalty_max::T = 1e8 
     iterations_outer::Int = 30
     kickout_max_penalty::Bool = false
     reset_duals::Bool = true
     reset_penalties::Bool = true
 
     # Projected Newton
+    force_pn::Bool = false
     verbose_pn::Bool = false
     n_steps::Int = 2
     solve_type::Symbol = :feasible
@@ -84,38 +85,14 @@ end
 
     # General options
     projected_newton::Bool = true
+    reuse_jacobians::Bool = false
     iterations::Int = 1000   # max number of iterations
     show_summary::Bool = false
     verbose::Int = 0 
 end
 
-function reset!(conSet::ALConstraintSet{T}, opts::SolverOptions{T}) where T
-    if !isnan(opts.dual_max)
-        for params in conSet.params
-            params.λ_max = opts.dual_max
-        end
-    end
-    if !isnan(opts.penalty_max)
-        for params in conSet.params
-            params.μ_max = opts.penalty_max
-        end
-    end
-    if !isnan(opts.penalty_initial)
-        for params in conSet.params
-            params.μ0 = opts.penalty_initial
-        end
-    end
-    if !isnan(opts.penalty_scaling)
-        for params in conSet.params
-            params.ϕ = opts.penalty_scaling
-        end
-    end
-    if opts.reset_duals
-        TO.reset_duals!(conSet)
-    end
-    if opts.reset_penalties
-        TO.reset_penalties!(conSet)
-    end
+function Base.copy(opts::SolverOptions)
+    SolverOptions([getfield(opts, fname) for fname in fieldnames(SolverOptions)]...)
 end
 
 @with_kw mutable struct SolverStats{T}
@@ -140,6 +117,7 @@ end
     # Other
     tstart::Float64 = time()
     tsolve::Float64 = Inf 
+    to::TimerOutput = TimerOutput()
     status::TerminationStatus = UNSOLVED
     is_reset::Bool = false
     "Which solver is the top-level solver and responsible for resetting and trimming."
@@ -173,6 +151,7 @@ function reset!(stats::SolverStats, N::Int=0)
     reset!(stats.penalty_max, N)
     stats.tstart = time_ns()
     stats.tsolve = Inf
+    # reset_timer!(stats.to)
     stats.dJ_zero_counter = 0
     stats.is_reset = true
     stats.status = UNSOLVED
@@ -180,7 +159,7 @@ function reset!(stats::SolverStats, N::Int=0)
 end
 
 function record_iteration!(stats::SolverStats; 
-        cost=Inf, dJ=Inf, c_max=Inf, gradient=Inf, penalty_max=Inf, 
+        cost=NaN, dJ=NaN, c_max=NaN, gradient=NaN, penalty_max=NaN, 
         is_pn::Bool=false, is_outer::Bool=false
     )
     # don't increment the iteration for an outer loop
@@ -191,8 +170,14 @@ function record_iteration!(stats::SolverStats;
     end
     i = stats.iterations
     function record!(vec, val, i)
-        if val == Inf
-            val = i > 1 ? vec[i-1] : val
+        if isnan(val)
+            if vec[i] != 0
+                val = vec[i]
+            elseif i > 1
+                val = vec[i-1]
+            else
+                val = vec[i]
+            end
         end
         vec[i] = val
     end

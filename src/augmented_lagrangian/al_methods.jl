@@ -82,7 +82,7 @@ end
 function record_iteration!(solver::AugmentedLagrangianSolver{T,S}, J::T, c_max::T) where {T,S}
 
 	conSet = get_constraints(solver)
-	TO.max_penalty!(conSet)
+	max_penalty!(conSet)
     max_penalty = maximum(conSet.c_max)
     J_prev = solver.stats.cost[solver.stats.iterations]
     dJ = J_prev - J
@@ -91,11 +91,11 @@ function record_iteration!(solver::AugmentedLagrangianSolver{T,S}, J::T, c_max::
     record_iteration!(solver.stats, c_max=c_max, penalty_max=max_penalty, is_outer=true)
     j = solver.stats.iterations_outer::Int
 
-	@logmsg OuterLoop :iter value=j
-	@logmsg OuterLoop :total value=solver.stats.iterations
-	@logmsg OuterLoop :cost value=J
-    @logmsg OuterLoop :c_max value=c_max
 	if is_verbose(solver) 
+        @logmsg OuterLoop :iter value=j
+        @logmsg OuterLoop :total value=solver.stats.iterations
+        @logmsg OuterLoop :cost value=J
+        @logmsg OuterLoop :c_max value=c_max
 		print_level(OuterLoop, global_logger())
 	end
 end
@@ -125,11 +125,11 @@ end
 "General Dual Update"
 function dual_update!(solver::AugmentedLagrangianSolver) where {T,Q,N,M,NM}
     conSet = get_constraints(solver)
-	TO.dual_update!(conSet)
+	dual_update!(conSet)
 end
 
 "General Penalty Update"
 function penalty_update!(solver::AugmentedLagrangianSolver)
     conSet = get_constraints(solver)
-	TO.penalty_update!(conSet)
+	penalty_update!(conSet)
 end

@@ -28,11 +28,22 @@ end
 
 function benchmark_solve!(solver; samples=10, evals=10)
     Z0 = deepcopy(get_trajectory(solver))
-    solver.opts.verbose = false
+    if is_constrained(solver)
+        λ0 = deepcopy(get_duals(solver))
+    else
+        λ0 = nothing
+    end
+    v0 = solver.opts.verbose
+    s0 = solver.opts.show_summary
+    solver.opts.verbose = 0
+    solver.opts.show_summary = false
     b = @benchmark begin
         TO.initial_trajectory!($solver,$Z0)
+        # set_duals!($solver, $λ0)
         solve!($solver)
     end samples=samples evals=evals
+    solver.opts.verbose = v0 
+    solver.opts.show_summary = s0 
     return b
 end
 
@@ -46,14 +57,21 @@ function benchmark_solve!(solver, data::Dict; samples=10, evals=10)
    return b
 end
 
-function shift_fill!(A::Vector, n=1)
-	N = length(A)
+function shift_fill!(A::Vector, n=1, mode=:copy)
+    N = length(A)
+    N <= 1 && return nothing
 	@inbounds for k = n+1:N
 		A[k-n] = A[k]
-	end
-    a_last = A[N-n]
-	@inbounds for k = N-n:N
-		A[k] = copy(a_last)
-	end
+    end
+    if mode == :copy
+        a_last = A[N-n]
+        @inbounds for k = N-n:N
+            A[k] = copy(a_last)
+        end
+    else mode == :zero
+        @inbounds for k = N-n:N
+            A[k] .= zero(A[k])
+        end
+    end
 	return nothing
 end

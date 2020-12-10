@@ -160,6 +160,8 @@ is_constrained(::Type{<:UnconstrainedSolver})::Bool = false
 is_constrained(solver::AbstractSolver) = is_constrained(typeof(solver)) && !isempty(get_constraints(solver))
 
 @inline get_duals(solver::ConstrainedSolver) = get_duals(get_constraints(solver))
+@inline set_duals!(solver::ConstrainedSolver, λ) = set_duals!(get_constraints(solver), λ)
+@inline set_duals!(solver::AbstractSolver, λ) = nothing 
 
 
 function TO.cost(solver::AbstractSolver, Z=get_trajectory(solver))
@@ -183,10 +185,10 @@ function update_constraints!(solver::ConstrainedSolver, Z::Traj=get_trajectory(s
     TO.evaluate!(conSet, Z)
 end
 
-function TO.update_active_set!(solver::ConstrainedSolver, 
+function update_active_set!(solver::ConstrainedSolver, 
         Z=get_trajectory(solver); tol=solver.opts.active_set_tolerance)
     conSet = get_constraints(solver)
-    TO.update_active_set!(conSet, Val(tol))
+    update_active_set!(conSet, Val(tol))
 end
 
 """ $(SIGNATURES)
@@ -296,8 +298,8 @@ function TO.norm_violation(solver::ConstrainedSolver, Z::Traj=get_trajectory(sol
     TO.norm_violation(conSet, p)
 end
 
-@inline findmax_violation(solver::ConstrainedSolver) =
-    findmax_violation(get_constraints(solver))
+@inline TO.findmax_violation(solver::ConstrainedSolver) =
+    TO.findmax_violation(get_constraints(solver))
 
 function second_order_correction!(solver::ConstrainedSolver)
     conSet = get_constraints(solver)
