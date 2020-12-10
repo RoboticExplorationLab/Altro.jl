@@ -27,6 +27,7 @@ struct iLQRSolver{T,I<:QuadratureRule,L,O,n,n̄,m,L1} <: UnconstrainedSolver{T}
 
 	quad_obj::QuadraticObjective{n,m,T}  # quadratic expansion of obj
 	S::QuadraticObjective{n̄,m,T}         # Cost-to-go expansion
+    E::QuadraticObjective{n̄,m,T}         # cost expansion 
     Q::QuadraticObjective{n̄,m,T}         # Action-value expansion
 
     Q_tmp::TO.QuadraticCost{n̄,m,T,SizedMatrix{n̄,n̄,T,2},SizedMatrix{m,m,T,2}}
@@ -66,8 +67,9 @@ function iLQRSolver(
 	D = [DynamicsExpansion{T}(n,n̄,m) for k = 1:N-1]
 	G = [SizedMatrix{n,n̄}(zeros(n,n̄)) for k = 1:N+1]  # add one to the end to use as an intermediate result
 
+	E = QuadraticObjective(n̄,m,N)
+	quad_exp = QuadraticObjective(E, prob.model)
 	Q = QuadraticObjective(n̄,m,N)
-	quad_exp = QuadraticObjective(Q, prob.model)
 	S = QuadraticObjective(n̄,m,N)
 
     Q_tmp = TO.QuadraticCost{T}(n̄,m)
@@ -83,7 +85,7 @@ function iLQRSolver(
 	O = typeof(prob.obj)
     solver = iLQRSolver{T,QUAD,L,O,n,n̄,m,n+m}(prob.model, prob.obj, x0, xf,
 		prob.tf, N, opts, stats,
-        Z, Z̄, K, d, D, G, quad_exp, S, Q, Q_tmp, Quu_reg, Qux_reg, ρ, dρ, grad, logger)
+        Z, Z̄, K, d, D, G, quad_exp, S, E, Q, Q_tmp, Quu_reg, Qux_reg, ρ, dρ, grad, logger)
 
     reset!(solver)
     return solver

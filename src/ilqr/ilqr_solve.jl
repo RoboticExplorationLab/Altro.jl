@@ -14,7 +14,7 @@ end
 # Generic solve methods
 "iLQR solve method (non-allocating)"
 function solve!(solver::iLQRSolver{T}) where T<:AbstractFloat
-	initialize!(solver)
+    initialize!(solver)
 
     Z = solver.Z; Z̄ = solver.Z̄;
 
@@ -23,12 +23,12 @@ function solve!(solver::iLQRSolver{T}) where T<:AbstractFloat
     _J = TO.get_J(solver.obj)
     J_prev = sum(_J)
 
+    grad_only = false
     for i = 1:solver.opts.iterations
-        J = step!(solver, J_prev)
+        J = step!(solver, J_prev, grad_only)
 
         # check for a change in solver status
         status(solver) > SOLVE_SUCCEEDED && break
-
 
         copy_trajectories!(solver)
 
@@ -40,13 +40,20 @@ function solve!(solver::iLQRSolver{T}) where T<:AbstractFloat
         record_iteration!(solver, J, dJ)
         exit = evaluate_convergence(solver)
 
+        # check if the cost function is quadratic
+        if !grad_only && solver.opts.reuse_jacobians && TO.is_quadratic(solver.E)
+            @logmsg InnerLoop "Gradient-only LQR"
+            grad_only = true  # skip updating feedback gain matrix (feedforward only)
+        end
+
+        # check for cost blow up
+
         # Print iteration
         if is_verbose(solver) 
             print_level(InnerLoop, global_logger())
         end
         exit && break
 
-        # check for cost blow up
         if J > solver.opts.max_cost_value
             # @warn "Cost exceeded maximum cost"
             solver.stats.status = MAXIMUM_COST
@@ -57,18 +64,36 @@ function solve!(solver::iLQRSolver{T}) where T<:AbstractFloat
     return solver
 end
 
-function step!(solver::iLQRSolver, J)
-    TO.state_diff_jacobian!(solver.G, solver.model, solver.Z)
-	TO.dynamics_expansion!(integration(solver), solver.D, solver.model, solver.Z)
-	TO.error_expansion!(solver.D, solver.model, solver.G)
-    TO.cost_expansion!(solver.quad_obj, solver.obj, solver.Z, true, true)
-	TO.error_expansion!(solver.Q, solver.quad_obj, solver.model, solver.Z, solver.G)
-	if solver.opts.static_bp
-    	ΔV = static_backwardpass!(solver)
+# function step!(solver::iLQRSolver, J)
+#     TO.state_diff_jacobian!(solver.G, solver.model, solver.Z)
+# 	TO.dynamics_expansion!(integration(solver), solver.D, solver.model, solver.Z)
+# 	TO.error_expansion!(solver.D, solver.model, solver.G)
+#     TO.cost_expansion!(solver.quad_obj, solver.obj, solver.Z, true, true)
+#     TO.error_expansion!(solver.E, solver.quad_obj, solver.model, solver.Z, solver.G)
+# 	if solver.opts.static_bp
+#     	ΔV = static_backwardpass!(solver)
+# 	else
+# 		ΔV = backwardpass!(solver)
+#     end
+#     forwardpass!(solver, ΔV, J)
+# end
+
+function step!(solver::iLQRSolver{<:Any,<:Any,L}, J, grad_only::Bool=false) where L
+    to = solver.stats.to
+    init = !solver.opts.reuse_jacobians  # force recalculation if not reusing
+    @timeit_debug to "diff jac"     TO.state_diff_jacobian!(solver.G, solver.model, solver.Z)
+    if !solver.opts.reuse_jacobians || !(L <: RD.LinearModel) || !grad_only
+        @timeit_debug to "dynamics jac" TO.dynamics_expansion!(integration(solver), solver.D, solver.model, solver.Z)
+    end
+	@timeit_debug to "err jac"      TO.error_expansion!(solver.D, solver.model, solver.G)
+    @timeit_debug to "cost exp"     TO.cost_expansion!(solver.quad_obj, solver.obj, solver.Z, init, true)
+    @timeit_debug to "cost err"     TO.error_expansion!(solver.E, solver.quad_obj, solver.model, solver.Z, solver.G)
+	@timeit_debug to "backward pass" if solver.opts.static_bp
+    	ΔV = static_backwardpass!(solver, grad_only)
 	else
 		ΔV = backwardpass!(solver)
-	end
-    forwardpass!(solver, ΔV, J)
+    end
+    @timeit_debug to "forward pass" forwardpass!(solver, ΔV, J)
 end
 
 """
@@ -146,6 +171,7 @@ function forwardpass!(solver::iLQRSolver, ΔV, J_prev)
     @logmsg InnerLoop :z value=z
     @logmsg InnerLoop :α value=2*α
     @logmsg InnerLoop :ρ value=solver.ρ[1]
+    @logmsg InnerLoop :dJ_zero value=solver.opts.dJ_counter_limit
 
     return J
 
@@ -245,6 +271,7 @@ function regularization_update!(solver::iLQRSolver,status::Symbol=:increase)
     elseif status == :decrease # decrease regularization
         # TODO: Avoid divides by storing the decrease factor (divides are 10x slower)
         solver.dρ[1] = min(solver.dρ[1]/solver.opts.bp_reg_increase_factor, 1.0/solver.opts.bp_reg_increase_factor)
-        solver.ρ[1] = solver.ρ[1]*solver.dρ[1]*(solver.ρ[1]*solver.dρ[1]>solver.opts.bp_reg_min)
+        # solver.ρ[1] = solver.ρ[1]*solver.dρ[1]*(solver.ρ[1]*solver.dρ[1]>solver.opts.bp_reg_min)
+        solver.ρ[1] = max(solver.opts.bp_reg_min, solver.ρ[1]*solver.dρ[1])
     end
 end

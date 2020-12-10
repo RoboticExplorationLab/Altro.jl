@@ -34,7 +34,7 @@ function ALTROSolver(prob::Problem{Q,T}, opts::SolverOptions=SolverOptions();
     stats = SolverStats{T}(parent=solvername(ALTROSolver))
     solver_al = AugmentedLagrangianSolver(prob, opts, stats; solver_uncon=solver_uncon)
     solver_pn = ProjectedNewtonSolver(prob, opts, stats)
-    TO.link_constraints!(get_constraints(solver_pn), get_constraints(solver_al))
+    link_constraints!(get_constraints(solver_pn), get_constraints(solver_al))
     S = typeof(solver_al.solver_uncon)
     solver = ALTROSolver{T,S}(opts, stats, solver_al, solver_pn)
     reset!(solver)
@@ -51,6 +51,7 @@ end
 solvername(::Type{<:ALTROSolver}) = :ALTRO
 TrajectoryOptimization.integration(solver::ALTROSolver) = integration(solver.solver_al)
 is_constrained(solver::ALTROSolver) = !isempty(get_constraints(solver.solver_al))
+@inline get_ilqr(solver::ALTROSolver) = solver.solver_al.solver_uncon
 
 function TO.get_constraints(solver::ALTROSolver)
     if solver.opts.projected_newton
@@ -90,14 +91,19 @@ function solve!(solver::ALTROSolver)
     # Solve with AL
     solve!(solver.solver_al)
 
-    if status(solver) <= SOLVE_SUCCEEDED
+    if status(solver) <= SOLVE_SUCCEEDED || opts.force_pn
         # Check convergence
         i = solver.solver_al.stats.iterations
-        c_max = solver.solver_al.stats.c_max[i]
+        if i > 1
+            c_max = solver.solver_al.stats.c_max[i]
+        else
+            c_max = TO.max_violation(solver.solver_al)
+        end
 
         opts.constraint_tolerance = ϵ_con
-        if opts.projected_newton && c_max > opts.constraint_tolerance && 
-                (status(solver) <= SOLVE_SUCCEEDED || status(solver) == MAX_ITERATIONS_OUTER)
+        if (opts.projected_newton && c_max > opts.constraint_tolerance && 
+                (status(solver) <= SOLVE_SUCCEEDED || status(solver) == MAX_ITERATIONS_OUTER)) ||
+                opts.force_pn
             solve!(solver.solver_pn)
         end
 

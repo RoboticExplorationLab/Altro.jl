@@ -15,8 +15,10 @@ using SparseArrays
 using LinearAlgebra
 using Logging
 using Statistics
+using TimerOutputs
 
 const TO = TrajectoryOptimization
+const RD = RobotDynamics
 
 using TrajectoryOptimization:
     integration, num_constraints, get_trajectory
@@ -30,10 +32,11 @@ using TrajectoryOptimization:
     AbstractObjective, Objective, QuadraticObjective,
     AbstractTrajectory,
     DynamicsExpansion, # TODO: Move to ALTRO
-    ALConstraintSet,
+    # ALConstraintSet,
     DynamicsConstraint,
     Traj,
-    states, controls
+    states, controls,
+    Equality, Inequality, SecondOrderCone
 
 using RobotDynamics:
     AbstractModel,
@@ -71,6 +74,10 @@ include("ilqr/ilqr.jl")
 include("ilqr/ilqr_solve.jl")
 include("ilqr/backwardpass.jl")
 include("ilqr/rollout.jl")
+# include("augmented_lagrangian/conic_penalties.jl")
+include("augmented_lagrangian/alconval.jl")
+include("augmented_lagrangian/ALconset.jl")
+include("augmented_lagrangian/alcosts.jl")
 include("augmented_lagrangian/al_solver.jl")
 include("augmented_lagrangian/al_objective.jl")
 include("augmented_lagrangian/al_methods.jl")

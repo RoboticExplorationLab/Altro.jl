@@ -1,13 +1,12 @@
 function solve!(solver::ProjectedNewtonSolver)
-    reset!(solver)
-
+    # reset!(solver)
     update_constraints!(solver)
     copy_constraints!(solver)
     copy_multipliers!(solver)
     constraint_jacobian!(solver)
     copy_jacobians!(solver)
     TO.cost_expansion!(solver)
-    TO.update_active_set!(solver; tol=solver.opts.active_set_tolerance_pn)
+    update_active_set!(solver; tol=solver.opts.active_set_tolerance_pn)
     copy_active_set!(solver)
 
     if solver.opts.verbose_pn
@@ -29,7 +28,7 @@ function projection_solve!(solver::ProjectedNewtonSolver)
     max_projection_iters = solver.opts.n_steps
 
     count = 0
-    while count < max_projection_iters && viol > ϵ_feas
+    while count <= max_projection_iters && viol > ϵ_feas
         viol = _projection_solve!(solver)
         if solver.opts.multiplier_projection
             res = multiplier_projection!(solver)
@@ -60,12 +59,12 @@ function _projection_solve!(solver::ProjectedNewtonSolver)
     ρ_primal = solver.opts.ρ_primal
 
     # Assume constant, diagonal cost Hessian (for now)
-    H = Diagonal(solver.H)
+    H = solver.H
 
     # Update everything
     update_constraints!(solver)
     constraint_jacobian!(solver)
-    TO.update_active_set!(solver; tol=solver.opts.active_set_tolerance_pn)
+    update_active_set!(solver; tol=solver.opts.active_set_tolerance_pn)
     TO.cost_expansion!(solver)
 
     # Copy results from constraint sets to sparse arrays
@@ -89,7 +88,11 @@ function _projection_solve!(solver::ProjectedNewtonSolver)
         end
     end
 
-    HinvD = H\D'
+    if isdiag(H)
+        HinvD = Diagonal(H)\D'
+    else
+        HinvD = H \ Matrix(D')  # TODO: find a better way to do this
+    end
 
     S = Symmetric(D*HinvD)
     Sreg = cholesky(S + ρ_chol*I) #TODO is this fast or slow? try above
@@ -189,7 +192,8 @@ function TO.cost_expansion!(solver::ProjectedNewtonSolver)
     Z = get_trajectory(solver)
     E = solver.E
     obj = get_objective(solver)
-    TO.cost_expansion!(E, obj, Z)
+    init = !solver.opts.reuse_jacobians
+    TO.cost_expansion!(E, obj, Z, init)
 
     xinds, uinds = solver.P.xinds, solver.P.uinds
     H = solver.H
@@ -214,7 +218,8 @@ function copy_expansion!(H, g, E, xinds, uinds)
 end
 
 function multiplier_projection!(solver::ProjectedNewtonSolver)
-    λ = solver.λ[solver.active_set]
+    # λ = view(solver.λ,solver.active_set)
+    λ = solver.λ[solver.active_set] 
     D,d = active_constraints(solver)
     g = solver.g
     res0 = g + D'λ
@@ -224,15 +229,15 @@ function multiplier_projection!(solver::ProjectedNewtonSolver)
     δλ = -reg_solve(A, b, Areg)
     λ += δλ
     res = g + D'λ  # primal residual
+    solver.λ[solver.active_set] = λ
     return norm(res)
 end
-
 
 function primal_residual(solver::ProjectedNewtonSolver, update::Bool=false)
     if update
         update_constraints!(solver)
         copy_constraints!(solver)
-        TO.update_active_set!(solver; tol=solver.opts.active_set_tolerance_pn)
+        update_active_set!(solver; tol=solver.opts.active_set_tolerance_pn)
         copy_active_set!(solver)
         constraint_jacobian!(solver)
         copy_jacobians!(solver)
