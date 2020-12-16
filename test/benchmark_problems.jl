@@ -108,7 +108,7 @@ TEST_TIME && @test minimum(b).time / 1e6 < 60
 
 solver = ALTROSolver(Problems.Quadrotor(:zigzag)..., projected_newton=false)
 b = benchmark_solve!(solver)
-@test iterations(solver) == 60 # 60
+@test iterations(solver) - 60 <= 2 # 60
 @test status(solver) == Altro.SOLVE_SUCCEEDED
 @test solver.stats.gradient[end] < 0.3
 if !Sys.iswindows() && VERSION < v"1.5"  # not sure why this fails on Windows?
@@ -122,7 +122,9 @@ b = benchmark_solve!(solver, samples=2, evals=2)
 # if !Sys.iswindows() && VERSION < v"1.5"
 #     @test b.allocs == 0
 # end
-@test_broken iterations(solver) == 19 # 20
+if VERSION < v"1.5"
+    @test iterations(solver) == 19 # 20
+end
 @test status(solver) == Altro.SOLVE_SUCCEEDED
 
 # Barrell Roll
