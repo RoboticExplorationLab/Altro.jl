@@ -19,20 +19,21 @@ struct iLQRSolver{T,I<:QuadratureRule,L,O,n,n̄,m,L1} <: UnconstrainedSolver{T}
 
     # Data variables
     # K::Vector{SMatrix{m,n̄,T,L2}}  # State feedback gains (m,n,N-1)
-    K::Vector{SizedMatrix{m,n̄,T,2}}  # State feedback gains (m,n,N-1)
-    d::Vector{SizedVector{m,T,1}}  # Feedforward gains (m,N-1)
+    K::Vector{SizedMatrix{m,n̄,T,2,Matrix{T}}}  # State feedback gains (m,n,N-1)
+    d::Vector{SizedVector{m,T,Vector{T}}}  # Feedforward gains (m,N-1)
 
     D::Vector{DynamicsExpansion{T,n,n̄,m}}  # discrete dynamics jacobian (block) (n,n+m+1,N)
-    G::Vector{SizedMatrix{n,n̄,T,2}}        # state difference jacobian (n̄, n)
+    G::Vector{SizedMatrix{n,n̄,T,2,Matrix{T}}}        # state difference jacobian (n̄, n)
 
 	quad_obj::QuadraticObjective{n,m,T}  # quadratic expansion of obj
 	S::QuadraticObjective{n̄,m,T}         # Cost-to-go expansion
     E::QuadraticObjective{n̄,m,T}         # cost expansion 
     Q::QuadraticObjective{n̄,m,T}         # Action-value expansion
+    Qprev::QuadraticObjective{n̄,m,T}     # Action-value expansion from previous iteration
 
-    Q_tmp::TO.QuadraticCost{n̄,m,T,SizedMatrix{n̄,n̄,T,2},SizedMatrix{m,m,T,2}}
-	Quu_reg::SizedMatrix{m,m,T,2}
-	Qux_reg::SizedMatrix{m,n̄,T,2}
+    Q_tmp::TO.QuadraticCost{n̄,m,T,SizedMatrix{n̄,n̄,T,2,Matrix{T}},SizedMatrix{m,m,T,2,Matrix{T}}}
+	Quu_reg::SizedMatrix{m,m,T,2,Matrix{T}}
+	Qux_reg::SizedMatrix{m,n̄,T,2,Matrix{T}}
     ρ::Vector{T}   # Regularization
     dρ::Vector{T}  # Regularization rate of change
 
@@ -70,6 +71,7 @@ function iLQRSolver(
 	E = QuadraticObjective(n̄,m,N)
 	quad_exp = QuadraticObjective(E, prob.model)
 	Q = QuadraticObjective(n̄,m,N)
+	Qprev = QuadraticObjective(n̄,m,N)
 	S = QuadraticObjective(n̄,m,N)
 
     Q_tmp = TO.QuadraticCost{T}(n̄,m)
@@ -85,7 +87,7 @@ function iLQRSolver(
 	O = typeof(prob.obj)
     solver = iLQRSolver{T,QUAD,L,O,n,n̄,m,n+m}(prob.model, prob.obj, x0, xf,
 		prob.tf, N, opts, stats,
-        Z, Z̄, K, d, D, G, quad_exp, S, E, Q, Q_tmp, Quu_reg, Qux_reg, ρ, dρ, grad, logger)
+        Z, Z̄, K, d, D, G, quad_exp, S, E, Q, Qprev, Q_tmp, Quu_reg, Qux_reg, ρ, dρ, grad, logger)
 
     reset!(solver)
     return solver

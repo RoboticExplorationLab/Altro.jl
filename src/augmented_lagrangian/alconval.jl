@@ -27,10 +27,10 @@ struct ALConVal{C,P,W,V,M} <: TO.AbstractConstraintValues{C}
     params::ConstraintParams{Float64}
 
     tmp::M
-    ∇proj::Vector{SizedMatrix{P,P,Float64,2}}   # (p,p) projection Jacobian
-    ∇²proj::Vector{SizedMatrix{P,P,Float64,2}}  # (p,p) projection "Hessian," or Jacobian of ∇Π'Π
-    grad::Vector{SizedVector{W,Float64,1}}    # gradient of augmented Lagrangian wrt inputs
-    hess::Vector{SizedMatrix{W,W,Float64,2}}    # hessian of augmented Lagrangian wrt inputs
+    ∇proj::Vector{SizedMatrix{P,P,Float64,2,Matrix{Float64}}}   # (p,p) projection Jacobian
+    ∇²proj::Vector{SizedMatrix{P,P,Float64,2,Matrix{Float64}}}  # (p,p) projection "Hessian," or Jacobian of ∇Π'Π
+    grad::Vector{SizedVector{W,Float64,Vector{Float64}}}    # gradient of augmented Lagrangian wrt inputs
+    hess::Vector{SizedMatrix{W,W,Float64,2,Matrix{Float64}}}    # hessian of augmented Lagrangian wrt inputs
     const_hess::BitVector
 
 	function ALConVal(n::Int, m::Int, con::TO.AbstractConstraint, inds::AbstractVector{Int}, 
