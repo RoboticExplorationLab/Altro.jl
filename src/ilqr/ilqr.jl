@@ -1,4 +1,14 @@
 
+"""
+    iLQRSolver
+
+A fast solver for unconstrained trajectory optimization that uses a Riccati recursion
+to solve for a local feedback controller around the current trajectory, and then 
+simulates the system forward using the derived feedback control law.
+
+# Constructor
+    Altro.iLQRSolver(prob, opts; kwarg_opts...)
+"""
 struct iLQRSolver{T,I<:QuadratureRule,L,O,n,n̄,m,L1} <: UnconstrainedSolver{T}
     # Model + Objective
     model::L

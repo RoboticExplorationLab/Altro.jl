@@ -2,6 +2,18 @@
 ############################################################################################
 #                               INFEASIBLE MODELS                                          #
 ############################################################################################
+struct Infeasible{N,M,D<:AbstractModel} <: AbstractModel
+    model::D
+    _u::SVector{M,Int}  # inds to original controls
+    _ui::SVector{N,Int} # inds to infeasible controls
+end
+
+struct InfeasibleLie{N,M,D<:AbstractModel} <: RobotDynamics.LieGroupModel 
+    model::D
+    _u::SVector{M,Int}  # inds to original controls
+    _ui::SVector{N,Int} # inds to infeasible controls
+end
+
 """ $(TYPEDEF)
 An infeasible model is an augmented dynamics model that makes the system artifically fully
 actuated by augmenting the control vector with `n` additional controls. The dynamics are
@@ -17,19 +29,6 @@ to be zero by the end of the solve.
 InfeasibleModel(model::AbstractModel)
 ```
 """
-
-struct Infeasible{N,M,D<:AbstractModel} <: AbstractModel
-    model::D
-    _u::SVector{M,Int}  # inds to original controls
-    _ui::SVector{N,Int} # inds to infeasible controls
-end
-
-struct InfeasibleLie{N,M,D<:AbstractModel} <: RobotDynamics.LieGroupModel 
-    model::D
-    _u::SVector{M,Int}  # inds to original controls
-    _ui::SVector{N,Int} # inds to infeasible controls
-end
-
 const InfeasibleModel{N,M,D} = Union{Infeasible{N,M,D},InfeasibleLie{N,M,D}} where {N,M,D}
 
 function InfeasibleModel(model::AbstractModel)

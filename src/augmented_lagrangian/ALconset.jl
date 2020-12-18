@@ -1,5 +1,7 @@
 
 """
+	ALConstraintSet{T}
+
 An [`AbstractConstraintSet`](@ref) that stores the constraint values as well as Lagrange
 multiplier and penalty terms for each constraint.
 
@@ -37,7 +39,7 @@ penalties and/or multipliers can be reset using
 """
 struct ALConstraintSet{T} <: TO.AbstractConstraintSet
     convals::Vector{ALConVal}
-    errvals::Vector{ALConVal}
+    errvals::Vector{ALConVal}          # TODO: is this needed?
 	# ∇c_proj::Vector{<:Vector}        # Jacobians of projected constraints
     # λ::Vector{<:Vector}
     # μ::Vector{<:Vector}

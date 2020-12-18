@@ -6,6 +6,27 @@ Augmented Lagrangian Trajectory Optimizer (ALTRO) is a solver developed by the R
 ALTRO consists of two "phases":
 1) AL-iLQR: iLQR is used with an Augmented Lagrangian framework to solve the problem quickly to rough constraint satisfaction
 2) Projected Newton: A collocation-flavored active-set solver projects the solution from AL-iLQR onto the feasible subspace to achieve machine-precision constraint satisfaction.
+
+# Constructor
+
+    ALTROSolver(prob::Problem, opts::SolverOptions; [infeasible, R_inf, kwarg_opts...])
+
+The `infeasible` keyword is a boolean flag that specifies whether the solver should
+augment the controls to make it artificially fully actuated, allowing state initialization.
+The `R_inf` is the weight on these augmented controls. Any solver options can be passed
+as additional keyword arguments and will be set in the solver.
+
+# Getters
+* `get_model`
+* `get_objective`
+* `get_constraints`
+* `Altro.get_ilqr`
+* `TO.get_initial_state`
+
+# Other methods
+* `Base.size`: returns `(n,m,N)`
+* `TO.integration`
+* `TO.is_constrained`
 """
 struct ALTROSolver{T,S} <: ConstrainedSolver{T}
     opts::SolverOptions{T}
