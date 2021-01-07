@@ -16,6 +16,7 @@ using LinearAlgebra
 using Logging
 using Statistics
 using TimerOutputs
+using FiniteDiff
 
 const TO = TrajectoryOptimization
 const RD = RobotDynamics

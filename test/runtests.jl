@@ -3,6 +3,8 @@ using Altro
 using BenchmarkTools
 using TrajectoryOptimization
 using RobotDynamics
+using RobotZoo
+const RD = RobotDynamics
 const TO = TrajectoryOptimization
 
 TEST_TIME = false
@@ -16,6 +18,7 @@ end
     include("constructors.jl")
     include("augmented_lagrangian_tests.jl")
     include("solve_tests.jl")
+    include("finite_diff.jl")
 end
 
 @testset "Solver Options" begin
