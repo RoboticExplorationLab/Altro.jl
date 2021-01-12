@@ -194,7 +194,8 @@ cost(solver) ≈ LA(x0)
 statuses = [TO.cone_status(TO.SecondOrderCone(), λ) for λ in λbar]
 @test :below ∈ statuses
 
-E = TO.QuadraticObjective(n,m,N)
+# E = TO.QuadraticObjective(n,m,N)
+E = TO.CostExpansion(n,m,N)
 TO.cost_expansion!(E, alobj, Z0)
 grad = vcat([[e.q; e.r] for e in E]...)[1:end-m]
 @test grad ≈ ForwardDiff.gradient(LA, x0)
@@ -220,7 +221,8 @@ for i = 1:N-1
 end
 LA(x) = auglag(di_obj, di_soc, x, z, μ)
 
-E = TO.QuadraticObjective(n,m,N)
+# E = TO.QuadraticObjective(n,m,N)
+E = TO.CostExpansion(n,m,N)
 TO.cost_expansion!(E, alobj, Z0)
 grad = vcat([[e.q; e.r] for e in E]...)[1:end-m]
 @test grad ≈ ForwardDiff.gradient(LA, x0)
@@ -230,7 +232,7 @@ hess = cat(hess_blocks..., dims=(1,2))[1:end-m, 1:end-m]
 @test hess ≈ ForwardDiff.hessian(LA, x0)
 
 ## Solve it 
-solver = Altro.AugmentedLagrangianSolver(prob, verbose=2, show_summary=true, 
+solver = Altro.AugmentedLagrangianSolver(prob, verbose=0, show_summary=false, 
 	projected_newton=true, penalty_initial=100.0, penalty_scaling=50, 
 	cost_tolerance_intermediate=1e-1)
 initial_controls!(solver, [rand(D) for k = 1:N])
@@ -260,22 +262,14 @@ add_constraint!(cons, GoalConstraint(xf), N)
 add_constraint!(cons, connorm, 1:N-1)
 
 prob = Problem(model, obj, xf, tf, x0=x0, constraints=cons)
-solver = ALTROSolver(prob, projected_newton=false) 
+solver = ALTROSolver(prob, projected_newton=false, show_summary=false) 
 solve!(solver)
 @test iterations(solver) == 12
-
-prob = Problem(model, obj, xf, tf, x0=x0, constraints=cons)
-solver = ALTROSolver(prob, show_summary=true, verbose=2, projected_newton=false) 
-@test benchmark_solve!(solver).allocs == 0
-benchmark_solve!(solver)
 
 @test abs(maximum(norm.(controls(solver))) - u_bnd) < 1e-6
 @test norm(states(solver)[end] - xf) < 1e-6
 
-##
-conSet = TO.get_constraints(solver)
-cval = conSet.convals[2]
-Altro.violation!(cval)
-@btime Altro.∇violation!($cval)
-
-TO.sense(cval)
+# prob = Problem(model, obj, xf, tf, x0=x0, constraints=cons)
+# solver = ALTROSolver(prob, show_summary=true, verbose=2, projected_newton=false) 
+# @test benchmark_solve!(solver).allocs == 0
+# benchmark_solve!(solver)
