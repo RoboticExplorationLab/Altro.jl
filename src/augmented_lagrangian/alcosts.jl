@@ -5,7 +5,7 @@ function TO.cost!(J::Vector{<:Real}, conSet::ALConstraintSet)
     end
 end
 
-function TO.cost_expansion!(E::Objective, conSet::ALConstraintSet)
+function TO.cost_expansion!(E, conSet::ALConstraintSet)
     for i in eachindex(conSet.convals)
         TO.cost_expansion!(E, conSet.convals[i])
     end
@@ -36,7 +36,7 @@ function TO.cost(cone::TO.SecondOrderCone, λ, c, μ)
 end
 
 # Cost expansion on a single constraint across all time steps
-function TO.cost_expansion!(E::Objective, conval)
+function TO.cost_expansion!(E, conval)
     cone = TO.sense(conval)
     for (i,k) in enumerate(conval.inds)
         TO.cost_expansion!(cone, conval, i)
@@ -132,25 +132,25 @@ function TO.cost_expansion!(cone::SecondOrderCone, conval, i)
     # conval.hess[i] = μ*(∇cproj'∇cproj .+ ∇²cproj)
 end
 
-function copy_expansion!(E::QuadraticObjective{n,m}, conval::ALConVal{<:TO.StateConstraint}) where {n,m}
+function copy_expansion!(E::TO.CostExpansion{n,m}, conval::ALConVal{<:TO.StateConstraint}) where {n,m}
     ix,iu = SVector{n}(1:n), SVector{m}(1:m) .+ n
     for (i,k) in enumerate(conval.inds)
         E[k].q .+= conval.grad[i]
         E[k].Q .+= conval.hess[i]
-        E.const_hess[k] &= conval.is_const[i] & conval.const_hess[i]
+        # E.const_hess[k] &= conval.is_const[i] & conval.const_hess[i]
     end
 end
 
-function copy_expansion!(E::QuadraticObjective{n,m}, conval::ALConVal{<:TO.ControlConstraint}) where {n,m}
+function copy_expansion!(E::TO.CostExpansion{n,m}, conval::ALConVal{<:TO.ControlConstraint}) where {n,m}
     ix,iu = SVector{n}(1:n), SVector{m}(1:m) .+ n
     for (i,k) in enumerate(conval.inds)
         E[k].r .+= conval.grad[i]
         E[k].R .+= conval.hess[i]
-        E.const_hess[k] &= conval.is_const[i] & conval.const_hess[i]
+        # E.const_hess[k] &= conval.is_const[i] & conval.const_hess[i]
     end
 end
 
-function copy_expansion!(E::QuadraticObjective{n,m}, conval::ALConVal{<:TO.StageConstraint}) where {n,m}
+function copy_expansion!(E::TO.CostExpansion{n,m}, conval::ALConVal{<:TO.StageConstraint}) where {n,m}
     ix,iu = SVector{n}(1:n), SVector{m}((1:m) .+ n)
     for (i,k) in enumerate(conval.inds)
         E[k].q .+= conval.grad[i].data[ix]
@@ -158,11 +158,11 @@ function copy_expansion!(E::QuadraticObjective{n,m}, conval::ALConVal{<:TO.Stage
         E[k].Q .+= conval.hess[i].data[ix,ix]
         E[k].R .+= conval.hess[i].data[iu,iu]
         E[k].H .+= conval.hess[i].data[iu,ix]
-        E.const_hess[k] &= conval.is_const[i] & conval.const_hess[i]
+        # E.const_hess[k] &= conval.is_const[i] & conval.const_hess[i]
     end
 end
 
-function copy_expansion!(E::QuadraticObjective{n,m}, conval::ALConVal{<:TO.CoupledConstraint}) where {n,m}
+function copy_expansion!(E::TO.CostExpansion{n,m}, conval::ALConVal{<:TO.CoupledConstraint}) where {n,m}
     ix,iu = SVector{n}(1:n), SVector{m}((1:m) .+ n)
     for (i,k) in enumerate(conval.inds)
         E[k].q .+= conval.grad[i][ix]
@@ -175,6 +175,6 @@ function copy_expansion!(E::QuadraticObjective{n,m}, conval::ALConVal{<:TO.Coupl
         E[k+1].Q .+= conval.hess[i,2][ix,ix]
         E[k+1].R .+= conval.hess[i,2][iu,iu]
         E[k+1].H .+= conval.hess[i,2][iu,ix]
-        E.const_hess[k] &= conval.is_const[i] & conval.const_hess[i]
+        # E.const_hess[k] &= conval.is_const[i] & conval.const_hess[i]
     end
 end

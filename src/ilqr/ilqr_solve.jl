@@ -86,7 +86,7 @@ function step!(solver::iLQRSolver{<:Any,<:Any,L}, J, grad_only::Bool=false) wher
         @timeit_debug to "dynamics jac" TO.dynamics_expansion!(integration(solver), solver.D, solver.model, solver.Z)
     end
 	@timeit_debug to "err jac"      TO.error_expansion!(solver.D, solver.model, solver.G)
-    @timeit_debug to "cost exp"     TO.cost_expansion!(solver.quad_obj, solver.obj, solver.Z, init, true)
+    @timeit_debug to "cost exp"     TO.cost_expansion!(solver.quad_obj, solver.obj, solver.Z, init=init, rezero=true)
     @timeit_debug to "cost err"     TO.error_expansion!(solver.E, solver.quad_obj, solver.model, solver.Z, solver.G)
 	@timeit_debug to "backward pass" if solver.opts.static_bp
     	ΔV = static_backwardpass!(solver, grad_only)
