@@ -9,7 +9,7 @@ simulates the system forward using the derived feedback control law.
 # Constructor
     Altro.iLQRSolver(prob, opts; kwarg_opts...)
 """
-struct iLQRSolver{T,I<:QuadratureRule,L,O,n,n̄,m,L1} <: UnconstrainedSolver{T}
+struct iLQRSolver{T,I<:QuadratureRule,L,O,n,n̄,m,L1,C} <: UnconstrainedSolver{T}
     # Model + Objective
     model::L
     obj::O
@@ -48,6 +48,7 @@ struct iLQRSolver{T,I<:QuadratureRule,L,O,n,n̄,m,L1} <: UnconstrainedSolver{T}
     dρ::Vector{T}  # Regularization rate of change
 
     cache::FiniteDiff.JacobianCache{Vector{T}, Vector{T}, Vector{T}, UnitRange{Int}, Nothing, Val{:forward}(), T}
+    exp_cache::C
     grad::Vector{T}  # Gradient
 
     logger::SolverLogger
@@ -98,15 +99,17 @@ function iLQRSolver(
     dρ = zeros(T,1)
 
     cache = FiniteDiff.JacobianCache(prob.model)
+    exp_cache = TO.ExpansionCache(prob.obj)
     grad = zeros(T,N-1)
 
     logger = SolverLogging.default_logger(opts.verbose >= 2)
 	L = typeof(prob.model)
 	O = typeof(prob.obj)
-    solver = iLQRSolver{T,QUAD,L,O,n,n̄,m,n+m}(prob.model, prob.obj, x0, xf,
+    solver = iLQRSolver{T,QUAD,L,O,n,n̄,m,n+m,typeof(exp_cache)}(
+        prob.model, prob.obj, x0, xf,
 		prob.tf, N, opts, stats,
         Z, Z̄, K, d, D, G, quad_exp, S, E, Q, Qprev, Q_tmp, Quu_reg, Qux_reg, ρ, dρ, 
-        cache, grad, logger)
+        cache, exp_cache, grad, logger)
 
     reset!(solver)
     return solver

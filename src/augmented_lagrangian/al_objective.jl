@@ -16,6 +16,7 @@ end
 @inline Base.length(obj::ALObjective) = length(obj.obj)
 @inline RobotDynamics.state_dim(obj::ALObjective) = RobotDynamics.state_dim(obj.obj)
 @inline RobotDynamics.control_dim(obj::ALObjective) = RobotDynamics.control_dim(obj.obj)
+@inline TO.ExpansionCache(obj::ALObjective) = TO.ExpansionCache(obj.obj)
 
 
 function Base.copy(obj::ALObjective)
@@ -32,7 +33,8 @@ function TO.cost!(obj::ALObjective, Z::AbstractTrajectory)
     TO.cost!(TO.get_J(obj), obj.constraints)
 end
 
-function TO.cost_expansion!(E, obj::ALObjective, Z::Traj; init::Bool=false, rezero::Bool=false)
+function TO.cost_expansion!(E, obj::ALObjective, Z::Traj, cache=TO.ExpansionCache(obj.obj); 
+        init::Bool=false, rezero::Bool=false)
     # Update constraint jacobians
     TO.jacobian!(obj.constraints, Z, init)
 
