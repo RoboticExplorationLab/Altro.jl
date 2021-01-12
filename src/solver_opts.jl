@@ -87,7 +87,7 @@ end
     projected_newton::Bool = true
     reuse_jacobians::Bool = false
     iterations::Int = 1000   # max number of iterations
-    show_summary::Bool = false
+    show_summary::Bool = true 
     verbose::Int = 0 
 end
 

@@ -1,4 +1,3 @@
-using Test
 
 stats = SolverStats(parent=:ALTRO)
 N = 10
@@ -51,7 +50,7 @@ Altro.trim!(stats)
 
 
 solver = ALTROSolver(Problems.DoubleIntegrator()...)
-set_options!(solver, verbose=0, projected_newton=true)
+set_options!(solver, verbose=0, projected_newton=true, show_summary=false)
 solve!(solver)
 
 # Check if final stats match output
@@ -73,7 +72,7 @@ solve!(solver)
 @test max_violation(solver) ≈ c_max
 
 # Make sure AL solver resets properly
-solver = Altro.AugmentedLagrangianSolver(Problems.DoubleIntegrator()...)
+solver = Altro.AugmentedLagrangianSolver(Problems.DoubleIntegrator()..., show_summary=false)
 Z0 = copy(get_trajectory(solver))
 solve!(solver)
 J = cost(solver)

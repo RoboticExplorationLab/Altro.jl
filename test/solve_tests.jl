@@ -1,8 +1,4 @@
-using StaticArrays
-using RobotZoo
-using LinearAlgebra
-const TO = TrajectoryOptimization
-
+@testset "Solves" begin
 # Test max iterations
 solver = ALTROSolver(Problems.Pendulum()...)
 set_options!(solver, 
@@ -10,6 +6,7 @@ set_options!(solver,
     cost_tolerance_intermediate=1e-10, 
     gradient_tolerance_intermediate=1e-10, 
     constraint_tolerance=1e-10,
+    show_summary=false
 )
 solve!(solver)
 status(solver)
@@ -29,7 +26,7 @@ prob = Problem(model, obj, xf, tf, x0=x0)
 U0 = [u0*1e1 for k = 1:N-1]
 initial_controls!(prob, U0)
 
-solver = ALTROSolver(prob)
+solver = ALTROSolver(prob, show_summary=false)
 Altro.is_constrained(solver)
 solve!(solver)
 @test iterations(solver) == 1
@@ -47,8 +44,10 @@ obj = LQRObjective(Q,R,Q*N,xf,N,uf=u0)
 prob = Problem(model, obj, xf, tf, x0=x0)
 U0 = [u0 for k = 1:N-1]
 
-solver = ALTROSolver(prob)
+solver = ALTROSolver(prob, show_summary=false)
 set_options!(solver, max_state_value=100)
 @test Altro.is_constrained(solver) == false
 solve!(solver)
 @test status(solver) == Altro.STATE_LIMIT
+
+end
