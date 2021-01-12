@@ -103,7 +103,6 @@ TEST_TIME && @test minimum(b).time / 1e6 < 25
 @test solver.stats.gradient[end] < 1e-3
 @test status(solver) == Altro.SOLVE_SUCCEEDED 
 
-
 ## Zig-zag
 solver = ALTROSolver(Problems.Quadrotor(:zigzag)...)
 b = benchmark_solve!(solver)

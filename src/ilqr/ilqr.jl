@@ -80,12 +80,6 @@ function iLQRSolver(
 	D = [DynamicsExpansion{T}(n,n̄,m) for k = 1:N-1]
 	G = [SizedMatrix{n,n̄}(zeros(n,n̄)) for k = 1:N+1]  # add one to the end to use as an intermediate result
 
-	E = QuadraticObjective(n̄,m,N)
-	quad_exp = QuadraticObjective(E, prob.model)
-	Q = QuadraticObjective(n̄,m,N)
-	Qprev = QuadraticObjective(n̄,m,N)
-    S = QuadraticObjective(n̄,m,N)
-
     E = TO.CostExpansion{T}(n̄,m,N)
     quad_exp = TO.CostExpansion(E, prob.model)
     Q = TO.CostExpansion{T}(n̄,m,N)

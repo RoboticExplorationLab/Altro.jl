@@ -30,7 +30,7 @@ import RobotDynamics: discrete_jacobian!, discrete_dynamics, dynamics
 using TrajectoryOptimization:
     Problem,
     ConstraintList,
-    AbstractObjective, Objective, QuadraticObjective,
+    AbstractObjective, Objective, #QuadraticObjective,
     AbstractTrajectory,
     DynamicsExpansion, # TODO: Move to ALTRO
     # ALConstraintSet,

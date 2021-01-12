@@ -1,5 +1,5 @@
 const RD = RobotDynamics
-using TrajectoryOptimization: LieLQRCost, QuatLQRCost, ErrorQuadratic, QuatVecEq
+using TrajectoryOptimization: QuatLQRCost, ErrorQuadratic, QuatVecEq
 
 function YakProblems(;
         integration=RD.RK4,

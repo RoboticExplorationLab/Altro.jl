@@ -26,6 +26,7 @@ end
     include("augmented_lagrangian_tests.jl")
     include("solve_tests.jl")
     include("finite_diff.jl")
+    include("socp_test.jl")
 end
 
 @testset "Solver Options" begin

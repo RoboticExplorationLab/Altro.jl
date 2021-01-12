@@ -49,14 +49,10 @@ function TO.cost_expansion!(::Equality, conval, i)
     c = SVector(conval.vals[i])
     ∇c = conval.jac[i]
     λ = SVector(conval.λ[i])
-    # μ = SVector(conval.μ[i])
-    # Iμ = Diagonal(μ)
     μ = conval.μ[i][1]
     
     λbar = λ + μ * c
     conval.const_hess[i] = true
-    # conval.grad[i] = ∇c'λbar
-    # conval.hess[i] = μ*∇c'∇c
     if prod(size(∇c)) < 24*24
         ∇c = SMatrix(∇c)
         conval.grad[i] .= ∇c'λbar
@@ -81,8 +77,6 @@ function TO.cost_expansion!(::Inequality, conval, i)
     
     λbar = λ + μ * (a .* c)
     conval.const_hess[i] = false 
-    # conval.grad[i] = ∇c'λbar
-    # conval.hess[i] = μ*∇c'Iμ*∇c
 
     if prod(size(∇c)) < 24*24
         ∇c = SMatrix(∇c)
@@ -124,12 +118,6 @@ function TO.cost_expansion!(cone::SecondOrderCone, conval, i)
     mul!(tmp, ∇²proj, ∇c)
     mul!(conval.hess[i], Transpose(∇c), tmp, 1.0, 1.0)
     conval.hess[i] .*= μ
-    
-    # Combine and store the result
-	# ∇cproj = -∇proj*∇c
-	# ∇²cproj = ∇c'*∇²proj*∇c
-	# conval.grad[i] = ∇cproj'*λp 
-    # conval.hess[i] = μ*(∇cproj'∇cproj .+ ∇²cproj)
 end
 
 function copy_expansion!(E::TO.CostExpansion{n,m}, conval::ALConVal{<:TO.StateConstraint}) where {n,m}
