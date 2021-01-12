@@ -37,7 +37,7 @@ function TO.cost_expansion!(E::QuadraticObjective, obj::ALObjective, Z::Traj, in
     TO.jacobian!(obj.constraints, Z, init)
 
     # Calculate expansion of original objective
-    TO.cost_expansion!(E, obj.obj, Z, true, rezero)  # needs to be computed every time...
+    TO.cost_expansion!(E, obj.obj, Z, init=true, rezero=rezero)  # needs to be computed every time...
 
     # Add in expansion of constraints
     TO.cost_expansion!(E, obj.constraints)

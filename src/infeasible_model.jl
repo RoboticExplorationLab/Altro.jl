@@ -72,7 +72,7 @@ end
 @inline RobotDynamics.rotation_type(model::InfeasibleModel) where D = rotation_type(model.model)
 
 @generated function RobotDynamics.discrete_jacobian!(::Type{Q}, ∇f, model::InfeasibleModel{N,M},
-        z::AbstractKnotPoint{T,N}) where {T,N,M,Q<:Explicit}
+        z::AbstractKnotPoint{T,N}, cache=nothing) where {T,N,M,Q<:Explicit}
 
     ∇ui = [(@SMatrix zeros(N,N+M)) Diagonal(@SVector ones(N)) @SVector zeros(N)]
     _x = SVector{N}(1:N)

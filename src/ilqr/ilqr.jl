@@ -36,10 +36,10 @@ struct iLQRSolver{T,I<:QuadratureRule,L,O,n,n̄,m,L1} <: UnconstrainedSolver{T}
     G::Vector{SizedMatrix{n,n̄,T,2,Matrix{T}}}        # state difference jacobian (n̄, n)
 
 	quad_obj::QuadraticObjective{n,m,T}  # quadratic expansion of obj
-	S::QuadraticObjective{n̄,m,T}         # Cost-to-go expansion
+	S::TO.CostExpansion{n̄,m,T}         # Cost-to-go expansion
     E::QuadraticObjective{n̄,m,T}         # cost expansion 
-    Q::QuadraticObjective{n̄,m,T}         # Action-value expansion
-    Qprev::QuadraticObjective{n̄,m,T}     # Action-value expansion from previous iteration
+    Q::TO.CostExpansion{n̄,m,T}         # Action-value expansion
+    Qprev::TO.CostExpansion{n̄,m,T}     # Action-value expansion from previous iteration
 
     Q_tmp::TO.QuadraticCost{n̄,m,T,SizedMatrix{n̄,n̄,T,2,Matrix{T}},SizedMatrix{m,m,T,2,Matrix{T}}}
 	Quu_reg::SizedMatrix{m,m,T,2,Matrix{T}}
@@ -83,7 +83,10 @@ function iLQRSolver(
 	quad_exp = QuadraticObjective(E, prob.model)
 	Q = QuadraticObjective(n̄,m,N)
 	Qprev = QuadraticObjective(n̄,m,N)
-	S = QuadraticObjective(n̄,m,N)
+    S = QuadraticObjective(n̄,m,N)
+    Q = TO.CostExpansion{T}(n̄,m,N)
+    Qprev = TO.CostExpansion{T}(n̄,m,N)
+    S = TO.CostExpansion{T}(n̄,m,N)
 
     Q_tmp = TO.QuadraticCost{T}(n̄,m)
 	Quu_reg = SizedMatrix{m,m}(zeros(m,m))
