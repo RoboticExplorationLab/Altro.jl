@@ -51,6 +51,13 @@ b = benchmark_solve!(solver)
 #     @test b.allocs == 0
 # end
 
+solver = Altro.iLQRSolver(Problems.Cartpole()...)
+b = benchmark_solve!(solver)
+TEST_TIME && @test minimum(b).time /1e6 < 10 
+@test b.allocs == 0
+@test iterations(solver) == 47
+@test status(solver) == Altro.SOLVE_SUCCEEDED
+
 ## Acrobot
 solver = ALTROSolver(Problems.Acrobot()...)
 b = benchmark_solve!(solver)
@@ -128,12 +135,11 @@ end
 @test status(solver) == Altro.SOLVE_SUCCEEDED
 
 # Barrell Roll
-solver = ALTROSolver(Problems.YakProblems()...)
+solver = ALTROSolver(Problems.YakProblems(costfun=:QuatLQR, termcon=:quatvec)...)
 b = benchmark_solve!(solver)
-cost(solver)
 TEST_TIME && @test minimum(b).time / 1e6 < 100 
 @test max_violation(solver) < 1e-6
-@test iterations(solver) == 18 # 18
+@test iterations(solver) == 17 # 18
 @test solver.stats.gradient[end] < 2e-3  # 1e-3
 @test status(solver) == Altro.SOLVE_SUCCEEDED 
 
@@ -148,6 +154,20 @@ solver = ALTROSolver(Problems.YakProblems(costfun=:ErrorQuadratic, termcon=:quat
     projected_newton=false, constraint_tolerance=1e-5)
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time / 1e6 < 1000 
-@test iterations(solver) == 54
+@test iterations(solver) == 61 #54
 @test solver.stats.gradient[end] < 1e-4
 @test status(solver) == Altro.SOLVE_SUCCEEDED
+
+# Check allocations and cache type
+ilqr = Altro.iLQRSolver(Problems.YakProblems(costfun=:QuatLQR, termcon=:quatvec)...)
+b = benchmark_solve!(ilqr)
+@test b.allocs == 0
+@test ilqr.exp_cache isa NTuple{4,Nothing}
+U = controls(ilqr)
+
+# Make sure FiniteDiff methods don't allocate
+ilqr = Altro.iLQRSolver(Problems.YakProblems(costfun=:ErrorQuadratic, termcon=:quatvec)...)
+initial_controls!(ilqr, U)
+b = benchmark_solve!(ilqr)
+@test b.allocs == 0
+@test !(ilqr.exp_cache isa NTuple{4,Nothing})

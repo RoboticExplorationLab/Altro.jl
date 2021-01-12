@@ -186,15 +186,15 @@ TO.cost!(J, conset.convals[3])#, conset.λ[3], conset.μ[3], conset.active[3])
     conset.convals[3].vals[1]
 @test J[1] ≈ 0
 
-E = TO.QuadraticObjective(n,m,N)
-TO.cost_expansion!(E, conset.convals[1]) #, conset.λ[1], conset.μ[1], conset.active[1])
+E = TO.CostExpansion(n,m,N)
+TO.cost_expansion!(E, conset.convals[1])
 cx = conset.convals[1].jac[1]
 Iμ = Diagonal(conset.convals[1].active[1] .* conset.convals[1].μ[1])
 g = Iμ * conset.convals[1].vals[1] .+ conset.convals[1].λ[1]
 @test E[1].Q ≈ cx'Iμ*cx + I(n)
 @test E[1].q ≈ cx'g
 
-E = TO.QuadraticObjective(n,m,N)
+E = TO.CostExpansion(n,m,N)
 i = 3
 k = 4
 TO.cost_expansion!(E, conset.convals[i])#, conset.λ[i], conset.μ[i], conset.active[i])

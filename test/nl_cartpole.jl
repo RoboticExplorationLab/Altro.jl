@@ -18,6 +18,7 @@ TO.state_dim(::CartpoleCost) = 4
 TO.control_dim(::CartpoleCost) = 1
 Base.copy(cost::CartpoleCost) = CartpoleCost(copy(cost.Q), copy(cost.R))
 
+@testset "Nonlinear Cartpole" begin
 ## Initialize model
 model = RobotZoo.Cartpole()
 N = 101 
@@ -37,7 +38,8 @@ xf = [0,pi,0,0]
 
 # Solve w/ iLQR
 prob = Problem(model, obj, xf, tf, x0=x0)
-ilqr = Altro.iLQRSolver(prob, verbose=2, iterations=100, cost_tolerance=1e-3, gradient_tolerance=1e-2)
+ilqr = Altro.iLQRSolver(prob, 
+    cost_tolerance=1e-3, gradient_tolerance=1e-2)
 b = benchmark_solve!(ilqr)
 err = states(ilqr)[end] - xf
 @test err'err < 1e-3
@@ -47,8 +49,10 @@ err = states(ilqr)[end] - xf
 cons = ConstraintList(4,1,N)
 add_constraint!(cons, GoalConstraint(xf), N)
 prob = Problem(model, obj, xf, tf, x0=x0, constraints=cons)
-solver = ALTROSolver(prob, verbose=1, cost_tolerance_intermediate=1e-2)
+solver = ALTROSolver(prob, cost_tolerance_intermediate=1e-2, show_summary=false)
 solver.opts.ρ_primal = 1e-3
 solve!(solver)
 err = states(ilqr)[end] - xf
 @test err'err < 1e-4
+
+end

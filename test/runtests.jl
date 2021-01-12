@@ -4,6 +4,10 @@ using BenchmarkTools
 using TrajectoryOptimization
 using RobotDynamics
 using RobotZoo
+using StaticArrays, LinearAlgebra
+using JLD2
+using FileIO
+using FiniteDiff
 const RD = RobotDynamics
 const TO = TrajectoryOptimization
 
@@ -11,6 +15,9 @@ TEST_TIME = false
 
 @testset "Benchmark Problems" begin
     include("benchmark_problems.jl")
+    include("nl_cartpole.jl")
+    include("cartpole.jl")
+    include("quadrotor.jl")
     include(joinpath(@__DIR__,"..","examples","quickstart.jl"))
 end
 
