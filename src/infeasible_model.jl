@@ -48,10 +48,8 @@ end
 RobotDynamics.LieState(model::InfeasibleLie) = RobotDynamics.LieState(model.model)
 
 # Generic Infeasible Methods
-function Base.size(model::InfeasibleModel)
-    n,m = size(model.model)
-    return n, n+m
-end
+RobotDynamics.state_dim(model::InfeasibleModel{n}) where n = n
+RobotDynamics.control_dim(model::InfeasibleModel{n,m}) where {n,m} = n+m
 
 RobotDynamics.dynamics(::InfeasibleModel, x, u) =
     throw(ErrorException("Cannot evaluate continuous dynamics on an infeasible model"))
@@ -100,6 +98,11 @@ end
         # [∇f[$_x, $_z] $∇u0 ∇dt] + $∇ui
     end
 end
+function RD._discrete_jacobian!(::RD.ForwardAD, ::Type{Q}, ∇f, model::InfeasibleModel{N,M},
+        z::AbstractKnotPoint{T,N}, cache=nothing) where {T,N,M,Q<:Explicit}
+    RD.discrete_jacobian!(Q, ∇f, model, z, cache)
+end
+
 
 function RobotDynamics.state_diff(model::InfeasibleModel, x::SVector, x0::SVector)
 	RobotDynamics.state_diff(model.model, x, x0)

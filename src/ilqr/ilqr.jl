@@ -41,7 +41,8 @@ struct iLQRSolver{T,I<:QuadratureRule,L,O,n,n̄,m,L1,C} <: UnconstrainedSolver{T
     Q::TO.CostExpansion{n̄,m,T}         # Action-value expansion
     Qprev::TO.CostExpansion{n̄,m,T}     # Action-value expansion from previous iteration
 
-    Q_tmp::TO.QuadraticCost{n̄,m,T,SizedMatrix{n̄,n̄,T,2,Matrix{T}},SizedMatrix{m,m,T,2,Matrix{T}}}
+    # Q_tmp::TO.QuadraticCost{n̄,m,T,SizedMatrix{n̄,n̄,T,2,Matrix{T}},SizedMatrix{m,m,T,2,Matrix{T}}}
+    Q_tmp::TO.Expansion{n̄,m,T}
 	Quu_reg::SizedMatrix{m,m,T,2,Matrix{T}}
 	Qux_reg::SizedMatrix{m,n̄,T,2,Matrix{T}}
     ρ::Vector{T}   # Regularization
@@ -52,7 +53,6 @@ struct iLQRSolver{T,I<:QuadratureRule,L,O,n,n̄,m,L1,C} <: UnconstrainedSolver{T
     grad::Vector{T}  # Gradient
 
     logger::SolverLogger
-
 end
 
 function iLQRSolver(
@@ -86,7 +86,8 @@ function iLQRSolver(
     Qprev = TO.CostExpansion{T}(n̄,m,N)
     S = TO.CostExpansion{T}(n̄,m,N)
 
-    Q_tmp = TO.QuadraticCost{T}(n̄,m)
+    # Q_tmp = TO.QuadraticCost{T}(n̄,m)
+    Q_tmp = TO.Expansion{T}(n̄,m)
 	Quu_reg = SizedMatrix{m,m}(zeros(m,m))
 	Qux_reg = SizedMatrix{m,n̄}(zeros(m,n̄))
     ρ = zeros(T,1)
