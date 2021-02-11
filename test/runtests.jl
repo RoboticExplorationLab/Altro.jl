@@ -14,7 +14,9 @@ const TO = TrajectoryOptimization
 TEST_TIME = false
 
 @testset "Benchmark Problems" begin
-    include("benchmark_problems.jl")
+    if !haskey(ENV, "CI")
+        include("benchmark_problems.jl")
+    end
     include("nl_cartpole.jl")
     include("cartpole.jl")
     include("quadrotor.jl")
