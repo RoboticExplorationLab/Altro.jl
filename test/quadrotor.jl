@@ -58,6 +58,7 @@ grad = [Vector([E.q; E.r]) for E in ilqr.E]
 @test grad ≈ res["grad"] atol=1e-6
 
 # Backward Pass
+ilqr.ρ[1] = ilqr.opts.bp_reg_min*0
 ΔV = Altro.static_backwardpass!(ilqr)
 K = Matrix.(ilqr.K)
 d = Vector.(ilqr.d)
@@ -65,8 +66,8 @@ S = [Matrix(S.Q) for S in ilqr.S]
 s = [Vector(S.q) for S in ilqr.S]
 Qzz = [[E.Q E.H'; E.H E.R] for E in ilqr.Q]
 Qz = [Vector([E.q; E.r]) for E in ilqr.Q]
-@test K ≈ res["K"] atol=1e-6
-@test d ≈ res["d"] atol=1e-6
+@test norm(K - res["K"]) < 1e-6
+@test norm(d - res["d"]) < 1e-6
 @test S ≈ res["S"] atol=1e-6
 @test s ≈ res["s"] atol=1e-6
 @test Qzz ≈ res["Qzz"] atol=1e-6
