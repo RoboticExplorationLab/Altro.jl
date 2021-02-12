@@ -67,7 +67,7 @@ s = [Vector(S.q) for S in ilqr.S]
 Qzz = [[E.Q E.H'; E.H E.R] for E in ilqr.Q]
 Qz = [Vector([E.q; E.r]) for E in ilqr.Q]
 @test norm(K - res["K"]) < 1e-6
-@test norm(d - res["d"]) < 1e-6
+@test norm(d - res["d"]) < 1e-5
 @test S ≈ res["S"] atol=1e-6
 @test s ≈ res["s"] atol=1e-6
 @test Qzz ≈ res["Qzz"] atol=1e-6
