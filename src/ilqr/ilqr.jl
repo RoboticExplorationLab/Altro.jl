@@ -19,19 +19,19 @@ struct iLQRSolver{T,I<:QuadratureRule,L,O,n,n̄,m,L1} <: UnconstrainedSolver{T}
 
     # Data variables
     # K::Vector{SMatrix{m,n̄,T,L2}}  # State feedback gains (m,n,N-1)
-    K::Vector{SizedMatrix{m,n̄,T,2}}  # State feedback gains (m,n,N-1)
-    d::Vector{SizedVector{m,T,1}}  # Feedforward gains (m,N-1)
+    K::Vector{SizedMatrix{m,n̄,T}}  # State feedback gains (m,n,N-1)
+    d::Vector{SizedVector{m,T}}  # Feedforward gains (m,N-1)
 
     D::Vector{DynamicsExpansion{T,n,n̄,m}}  # discrete dynamics jacobian (block) (n,n+m+1,N)
-    G::Vector{SizedMatrix{n,n̄,T,2}}        # state difference jacobian (n̄, n)
+    G::Vector{SizedMatrix{n,n̄,T}}        # state difference jacobian (n̄, n)
 
 	quad_obj::QuadraticObjective{n,m,T}  # quadratic expansion of obj
 	S::QuadraticObjective{n̄,m,T}         # Cost-to-go expansion
     Q::QuadraticObjective{n̄,m,T}         # Action-value expansion
 
-    Q_tmp::TO.QuadraticCost{n̄,m,T,SizedMatrix{n̄,n̄,T,2},SizedMatrix{m,m,T,2}}
-	Quu_reg::SizedMatrix{m,m,T,2}
-	Qux_reg::SizedMatrix{m,n̄,T,2}
+    Q_tmp::TO.QuadraticCost{n̄,m,T,SizedMatrix{n̄,n̄,T},SizedMatrix{m,m,T}}
+	Quu_reg::SizedMatrix{m,m,T}
+	Qux_reg::SizedMatrix{m,n̄,T}
     ρ::Vector{T}   # Regularization
     dρ::Vector{T}  # Regularization rate of change
 
