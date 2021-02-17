@@ -5,8 +5,10 @@ const TO = TrajectoryOptimization
 if !isdefined(Main,:TEST_TIME)
     TEST_TIME = true 
 end
+v = true
 
 ## Double Integrator
+v && println("Double Integrator")
 solver = ALTROSolver(Problems.DoubleIntegrator()...)
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time / 1e6 < 1 
@@ -16,6 +18,7 @@ TEST_TIME && @test minimum(b).time / 1e6 < 1
 @test status(solver) == Altro.SOLVE_SUCCEEDED 
 
 ## Pendulum
+v && println("Pendulum")
 solver = ALTROSolver(Problems.Pendulum()...)
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time / 1e6 < 2
@@ -25,6 +28,7 @@ TEST_TIME && @test minimum(b).time / 1e6 < 2
 @test status(solver) == Altro.SOLVE_SUCCEEDED 
 
 ## Cartpole
+v && println("Cartpole")
 solver = ALTROSolver(Problems.Cartpole()..., save_S=true, verbose=2)
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time / 1e6 <  10 
@@ -59,6 +63,7 @@ TEST_TIME && @test minimum(b).time /1e6 < 10
 @test status(solver) == Altro.SOLVE_SUCCEEDED
 
 ## Acrobot
+v && println("Acrobot")
 solver = ALTROSolver(Problems.Acrobot()...)
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time / 1e6 < 15
@@ -68,6 +73,7 @@ TEST_TIME && @test minimum(b).time / 1e6 < 15
 @test status(solver) == Altro.SOLVE_SUCCEEDED 
 
 ## Parallel Park
+v && println("Parallel Park")
 solver = ALTROSolver(Problems.DubinsCar(:parallel_park)...)
 b =  benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time /1e6 < 8 
@@ -95,6 +101,7 @@ if !Sys.iswindows() && VERSION < v"1.5"   # not sure why this fails on Windows?
 end
 
 ## Escape
+v && println("Escape")
 solver = ALTROSolver(Problems.DubinsCar(:escape)..., infeasible=true, R_inf=0.1)
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time / 1e6 < 25
@@ -104,6 +111,7 @@ TEST_TIME && @test minimum(b).time / 1e6 < 25
 @test status(solver) == Altro.SOLVE_SUCCEEDED 
 
 ## Zig-zag
+v && println("Quadrotor")
 solver = ALTROSolver(Problems.Quadrotor(:zigzag)...)
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time / 1e6 < 60
@@ -134,6 +142,7 @@ end
 @test status(solver) == Altro.SOLVE_SUCCEEDED
 
 # Barrell Roll
+v && println("Barrell Roll")
 solver = ALTROSolver(Problems.YakProblems(costfun=:QuatLQR, termcon=:quatvec)...)
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time / 1e6 < 100 

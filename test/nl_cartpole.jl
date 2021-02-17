@@ -43,7 +43,9 @@ ilqr = Altro.iLQRSolver(prob,
 b = benchmark_solve!(ilqr)
 err = states(ilqr)[end] - xf
 @test err'err < 1e-3
-@test b.allocs == 0
+if VERSION > v"1.4"
+    @test b.allocs == 0
+end
 
 # Add constraints
 cons = ConstraintList(4,1,N)
