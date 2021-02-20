@@ -43,7 +43,7 @@ ilqr = Altro.iLQRSolver(prob,
 b = benchmark_solve!(ilqr)
 err = states(ilqr)[end] - xf
 @test err'err < 1e-3
-if VERSION > v"1.4"
+if VERSION >= v"1.5"
     @test b.allocs == 0
 end
 

@@ -120,6 +120,7 @@ TEST_TIME && @test minimum(b).time / 1e6 < 60
 @test solver.stats.gradient[end] < 2e-2
 @test status(solver) == Altro.SOLVE_SUCCEEDED 
 
+v && println("Quadrotor (no pn)")
 solver = ALTROSolver(Problems.Quadrotor(:zigzag)..., projected_newton=false)
 b = benchmark_solve!(solver)
 @test iterations(solver) - 60 <= 2 # 60
@@ -130,6 +131,7 @@ if !Sys.iswindows() && VERSION < v"1.5"  # not sure why this fails on Windows?
 end
 
 # Test infeasible Quadrotor (note that this allocates for the static-bp)
+v && println("Quadrotor (infeasible)")
 solver = ALTROSolver(Problems.Quadrotor(:zigzag)..., projected_newton=false, 
     infeasible=true, static_bp=false, constraint_tolerance=1e-4)
 b = benchmark_solve!(solver, samples=2, evals=2)
