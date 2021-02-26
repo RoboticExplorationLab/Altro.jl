@@ -1,8 +1,9 @@
 Base.@kwdef mutable struct ConstraintParams{T}
-	ϕ::T = NaN 	      # penalty scaling parameter
-	μ0::T = NaN 	  # initial penalty parameter
-	μ_max::T = NaN    # max penalty parameter
-	λ_max::T = NaN    # max Lagrange multiplier
+	ϕ::T = 1.0 	      # penalty scaling parameter
+	μ0::T = 10.0 	  # initial penalty parameter
+	μ_max::T = 1e8    # max penalty parameter
+	λ_max::T = 1e8    # max Lagrange multiplier
+    use_default::MVector{4,Bool} = @MVector ones(Bool,4)
 end
 
 function ConstraintParams(ϕ::Real, μ0::Real, μ_max::Real, λ_max::Real)
@@ -137,17 +138,35 @@ function reset_penalties!(con::ALConVal)
 end
 
 function set_params!(cval::ALConVal, opts)
-    if isnan(cval.params.ϕ)
-        cval.params.ϕ = opts.penalty_scaling
+    p = cval.params
+    p.use_default[1] && (p.ϕ = opts.penalty_scaling)
+    p.use_default[2] && (p.μ0 = opts.penalty_initial)
+    p.use_default[3] && (p.μ_max = opts.penalty_max)
+    p.use_default[4] && (p.λ_max = opts.dual_max)
+end
+
+function set_params!(cval::ALConVal; 
+        penalty_initial=NaN, 
+        penalty_scaling=NaN, 
+        penalty_max=NaN, 
+        dual_max=NaN
+    )
+    p = cval.params
+    if !isnan(penalty_scaling)
+        p.ϕ = penalty_scaling
+        p.use_default[1] = false
     end
-    if isnan(cval.params.μ0)
-        cval.params.μ0 = opts.penalty_initial
+    if !isnan(penalty_initial)
+        p.μ0 = penalty_initial
+        p.use_default[2] = false
     end
-    if isnan(cval.params.μ_max)
-        cval.params.μ_max = opts.penalty_max
+    if !isnan(penalty_max)
+        p.μ_max = penalty_max
+        p.use_default[3] = false
     end
-    if isnan(cval.params.λ_max)
-        cval.params.λ_max = opts.dual_max
+    if !isnan(dual_max)
+        p.λ_max = dual_max
+        p.use_default[4] = false
     end
 end
 

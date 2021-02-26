@@ -83,7 +83,7 @@ function record_iteration!(solver::AugmentedLagrangianSolver{T,S}, J::T, c_max::
 
 	conSet = get_constraints(solver)
 	max_penalty!(conSet)
-    max_penalty = maximum(conSet.c_max)
+    max_penalty = maximum(conSet.μ_max)
     J_prev = solver.stats.cost[solver.stats.iterations]
     dJ = J_prev - J
     
@@ -96,6 +96,7 @@ function record_iteration!(solver::AugmentedLagrangianSolver{T,S}, J::T, c_max::
         @logmsg OuterLoop :total value=solver.stats.iterations
         @logmsg OuterLoop :cost value=J
         @logmsg OuterLoop :c_max value=c_max
+        @logmsg OuterLoop :penalty value=max_penalty
 		print_level(OuterLoop, global_logger())
 	end
 end
