@@ -168,14 +168,6 @@ if !ci
     @test solver.stats.gradient[end] < 2e-3
     @test status(solver) == Altro.SOLVE_SUCCEEDED
 
-    solver = ALTROSolver(Problems.YakProblems(costfun=:ErrorQuadratic, termcon=:quatvec)..., 
-        projected_newton=false, constraint_tolerance=1e-5)
-    b = benchmark_solve!(solver)
-    TEST_TIME && @test minimum(b).time / 1e6 < 1000 
-    @test iterations(solver) == 61 #54
-    @test solver.stats.gradient[end] < 1e-4
-    @test status(solver) == Altro.SOLVE_SUCCEEDED
-
     # Check allocations and cache type
     ilqr = Altro.iLQRSolver(Problems.YakProblems(costfun=:QuatLQR, termcon=:quatvec)...)
     b = benchmark_solve!(ilqr)
