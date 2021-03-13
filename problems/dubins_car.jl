@@ -123,6 +123,7 @@ function DubinsCar(scenario=:three_obstacles; N=101)
 
     elseif scenario==:escape
         opts = SolverOptions(
+            constraint_tolerance=1e-5,
             cost_tolerance_intermediate=1e-3,
             penalty_scaling=100.,
             penalty_initial=10.,

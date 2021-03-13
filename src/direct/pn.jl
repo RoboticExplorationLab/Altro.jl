@@ -45,7 +45,7 @@ struct ProjectedNewtonSolver{T,N,M,NM} <: ConstrainedSolver{T}
     H::SparseMatrixCSC{T,Int}
     g::Vector{T}
     # E::Vector{CostExpansion{T,N,N,M}}
-    E::QuadraticObjective{N,M,T}
+    E::TO.CostExpansion{N,M,T}
 
     D::SparseMatrixCSC{T,Int}
     d::Vector{T}
@@ -83,7 +83,7 @@ function ProjectedNewtonSolver(prob::Problem,
     H = spzeros(NN,NN)
     g = zeros(NN)
     # E = [CostExpansion{Float64}(n,m) for k = 1:N]
-    E = QuadraticObjective(n,m,N)
+    E = TO.CostExpansion(n,m,N)
 
     D = spzeros(NP,NN)
     d = zeros(NP)

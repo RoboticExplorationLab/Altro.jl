@@ -6,6 +6,27 @@ Augmented Lagrangian Trajectory Optimizer (ALTRO) is a solver developed by the R
 ALTRO consists of two "phases":
 1) AL-iLQR: iLQR is used with an Augmented Lagrangian framework to solve the problem quickly to rough constraint satisfaction
 2) Projected Newton: A collocation-flavored active-set solver projects the solution from AL-iLQR onto the feasible subspace to achieve machine-precision constraint satisfaction.
+
+# Constructor
+
+    ALTROSolver(prob::Problem, opts::SolverOptions; [infeasible, R_inf, kwarg_opts...])
+
+The `infeasible` keyword is a boolean flag that specifies whether the solver should
+augment the controls to make it artificially fully actuated, allowing state initialization.
+The `R_inf` is the weight on these augmented controls. Any solver options can be passed
+as additional keyword arguments and will be set in the solver.
+
+# Getters
+* `get_model`
+* `get_objective`
+* `get_constraints`
+* `Altro.get_ilqr`
+* `TO.get_initial_state`
+
+# Other methods
+* `Base.size`: returns `(n,m,N)`
+* `TO.integration`
+* `TO.is_constrained`
 """
 struct ALTROSolver{T,S} <: ConstrainedSolver{T}
     opts::SolverOptions{T}
@@ -34,7 +55,7 @@ function ALTROSolver(prob::Problem{Q,T}, opts::SolverOptions=SolverOptions();
     stats = SolverStats{T}(parent=solvername(ALTROSolver))
     solver_al = AugmentedLagrangianSolver(prob, opts, stats; solver_uncon=solver_uncon)
     solver_pn = ProjectedNewtonSolver(prob, opts, stats)
-    TO.link_constraints!(get_constraints(solver_pn), get_constraints(solver_al))
+    link_constraints!(get_constraints(solver_pn), get_constraints(solver_al))
     S = typeof(solver_al.solver_uncon)
     solver = ALTROSolver{T,S}(opts, stats, solver_al, solver_pn)
     reset!(solver)
@@ -51,6 +72,7 @@ end
 solvername(::Type{<:ALTROSolver}) = :ALTRO
 TrajectoryOptimization.integration(solver::ALTROSolver) = integration(solver.solver_al)
 is_constrained(solver::ALTROSolver) = !isempty(get_constraints(solver.solver_al))
+@inline get_ilqr(solver::ALTROSolver) = solver.solver_al.solver_uncon
 
 function TO.get_constraints(solver::ALTROSolver)
     if solver.opts.projected_newton
@@ -90,14 +112,19 @@ function solve!(solver::ALTROSolver)
     # Solve with AL
     solve!(solver.solver_al)
 
-    if status(solver) <= SOLVE_SUCCEEDED
+    if status(solver) <= SOLVE_SUCCEEDED || opts.force_pn
         # Check convergence
         i = solver.solver_al.stats.iterations
-        c_max = solver.solver_al.stats.c_max[i]
+        if i > 1
+            c_max = solver.solver_al.stats.c_max[i]
+        else
+            c_max = TO.max_violation(solver.solver_al)
+        end
 
         opts.constraint_tolerance = ϵ_con
-        if opts.projected_newton && c_max > opts.constraint_tolerance && 
-                (status(solver) <= SOLVE_SUCCEEDED || status(solver) == MAX_ITERATIONS_OUTER)
+        if (opts.projected_newton && c_max > opts.constraint_tolerance && 
+                (status(solver) <= SOLVE_SUCCEEDED || status(solver) == MAX_ITERATIONS_OUTER)) ||
+                opts.force_pn
             solve!(solver.solver_pn)
         end
 

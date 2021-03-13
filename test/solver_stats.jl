@@ -1,4 +1,3 @@
-using Test
 
 stats = SolverStats(parent=:ALTRO)
 N = 10
@@ -11,8 +10,8 @@ Altro.reset!(stats, N)
 Altro.record_iteration!(stats, cost=10, c_max=100)
 @test stats.cost[1] == 10
 @test stats.c_max[1] == 100
-@test stats.gradient[1] == Inf
-@test stats.penalty_max[1] == Inf
+@test stats.gradient[1] == 0.0 
+@test stats.penalty_max[1] == 0.0 
 @test stats.iteration[1] == 1
 @test stats.iteration_outer[1] == 0
 @test stats.iteration_pn[1] == false 
@@ -23,7 +22,7 @@ stats.iterations_outer += 1
 Altro.record_iteration!(stats, cost=5, penalty_max=1e4)
 @test stats.cost[2] == 5
 @test stats.c_max[2] == 100
-@test stats.gradient[2] == Inf
+@test stats.gradient[2] == 0.0 
 @test stats.penalty_max[2] ≈ 1e4
 @test stats.iteration[2] == 2
 @test stats.iteration_outer[2] == 1
@@ -51,7 +50,7 @@ Altro.trim!(stats)
 
 
 solver = ALTROSolver(Problems.DoubleIntegrator()...)
-set_options!(solver, verbose=0, projected_newton=true)
+set_options!(solver, verbose=0, projected_newton=true, show_summary=false)
 solve!(solver)
 
 # Check if final stats match output
@@ -73,7 +72,7 @@ solve!(solver)
 @test max_violation(solver) ≈ c_max
 
 # Make sure AL solver resets properly
-solver = Altro.AugmentedLagrangianSolver(Problems.DoubleIntegrator()...)
+solver = Altro.AugmentedLagrangianSolver(Problems.DoubleIntegrator()..., show_summary=false)
 Z0 = copy(get_trajectory(solver))
 solve!(solver)
 J = cost(solver)

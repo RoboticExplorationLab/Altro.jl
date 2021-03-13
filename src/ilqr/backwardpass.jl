@@ -18,7 +18,7 @@ function backwardpass!(solver::iLQRSolver{T,QUAD,L,O,n,n̄,m}) where {T,QUAD<:Qu
 	Qux_reg = solver.Qux_reg
 
     # Terminal cost-to-go
-	Q = solver.Q[N]
+	Q = solver.E[N]
     S[N].Q .= Q.Q
     S[N].q .= Q.q
 
@@ -32,7 +32,7 @@ function backwardpass!(solver::iLQRSolver{T,QUAD,L,O,n,n̄,m}) where {T,QUAD<:Qu
 
 		# Get error state expanions
 		fdx,fdu = TO.error_expansion(solver.D[k], model)
-		cost_exp = solver.Q[k]
+		cost_exp = solver.E[k]
 		Q = solver.Q_tmp 
 
 		# Calculate action-value expansion
@@ -69,7 +69,7 @@ function backwardpass!(solver::iLQRSolver{T,QUAD,L,O,n,n̄,m}) where {T,QUAD<:Qu
 
 end
 
-function static_backwardpass!(solver::iLQRSolver{T,QUAD,L,O,n,n̄,m}) where {T,QUAD<:QuadratureRule,L,O,n,n̄,m}
+function static_backwardpass!(solver::iLQRSolver{T,QUAD,L,O,n,n̄,m}, grad_only=false) where {T,QUAD<:QuadratureRule,L,O,n,n̄,m}
 	N = solver.N
 
     # Objective
@@ -85,13 +85,18 @@ function static_backwardpass!(solver::iLQRSolver{T,QUAD,L,O,n,n̄,m}) where {T,Q
 
     # Terminal cost-to-go
 	# Q = error_expansion(solver.Q[N], model)
-	Q = solver.Q[N]
+	Q = solver.E[N]
 	Sxx = SMatrix(Q.Q)
 	Sx = SVector(Q.q)
 
-    # Initialize expected change in cost-to-go
-    ΔV = @SVector zeros(2)
+	if solver.opts.save_S
+		S[end].Q .= Sxx
+		S[end].q .= Sx
+	end
 
+    # Initialize expected change in cost-to-go
+	ΔV = @SVector zeros(2)
+	
 	k = N-1
     while k > 0
         ix = Z[k]._x
@@ -100,12 +105,17 @@ function static_backwardpass!(solver::iLQRSolver{T,QUAD,L,O,n,n̄,m}) where {T,Q
 		# Get error state expanions
 		fdx,fdu = TO.error_expansion(solver.D[k], model)
 		fdx,fdu = SMatrix(fdx), SMatrix(fdu)
-		Q = TO.static_expansion(solver.Q[k])
-		# Q = error_expansion(solver.Q[k], model)
-		# Q = solver.Q[k]
+		Q = TO.static_expansion(solver.E[k])
 
 		# Calculate action-value expansion
-		Q = _calc_Q!(Q, Sxx, Sx, fdx, fdu)
+		Q = _calc_Q!(Q, Sxx, Sx, fdx, fdu, grad_only)
+
+		# Save Q
+		solver.Q[k].Q .= Q.xx
+		solver.Q[k].R .= Q.uu
+		solver.Q[k].H .= Q.ux
+		solver.Q[k].q .= Q.x
+		solver.Q[k].r .= Q.u
 
 		# Regularization
 		Quu_reg, Qux_reg = _bp_reg!(Q, fdx, fdu, solver.ρ[1], solver.opts.bp_reg_type)
@@ -122,15 +132,15 @@ function static_backwardpass!(solver::iLQRSolver{T,QUAD,L,O,n,n̄,m}) where {T,Q
 	    end
 
         # Compute gains
-		K_, d_ = _calc_gains!(K[k], d[k], Quu_reg, Qux_reg, Q.u)
+		K_, d_ = _calc_gains!(K[k], d[k], Quu_reg, Qux_reg, Q.u, grad_only)
 
 		# Calculate cost-to-go (using unregularized Quu and Qux)
-		Sxx, Sx, ΔV_ = _calc_ctg!(Q, K_, d_)
+		Sxx, Sx, ΔV_ = _calc_ctg!(Q, K_, d_, grad_only)
 		# k >= N-2 && println(diag(Sxx))
 		if solver.opts.save_S
-			S[k].xx .= Sxx
-			S[k].x .= Sx
-			S[k].c .= ΔV_
+			S[k].Q .= Sxx
+			S[k].q .= Sx
+			# S[k].c = ΔV_[1]
 		end
 		ΔV += ΔV_
         k -= 1
@@ -194,12 +204,18 @@ function _calc_Q!(Q, cost_exp, S1, fdx, fdu, Q_tmp)
 	return nothing
 end
 
-function _calc_Q!(Q::TO.StaticExpansion, Sxx, Sx, fdx::SMatrix, fdu::SMatrix)
+function _calc_Q!(Q::TO.StaticExpansion, Sxx, Sx, fdx::SMatrix, fdu::SMatrix, grad_only=false)
 	Qx = Q.x + fdx'Sx
 	Qu = Q.u + fdu'Sx
-	Qxx = Q.xx + fdx'Sxx*fdx
-	Quu = Q.uu + fdu'Sxx*fdu
-	Qux = Q.ux + fdu'Sxx*fdx
+	if grad_only
+		Qxx = Q.xx
+		Quu = Q.uu
+		Qux = Q.ux
+	else
+		Qxx = Q.xx + fdx'Sxx*fdx
+		Quu = Q.uu + fdu'Sxx*fdu
+		Qux = Q.ux + fdu'Sxx*fdx
+	end
 	TO.StaticExpansion(Qx,Qxx,Qu,Quu,Qux)
 end
 
@@ -215,10 +231,14 @@ function _calc_gains!(K::SizedArray, d::SizedArray, Quu::SizedArray, Qux::SizedA
 	# return K,d
 end
 
-function _calc_gains!(K, d, Quu::SMatrix, Qux::SMatrix, Qu::SVector)
-	K_ = -Quu\Qux
+function _calc_gains!(K, d, Quu::SMatrix, Qux::SMatrix, Qu::SVector, grad_only=false)
+	if grad_only
+		K_ = SMatrix(K)
+	else
+		K_ = -Quu\Qux
+		K .= K_
+	end
 	d_ = -Quu\Qu
-	K .= K_
 	d .= d_
 	return K_,d_
 end
@@ -250,12 +270,14 @@ function _calc_ctg!(S, Q, K, d)
     return @SVector [t1, t2]
 end
 
-function _calc_ctg!(Q::TO.StaticExpansion, K::SMatrix, d::SVector)
+function _calc_ctg!(Q::TO.StaticExpansion, K::SMatrix, d::SVector, grad_only::Bool=false)
 	Sx = Q.x + K'Q.uu*d + K'Q.u + Q.ux'd
-	Sxx = Q.xx + K'Q.uu*K + K'Q.ux + Q.ux'K
-	Sxx = 0.5*(Sxx + Sxx')
-	# S.x .= Sx
-	# S.xx .= Sxx
+	if grad_only
+		Sxx = Q.xx
+	else
+		Sxx = Q.xx + K'Q.uu*K + K'Q.ux + Q.ux'K
+		Sxx = 0.5*(Sxx + Sxx')
+	end
 	t1 = d'Q.u
 	t2 = 0.5*d'Q.uu*d
 	return Sxx, Sx, @SVector [t1, t2]

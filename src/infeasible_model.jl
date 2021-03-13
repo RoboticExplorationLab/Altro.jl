@@ -2,6 +2,18 @@
 ############################################################################################
 #                               INFEASIBLE MODELS                                          #
 ############################################################################################
+struct Infeasible{N,M,D<:AbstractModel} <: AbstractModel
+    model::D
+    _u::SVector{M,Int}  # inds to original controls
+    _ui::SVector{N,Int} # inds to infeasible controls
+end
+
+struct InfeasibleLie{N,M,D<:AbstractModel} <: RobotDynamics.LieGroupModel 
+    model::D
+    _u::SVector{M,Int}  # inds to original controls
+    _ui::SVector{N,Int} # inds to infeasible controls
+end
+
 """ $(TYPEDEF)
 An infeasible model is an augmented dynamics model that makes the system artifically fully
 actuated by augmenting the control vector with `n` additional controls. The dynamics are
@@ -17,19 +29,6 @@ to be zero by the end of the solve.
 InfeasibleModel(model::AbstractModel)
 ```
 """
-
-struct Infeasible{N,M,D<:AbstractModel} <: AbstractModel
-    model::D
-    _u::SVector{M,Int}  # inds to original controls
-    _ui::SVector{N,Int} # inds to infeasible controls
-end
-
-struct InfeasibleLie{N,M,D<:AbstractModel} <: RobotDynamics.LieGroupModel 
-    model::D
-    _u::SVector{M,Int}  # inds to original controls
-    _ui::SVector{N,Int} # inds to infeasible controls
-end
-
 const InfeasibleModel{N,M,D} = Union{Infeasible{N,M,D},InfeasibleLie{N,M,D}} where {N,M,D}
 
 function InfeasibleModel(model::AbstractModel)
@@ -49,10 +48,8 @@ end
 RobotDynamics.LieState(model::InfeasibleLie) = RobotDynamics.LieState(model.model)
 
 # Generic Infeasible Methods
-function Base.size(model::InfeasibleModel)
-    n,m = size(model.model)
-    return n, n+m
-end
+RobotDynamics.state_dim(model::InfeasibleModel{n}) where n = n
+RobotDynamics.control_dim(model::InfeasibleModel{n,m}) where {n,m} = n+m
 
 RobotDynamics.dynamics(::InfeasibleModel, x, u) =
     throw(ErrorException("Cannot evaluate continuous dynamics on an infeasible model"))
@@ -73,7 +70,7 @@ end
 @inline RobotDynamics.rotation_type(model::InfeasibleModel) where D = rotation_type(model.model)
 
 @generated function RobotDynamics.discrete_jacobian!(::Type{Q}, ∇f, model::InfeasibleModel{N,M},
-        z::AbstractKnotPoint{T,N}) where {T,N,M,Q<:Explicit}
+        z::AbstractKnotPoint{T,N}, cache=nothing) where {T,N,M,Q<:Explicit}
 
     ∇ui = [(@SMatrix zeros(N,N+M)) Diagonal(@SVector ones(N)) @SVector zeros(N)]
     _x = SVector{N}(1:N)
@@ -101,6 +98,11 @@ end
         # [∇f[$_x, $_z] $∇u0 ∇dt] + $∇ui
     end
 end
+function RD._discrete_jacobian!(::RD.ForwardAD, ::Type{Q}, ∇f, model::InfeasibleModel{N,M},
+        z::AbstractKnotPoint{T,N}, cache=nothing) where {T,N,M,Q<:Explicit}
+    RD.discrete_jacobian!(Q, ∇f, model, z, cache)
+end
+
 
 function RobotDynamics.state_diff(model::InfeasibleModel, x::SVector, x0::SVector)
 	RobotDynamics.state_diff(model.model, x, x0)
@@ -169,5 +171,6 @@ end
 function TO.jacobian!(∇c, con::InfeasibleConstraint{n}, u::SVector) where n
 	for (i,j) in enumerate(con.ui)
 		∇c[i,j] = 1
-	end
+    end
+    return true
 end
