@@ -1,4 +1,5 @@
-function Cartpole(method=:none; constrained::Bool=true, N=101)
+function Cartpole(method=:none; constrained::Bool=true, N=101, 
+        Qv=1e-2, Rv=1e-1, Qfv=1e2, u_bnd=3.0, tf=5.0)
 
     opts = SolverOptions(
         cost_tolerance_intermediate=1e-2,
@@ -8,17 +9,17 @@ function Cartpole(method=:none; constrained::Bool=true, N=101)
 
     model = RobotZoo.Cartpole()
     n,m = size(model)
-    tf = 5.
+    # tf = 5.
     dt = tf/(N-1)
 
-    Q = 1.0e-2*Diagonal(@SVector ones(n))
-    Qf = 100.0*Diagonal(@SVector ones(n))
-    R = 1.0e-1*Diagonal(@SVector ones(m))
+    Q = Qv*Diagonal(@SVector ones(n))
+    Qf = Qfv*Diagonal(@SVector ones(n))
+    R = Rv*Diagonal(@SVector ones(m))
     x0 = @SVector zeros(n)
     xf = @SVector [0, pi, 0, 0]
     obj = LQRObjective(Q,R,Qf,xf,N)
 
-    u_bnd = 3.0
+    u_bnd = u_bnd 
     conSet = ConstraintList(n,m,N)
     bnd = BoundConstraint(n,m, u_min=-u_bnd, u_max=u_bnd)
     goal = GoalConstraint(xf)
