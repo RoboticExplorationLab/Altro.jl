@@ -40,71 +40,71 @@ opts.cost_tolerance = 1e-5
 # Create a solver, adding in additional options
 solver = ALTROSolver(prob, opts, show_summary=false)</code></pre><h2 id=".-Solve-the-problem"><a class="docs-heading-anchor" href="#.-Solve-the-problem">7. Solve the problem</a><a id=".-Solve-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#.-Solve-the-problem" title="Permalink"></a></h2><p>With the solver initialized, we can now solve the problem with a simple call to  <code>solve!</code>:</p><pre><code class="language-julia">solve!(solver)</code></pre><h2 id=".-Post-analysis"><a class="docs-heading-anchor" href="#.-Post-analysis">8. Post-analysis</a><a id=".-Post-analysis-1"></a><a class="docs-heading-anchor-permalink" href="#.-Post-analysis" title="Permalink"></a></h2><h3 id="Checking-solve-status"><a class="docs-heading-anchor" href="#Checking-solve-status">Checking solve status</a><a id="Checking-solve-status-1"></a><a class="docs-heading-anchor-permalink" href="#Checking-solve-status" title="Permalink"></a></h3><p>Once the solve is complete, we can look at a few things. The first is to check if the solve is successful:</p><pre><code class="language-julia">status(solver)</code></pre><pre class="documenter-example-output">SOLVE_SUCCEEDED::TerminationStatus = 1</pre><p>We can also extract some more information</p><pre><code class="language-julia">println(&quot;Number of iterations: &quot;, iterations(solver))
 println(&quot;Final cost: &quot;, cost(solver))
-println(&quot;Final constraint satisfaction: &quot;, max_violation(solver))</code></pre><pre class="documenter-example-output">Number of iterations: 8
-Final cost: 0.37442337168872863
-Final constraint satisfaction: 5.093398849354003e-7</pre><h3 id="Extracting-the-solution"><a class="docs-heading-anchor" href="#Extracting-the-solution">Extracting the solution</a><a id="Extracting-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Extracting-the-solution" title="Permalink"></a></h3><p>We can extract the state and control trajectories, which are returned as vectors of <code>SVector</code>s:</p><pre><code class="language-julia">X = states(solver)     # alternatively states(prob)
+println(&quot;Final constraint satisfaction: &quot;, max_violation(solver))</code></pre><pre class="documenter-example-output">Number of iterations: 9
+Final cost: 0.3744233690659867
+Final constraint satisfaction: 5.094036721331463e-7</pre><h3 id="Extracting-the-solution"><a class="docs-heading-anchor" href="#Extracting-the-solution">Extracting the solution</a><a id="Extracting-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Extracting-the-solution" title="Permalink"></a></h3><p>We can extract the state and control trajectories, which are returned as vectors of <code>SVector</code>s:</p><pre><code class="language-julia">X = states(solver)     # alternatively states(prob)
 U = controls(solver)   # alternatively controls(prob)</code></pre><pre class="documenter-example-output">100-element Array{StaticArrays.SArray{Tuple{2},Float64,1,2},1}:
- [0.10902176759593128, 2.544016880077011] 
- [0.7844653531954566, 2.517583310020918]  
- [1.3615847435250514, 2.468161455116334]  
- [1.8422181516213285, 2.401644445207399]  
- [2.2313416724628103, 2.323265266901085]  
- [2.536131399760318, 2.237477552970159]   
- [2.765096074513515, 2.1479244850056434]  
- [2.927346323787656, 2.0574733761192254]  
- [3.03202750657857, 1.9682924268476307]   
- [3.0879141973952455, 1.8819491392405405] 
+ [0.10878651111648413, 2.5436811635542624]
+ [0.7805281986380147, 2.516592995897836]  
+ [1.3560462560322437, 2.466796705966925]  
+ [1.8364837537103473, 2.400099908355672]  
+ [2.2262633648988026, 2.3216761326092987] 
+ [2.5321486362379577, 2.2359375915578936] 
+ [2.762361073879659, 2.146497992684298]   
+ [2.9258265729080004, 2.056203023413409]  
+ [3.031583864599067, 1.9672045221929795]  
+ [3.088356612705737, 1.881057307987189]   
  ⋮                                        
- [0.10405755452447397, 0.7288901285817019]
- [0.10997699248920402, 0.7281376592810905]
- [0.11677244377265025, 0.7274422181405538]
- [0.1245147013113538, 0.7267985312881262] 
- [0.13328795374042393, 0.7261960029118664]
- [0.14318422188138885, 0.7256340681157304]
- [0.15425894579135488, 0.7251462856026997]
- [0.1666247905479392, 0.7247205571614344] 
- [0.18051410200927884, 0.7242829553359136]</pre><p>If you prefer to work with matrices, you can convert them easily:</p><pre><code class="language-julia">Xm = hcat(Vector.(X)...)  # convert to normal Vector before concatenating so it&#39;s fast
+ [0.10412245015989609, 0.7287525631715607]
+ [0.11001135780600597, 0.728007087632787] 
+ [0.11676600684100644, 0.7273376484584526]
+ [0.12445282836590504, 0.726746768266188] 
+ [0.13315656019367123, 0.7262275367750465]
+ [0.14299612490863772, 0.7257504106346159]
+ [0.15410038952655775, 0.7252771456850415]
+ [0.1665312518697878, 0.7248129301561721] 
+ [0.1804263046605127, 0.7243657779872559] </pre><p>If you prefer to work with matrices, you can convert them easily:</p><pre><code class="language-julia">Xm = hcat(Vector.(X)...)  # convert to normal Vector before concatenating so it&#39;s fast
 Um = hcat(Vector.(U)...)</code></pre><pre class="documenter-example-output">2×100 Array{Float64,2}:
- 0.109022  0.784465  1.36158  1.84222  …  0.154259  0.166625  0.180514
- 2.54402   2.51758   2.46816  2.40164     0.725146  0.724721  0.724283</pre><div class="admonition is-success"><header class="admonition-header">Tip</header><div class="admonition-body"><p>Converting a matrix into a vector of vectors is also very easy:</p><pre><code class="language-julia">X = [col for col in eachcol(Xm)]</code></pre><p>Or if you want static vectors:</p><pre><code class="language-julia">X = [SVector{n}(col) for col in eachcol(Xm)]</code></pre></div></div><h3 id="Extracting-the-final-feedback-gains"><a class="docs-heading-anchor" href="#Extracting-the-final-feedback-gains">Extracting the final feedback gains</a><a id="Extracting-the-final-feedback-gains-1"></a><a class="docs-heading-anchor-permalink" href="#Extracting-the-final-feedback-gains" title="Permalink"></a></h3><p>Since ALTRO uses iLQR, the solver computes a locally optimal linear feedback policy which can be useful for tracking purposes. We can extract it from the internal  <code>Altro.iLQRSolver</code>:</p><pre><code class="language-julia">ilqr = Altro.get_ilqr(solver)
+ 0.108787  0.780528  1.35605  1.83648  …  0.1541    0.166531  0.180426
+ 2.54368   2.51659   2.4668   2.4001      0.725277  0.724813  0.724366</pre><div class="admonition is-success"><header class="admonition-header">Tip</header><div class="admonition-body"><p>Converting a matrix into a vector of vectors is also very easy:</p><pre><code class="language-julia">X = [col for col in eachcol(Xm)]</code></pre><p>Or if you want static vectors:</p><pre><code class="language-julia">X = [SVector{n}(col) for col in eachcol(Xm)]</code></pre></div></div><h3 id="Extracting-the-final-feedback-gains"><a class="docs-heading-anchor" href="#Extracting-the-final-feedback-gains">Extracting the final feedback gains</a><a id="Extracting-the-final-feedback-gains-1"></a><a class="docs-heading-anchor-permalink" href="#Extracting-the-final-feedback-gains" title="Permalink"></a></h3><p>Since ALTRO uses iLQR, the solver computes a locally optimal linear feedback policy which can be useful for tracking purposes. We can extract it from the internal  <code>Altro.iLQRSolver</code>:</p><pre><code class="language-julia">ilqr = Altro.get_ilqr(solver)
 K = ilqr.K  # feedback gain matrices
 d = ilqr.d  # feedforward gains. Should be small.</code></pre><pre class="documenter-example-output">100-element Array{StaticArrays.SizedArray{Tuple{2},Float64,1,1,Array{Float64,1}},1}:
- [0.009852478714575449, -0.0033449573949805487] 
- [0.013657714350846733, 0.0007134610789117769]  
- [0.015995515785637508, 0.003595229987741895]   
- [0.016987910616610796, 0.005510935966569529]   
- [0.01684505757425208, 0.006664459791531952]    
- [0.015819884153987884, 0.007239742882763358]   
- [0.014166404910608065, 0.007393874082035782]   
- [0.012112884036213368, 0.007254911917006209]   
- [0.009850436703948732, 0.006922923667805949]   
- [0.007531278625297364, 0.006473216793232439]   
- ⋮                                              
- [-0.10162953646219111, 0.0019518656050937153]  
- [-0.11972515902463945, 0.002654447055534488]   
- [-0.14176880302433692, 0.003516257964836147]   
- [-0.16897818383435892, 0.004487582083083621]   
- [-0.20051560194768678, 0.005264843998351017]   
- [-0.21514876205810002, 0.005605425328932471]   
- [-0.16882753465952985, 0.008045795182767698]   
- [-0.09174814318526288, 0.007947241753119977]   
- [-0.0001817548495621579, 3.7578660944595026e-5]</pre><h3 id="Additional-solver-stats"><a class="docs-heading-anchor" href="#Additional-solver-stats">Additional solver stats</a><a id="Additional-solver-stats-1"></a><a class="docs-heading-anchor-permalink" href="#Additional-solver-stats" title="Permalink"></a></h3><p>We can extract more detailed information on the solve from <code>solver.stats</code>:</p><pre><code class="language-julia">solver.stats</code></pre><pre class="documenter-example-output">SolverStats{Float64}
-  iterations: Int64 8
+ [-0.010263584575567426, 0.009457772399640916] 
+ [-0.006129766596743906, 0.008417127161083289] 
+ [-0.0023211307104022113, 0.007473192607849819]
+ [0.001077544828962542, 0.006636670576421581]  
+ [0.004008228422948821, 0.005914335114368226]  
+ [0.006446385273777451, 0.0053084006575701455] 
+ [0.00839845639082353, 0.004816218894697735]   
+ [0.009894625378664552, 0.004430627979192363]  
+ [0.010980357947729173, 0.004140885733703197]  
+ [0.011708798377621557, 0.00393392159795111]   
+ ⋮                                             
+ [-0.12031075960072503, 0.001429200066579009]  
+ [-0.13795875242565248, 0.0021089121689527946] 
+ [-0.15487983446100662, 0.002971232840879626]  
+ [-0.16919428795417538, 0.004186524085550026]  
+ [-0.17963838007976202, 0.005726170398561321]  
+ [-0.1877966476694162, 0.00671859972788961]    
+ [-0.1757573825639292, 0.006014526271855811]   
+ [-0.10282651777161371, 0.005472956202489928]  
+ [-0.0004966844106304399, 4.414573087267274e-5]</pre><h3 id="Additional-solver-stats"><a class="docs-heading-anchor" href="#Additional-solver-stats">Additional solver stats</a><a id="Additional-solver-stats-1"></a><a class="docs-heading-anchor-permalink" href="#Additional-solver-stats" title="Permalink"></a></h3><p>We can extract more detailed information on the solve from <code>solver.stats</code>:</p><pre><code class="language-julia">solver.stats</code></pre><pre class="documenter-example-output">SolverStats{Float64}
+  iterations: Int64 9
   iterations_outer: Int64 1
   iterations_pn: Int64 1
-  iteration: Array{Int64}((8,)) [1, 2, 3, 4, 5, 6, 7, 8]
-  iteration_outer: Array{Int64}((8,)) [0, 0, 0, 0, 0, 0, 1, 1]
-  iteration_pn: Array{Bool}((8,)) Bool[0, 0, 0, 0, 0, 0, 0, 1]
-  cost: Array{Float64}((8,)) [926.092466877557, 376.4686494933541, 26.637000363339837, 4.8271498619543145, 0.3767909576156626, 0.3744807804953639, 0.37442052026851314, 0.3744233716516394]
-  dJ: Array{Float64}((8,)) [633.93991803673, 549.6238173842028, 349.8316491300143, 21.809850501385522, 4.4503589043386516, 0.00231017712029874, 6.026022685073906e-5, -2.8513831262788614e-6]
-  c_max: Array{Float64}((8,)) [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 7.233229629433069e-5, 5.093398849354003e-7]
-  gradient: Array{Float64}((8,)) [1.7406441554626522, 2.1719711287835604, 4.490009753092128, 1.6554455532676742, 1.6086768972437395, 0.09106040242548165, 0.01843505621560318, 1.3332994890591345e-5]
-  penalty_max: Array{Float64}((8,)) [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0]
+  iteration: Array{Int64}((9,)) [1, 2, 3, 4, 5, 6, 7, 8, 9]
+  iteration_outer: Array{Int64}((9,)) [0, 0, 0, 0, 0, 0, 0, 1, 1]
+  iteration_pn: Array{Bool}((9,)) Bool[0, 0, 0, 0, 0, 0, 0, 0, 1]
+  cost: Array{Float64}((9,)) [704.4150040534225, 45.706044616103426, 20.027612362795992, 2.782136461521886, 0.5644737574096336, 0.4009857486442054, 0.37448217761799857, 0.37442051816674715, 0.37442336903140483]
+  dJ: Array{Float64}((9,)) [609.5173558156828, 658.7089594373191, 25.678432253307435, 17.245475901274105, 2.2176627041122523, 0.16348800876542818, 0.026503571026206818, 6.165945125141681e-5, -2.8508646576774765e-6]
+  c_max: Array{Float64}((9,)) [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 7.234135664502261e-5, 5.094036721331463e-7]
+  gradient: Array{Float64}((9,)) [1.4465553876073038, 2.5151657854064395, 2.654845346848613, 0.8782290471935735, 0.4261953034274326, 0.9117673737062255, 0.45334956144707766, 0.017922806965257953, 1.310139472372692e-5]
+  penalty_max: Array{Float64}((9,)) [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0]
   dJ_zero_counter: Int64 0
-  tstart: Float64 3.6871100995e11
-  tsolve: Float64 6954.807669999999
+  tstart: Float64 3.59586678553e11
+  tsolve: Float64 6926.31294
   to: TimerOutputs.TimerOutput
   status: Altro.TerminationStatus Altro.SOLVE_SUCCEEDED
   is_reset: Bool false
   parent: Symbol ALTRO
-</pre><p>The most relevant fields are the <code>cost</code>, <code>c_max</code>, and <code>gradient</code>. These give the history of these values for each iteration. The <code>iteration_outer</code> can also be helpful to know which iterations were outer loop (augmented Lagrangian)  iterations. The <code>tsolve</code> field gives the total solve time in milliseconds.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="index.html">« Introduction</a><a class="docs-footer-nextpage" href="options.html">Solver Options »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Tuesday 16 March 2021 14:16">Tuesday 16 March 2021</span>. Using Julia version 1.3.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</pre><p>The most relevant fields are the <code>cost</code>, <code>c_max</code>, and <code>gradient</code>. These give the history of these values for each iteration. The <code>iteration_outer</code> can also be helpful to know which iterations were outer loop (augmented Lagrangian)  iterations. The <code>tsolve</code> field gives the total solve time in milliseconds.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="index.html">« Introduction</a><a class="docs-footer-nextpage" href="options.html">Solver Options »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Tuesday 16 March 2021 15:02">Tuesday 16 March 2021</span>. Using Julia version 1.3.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
