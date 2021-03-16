@@ -1,5 +1,6 @@
 ![CI](https://github.com/RoboticExplorationLab/ALTRO.jl/workflows/CI/badge.svg)
 [![codecov](https://codecov.io/gh/RoboticExplorationLab/ALTRO.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/RoboticExplorationLab/ALTRO.jl)
+[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://roboticexplorationlab.org/Altro.jl/dev/)
 
 # Altro.jl
 Implementation of the Augmented Lagrangian TRajectory Optimizer (ALTRO) solver, a very fast solver for constrained trajectory optimization problems.
