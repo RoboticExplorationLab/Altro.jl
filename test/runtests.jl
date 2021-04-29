@@ -8,10 +8,12 @@ using StaticArrays, LinearAlgebra
 using JLD2
 using FileIO
 using FiniteDiff
+using Random
 const RD = RobotDynamics
 const TO = TrajectoryOptimization
 
 TEST_TIME = false
+Random.seed!(1)
 
 @testset "Benchmark Problems" begin
     if !haskey(ENV, "CI")
