@@ -73,6 +73,7 @@ function ProjectedNewtonSolver(prob::Problem,
 
     # Trajectory
     prob_info = ProblemInfo(prob)
+
     Z̄ = copy(prob.Z)
 
     # Create concatenated primal vars
@@ -88,10 +89,10 @@ function ProjectedNewtonSolver(prob::Problem,
     D = spzeros(NP,NN)
     d = zeros(NP)
     λ = zeros(NP)
-
+ 
     fVal = [@SVector zeros(n) for k = 1:N]
     xMid = [@SVector zeros(n) for k = 1:N-1]
-    ∇F = [@SMatrix zeros(n,n+m+1) for k = 1:N]
+    ∇F = [SizedMatrix{n, n+m+1}(zeros(n,n+m+1)) for k = 1:N]
     dyn_vals = DynamicsVals(fVal, xMid, ∇F)
     active_set = zeros(Bool,NP)
 

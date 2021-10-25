@@ -45,10 +45,12 @@ struct ALConVal{C,P,W,V,M} <: TO.AbstractConstraintValues{C}
 
         viol = deepcopy(vals)
         ∇viol = deepcopy(jac)
-        λ = deepcopy(vals)
+
         μ = [zero(v) .+ 1.0 for v in vals] 
-        λbar = deepcopy(vals)
         active = [ones(Bool,p) for i = 1:P]
+
+        λ = deepcopy(vals)
+        λbar = deepcopy(vals)
 
         ix = 1:n
         iu = n .+ (1:m)
@@ -56,7 +58,8 @@ struct ALConVal{C,P,W,V,M} <: TO.AbstractConstraintValues{C}
         is_const = BitArray(undef, size(jac)) 
 
         # jac = [jac; jac[end:end,:]]  # append extra for temporary array
-        tmp = zero(jac[1])
+        tmp = copy(jac[1])
+        # tmp .= 0
         
         ni = size(jac[1],2)  # size of inputs to the constraint
         ∇proj  = [SizedMatrix{p,p}(zeros(p,p)) for i = 1:P]

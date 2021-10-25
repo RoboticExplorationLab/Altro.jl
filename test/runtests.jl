@@ -15,6 +15,10 @@ const TO = TrajectoryOptimization
 TEST_TIME = false
 Random.seed!(1)
 
+@testset "Initialization" begin
+    include("large_init.jl")
+end
+
 @testset "Benchmark Problems" begin
     if !haskey(ENV, "CI")
         include("benchmark_problems.jl")

@@ -74,8 +74,8 @@ function iLQRSolver(
     # Z̄ = Traj(n,m,Z[1].dt,N)
     Z̄ = copy(prob.Z)
 
-	K = [zeros(T,m,n̄) for k = 1:N-1]
-    d = [zeros(T,m)   for k = 1:N-1]
+	K = [SizedMatrix{m,n̄}(zeros(T,m,n̄)) for k = 1:N-1]
+    d = [SizedVector{m}(zeros(T,m))     for k = 1:N-1]
 
 	D = [DynamicsExpansion{T}(n,n̄,m) for k = 1:N-1]
 	G = [SizedMatrix{n,n̄}(zeros(n,n̄)) for k = 1:N+1]  # add one to the end to use as an intermediate result
@@ -94,12 +94,14 @@ function iLQRSolver(
     dρ = zeros(T,1)
 
     cache = FiniteDiff.JacobianCache(prob.model)
+
     exp_cache = TO.ExpansionCache(prob.obj)
     grad = zeros(T,N-1)
 
     logger = SolverLogging.default_logger(opts.verbose >= 2)
 	L = typeof(prob.model)
 	O = typeof(prob.obj)
+
     solver = iLQRSolver{T,QUAD,L,O,n,n̄,m,n+m,typeof(exp_cache)}(
         prob.model, prob.obj, x0, xf,
 		prob.tf, N, opts, stats,
