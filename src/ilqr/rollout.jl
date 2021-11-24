@@ -14,10 +14,10 @@ function rollout!(solver::iLQRSolver{T,Q,n}, α) where {T,Q,n}
 		δu .= d[k] .* α
 		mul!(δu, K[k], δx, 1.0, 1.0)
         ū = control(Z[k]) + δu
-        RobotDynamics.set_control!(Z̄[k], ū)
+        RobotDynamics.setcontrol!(Z̄[k], ū)
 
         # Z̄[k].z = [state(Z̄[k]); control(Z[k]) + δu]
-        Z̄[k+1].z = [RobotDynamics.discrete_dynamics(Q, solver.model, Z̄[k]);
+        Z̄[k+1].z = [RD.discrete_dynamics(solver.model, Z̄[k]);
             control(Z[k+1])]
 
         max_x = norm(state(Z̄[k+1]),Inf)
