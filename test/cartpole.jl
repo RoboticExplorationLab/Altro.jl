@@ -1,11 +1,16 @@
-save_results = false
+using RobotZoo
+using RobotDynamics
+using FileIO
+const RD = RobotDynamics
+
+save_results = true 
 
 # TO.diffmethod(::RobotZoo.Cartpole) = RD.ForwardAD()
 # @testset "Cartpole" begin
 # load expected results
 res = load(joinpath(@__DIR__,"cartpole.jld2"))
 
-# Set up problem and solver
+## Set up problem and solver
 prob, opts = Problems.Cartpole()
 t = TO.gettimes(prob)
 U = prob.constraints[1].z_max[end] * 2 * sin.(t .* 2)
@@ -68,8 +73,79 @@ Qz = [Vector([E.q; E.r]) for E in ilqr.Q]
 @test Qzz ≈ res["Qzz"] atol=1e-6
 @test Qz  ≈ res["Qz"] atol=1e-6
 
+# Forward Pass
+J = cost(ilqr)
+J_new = Altro.forwardpass!(ilqr, ΔV, J)
+@test J_new ≈ 3968.9692481
+dJ = J - J_new
+Altro.copy_trajectories!(ilqr)
+
+Altro.gradient_todorov!(ilqr)
+Altro.record_iteration!(ilqr, J, dJ)
+Altro.evaluate_convergence(ilqr)
+
+# Perform the second iteration
+J_new = Altro.step!(ilqr, J_new, false)
+Altro.copy_trajectories!(ilqr)
+@test J_new ≈ 1643.4087998
+K2 = Matrix.(ilqr.K)
+d2 = Vector.(ilqr.d)
+@test K2 ≈ res["K2"]
+@test d2 ≈ res["d2"]
+
+J_prev = J_new
+Altro.set_tolerances!(solver.solver_al, ilqr, 1)
+for i = 3:26
+    J = Altro.step!(ilqr, J_prev, false)
+    println("iter = $i, J = $J")
+    dJ = J_prev - J
+    J_prev = J
+    Altro.copy_trajectories!(ilqr)
+    Altro.gradient_todorov!(ilqr)
+    Altro.record_iteration!(ilqr, J, dJ)
+end
+
+@test Altro.evaluate_convergence(ilqr)
+@test J ≈ 1.6782224809
+
+# AL update
+al = solver.solver_al
+c_max = max_violation(al)
+@test c_max ≈ 0.23915446 atol=1e-6
+Altro.record_iteration!(al, J, c_max)
+@test Altro.evaluate_convergence(al) == false
+
+Altro.dual_update!(al)
+Altro.penalty_update!(al)
+J_new = cost(al)
+@test J_new ≈ 2.2301311286397847
+
+J = Altro.step!(ilqr, J_new, false)
+hess2 = [Array(E.hess) for E in ilqr.E]
+grad2 = [Array(E.grad) for E in ilqr.E]
+@test hess2 ≈ res["hess2"] atol=1e-6
+@test grad2 ≈ res["grad2"] atol=1e-6
+@test J ≈ 1.8604261241 atol=1e-6
+Altro.copy_trajectories!(ilqr)
+Altro.gradient_todorov!(ilqr)
+Altro.record_iteration!(ilqr, J, dJ)
+
+for i = 2:3
+    J = Altro.step!(ilqr, J_prev, false)
+    println("iter = $i, J = $J")
+    dJ = J_prev - J
+    J_prev = J
+    Altro.copy_trajectories!(ilqr)
+    Altro.gradient_todorov!(ilqr)
+    Altro.record_iteration!(ilqr, J, dJ)
+end
+@test Altro.evaluate_convergence(ilqr)
+@test max_violation(al) ≈ 0.01458607 atol=1e-6
+
+
+##
 if save_results
-    @save joinpath(@__DIR__,"cartpole.jld2") X U G A B hess0 grad0 hess grad K d S s Qzz Qz
+    @save joinpath(@__DIR__,"cartpole.jld2") X U G A B hess0 grad0 hess grad K d S s Qzz Qz K2 d2 hess2 grad2
 end
 
 # end
