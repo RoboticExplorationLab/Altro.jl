@@ -32,10 +32,10 @@ struct ALTROSolver{T,S} <: ConstrainedSolver{T}
     opts::SolverOptions{T}
     stats::SolverStats{T}
     solver_al::AugmentedLagrangianSolver{T,S}
-    solver_pn::ProjectedNewtonSolver{T}
+    solver_pn::ProjectedNewtonSolver{Nx,Nu,Nxu,T} where {Nx,Nu,Nxu}
 end
 
-function ALTROSolver(prob::Problem{Q,T}, opts::SolverOptions=SolverOptions();
+function ALTROSolver(prob::Problem{T}, opts::SolverOptions=SolverOptions();
         infeasible::Bool=false,
         R_inf::Real=1.0,
         solver_uncon=iLQRSolver,
@@ -64,13 +64,12 @@ function ALTROSolver(prob::Problem{Q,T}, opts::SolverOptions=SolverOptions();
 end
 
 # Getters
-@inline Base.size(solver::ALTROSolver) = size(solver.solver_pn)
+@inline RD.dims(solver::ALTROSolver) = RD.dims(solver.solver_pn)
 @inline TO.get_trajectory(solver::ALTROSolver)::Traj = get_trajectory(solver.solver_al)
 @inline TO.get_objective(solver::ALTROSolver) = get_objective(solver.solver_al)
 @inline TO.get_model(solver::ALTROSolver) = get_model(solver.solver_al)
 @inline get_initial_state(solver::ALTROSolver) = get_initial_state(solver.solver_al)
 solvername(::Type{<:ALTROSolver}) = :ALTRO
-TrajectoryOptimization.integration(solver::ALTROSolver) = integration(solver.solver_al)
 is_constrained(solver::ALTROSolver) = !isempty(get_constraints(solver.solver_al))
 @inline get_ilqr(solver::ALTROSolver) = solver.solver_al.solver_uncon
 

@@ -120,32 +120,34 @@ function TO.cost_expansion!(cone::SecondOrderCone, conval, i)
     conval.hess[i] .*= μ
 end
 
-function copy_expansion!(E::TO.CostExpansion{n,m}, conval::ALConVal{<:TO.StateConstraint}) where {n,m}
-    ix,iu = SVector{n}(1:n), SVector{m}(1:m) .+ n
-    for (i,k) in enumerate(conval.inds)
-        E[k].q .+= conval.grad[i]
-        E[k].Q .+= conval.hess[i]
-        # E.const_hess[k] &= conval.is_const[i] & conval.const_hess[i]
-    end
-end
+# function copy_expansion!(E::TO.CostExpansion{n,m}, conval::ALConVal{<:TO.StateConstraint}) where {n,m}
+#     ix,iu = SVector{n}(1:n), SVector{m}(1:m) .+ n
+#     for (i,k) in enumerate(conval.inds)
+#         E[k].q .+= conval.grad[i]
+#         E[k].Q .+= conval.hess[i]
+#         # E.const_hess[k] &= conval.is_const[i] & conval.const_hess[i]
+#     end
+# end
 
-function copy_expansion!(E::TO.CostExpansion{n,m}, conval::ALConVal{<:TO.ControlConstraint}) where {n,m}
-    ix,iu = SVector{n}(1:n), SVector{m}(1:m) .+ n
-    for (i,k) in enumerate(conval.inds)
-        E[k].r .+= conval.grad[i]
-        E[k].R .+= conval.hess[i]
-        # E.const_hess[k] &= conval.is_const[i] & conval.const_hess[i]
-    end
-end
+# function copy_expansion!(E::TO.CostExpansion{n,m}, conval::ALConVal{<:TO.ControlConstraint}) where {n,m}
+#     ix,iu = SVector{n}(1:n), SVector{m}(1:m) .+ n
+#     for (i,k) in enumerate(conval.inds)
+#         E[k].r .+= conval.grad[i]
+#         E[k].R .+= conval.hess[i]
+#         # E.const_hess[k] &= conval.is_const[i] & conval.const_hess[i]
+#     end
+# end
 
 function copy_expansion!(E::TO.CostExpansion{n,m}, conval::ALConVal{<:TO.StageConstraint}) where {n,m}
     ix,iu = SVector{n}(1:n), SVector{m}((1:m) .+ n)
     for (i,k) in enumerate(conval.inds)
-        E[k].q .+= conval.grad[i].data[ix]
-        E[k].r .+= conval.grad[i].data[iu]
-        E[k].Q .+= conval.hess[i].data[ix,ix]
-        E[k].R .+= conval.hess[i].data[iu,iu]
-        E[k].H .+= conval.hess[i].data[iu,ix]
+        E[k].hess .+= conval.hess[i]
+        E[k].grad.+= conval.grad[i]
+        # E[k].q .+= conval.grad[i].data[ix]
+        # E[k].r .+= conval.grad[i].data[iu]
+        # E[k].Q .+= conval.hess[i].data[ix,ix]
+        # E[k].R .+= conval.hess[i].data[iu,iu]
+        # E[k].H .+= conval.hess[i].data[iu,ix]
         # E.const_hess[k] &= conval.is_const[i] & conval.const_hess[i]
     end
 end

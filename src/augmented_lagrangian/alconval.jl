@@ -13,6 +13,8 @@ end
 
 struct ALConVal{C,P,W,V,M} <: TO.AbstractConstraintValues{C}
     con::C
+    sig::FunctionSignature
+    diffmethod::DiffMethod
     inds::Vector{Int}
     vals::Vector{V}
     jac::Matrix{M}
@@ -35,8 +37,10 @@ struct ALConVal{C,P,W,V,M} <: TO.AbstractConstraintValues{C}
     const_hess::BitVector
 
 	function ALConVal(n::Int, m::Int, con::TO.AbstractConstraint, inds::AbstractVector{Int}, 
-			jac, vals, iserr::Bool=false)
-		if !iserr && size(TO.gen_jacobian(con)) != size(jac[1])
+			jac, vals, iserr::Bool=false;
+			sig::FunctionSignature=StaticReturn(), diffmethod::DiffMethod=UserDefined()
+    )
+		if !iserr && (output_dim(con), n+m) != size(jac[1])
 			throw(DimensionMismatch("size of jac[i] $(size(jac[1])) does not match the expected size of $(size(gen_jacobian(con)))"))
 		end
         params = ConstraintParams()
@@ -68,7 +72,7 @@ struct ALConVal{C,P,W,V,M} <: TO.AbstractConstraintValues{C}
         hess = [SizedMatrix{ni,ni}(zeros(ni,ni)) for i = 1:P]
         const_hess = BitArray(undef, P)
 
-        new{typeof(con), p, ni, eltype(vals), eltype(jac)}(con,
+        new{typeof(con), p, ni, eltype(vals), eltype(jac)}(con, sig, diffmethod,
             collect(inds), vals, jac, viol, ∇viol, λ, μ, λbar, active, c_max, is_const, iserr, params,
             tmp, ∇proj, ∇²proj, grad, hess, const_hess)
     end

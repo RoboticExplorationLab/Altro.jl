@@ -1,20 +1,20 @@
 save_results = false
 
-TO.diffmethod(::RobotZoo.Cartpole) = RD.ForwardAD()
-@testset "Cartpole" begin
+# TO.diffmethod(::RobotZoo.Cartpole) = RD.ForwardAD()
+# @testset "Cartpole" begin
 # load expected results
 res = load(joinpath(@__DIR__,"cartpole.jld2"))
 
 # Set up problem and solver
 prob, opts = Problems.Cartpole()
-t = TO.get_times(prob)
+t = TO.gettimes(prob)
 U = prob.constraints[1].z_max[end] * 2 * sin.(t .* 2)
 U = [[u] for u in U]
 initial_controls!(prob, U)
 rollout!(prob)
 
 solver = ALTROSolver(prob, opts, save_S=true)
-n,m,N = size(solver)
+n,m,N = RD.dims(solver)
 ilqr = Altro.get_ilqr(solver)
 Altro.initialize!(ilqr)
 X = states(ilqr)
@@ -23,14 +23,14 @@ U = controls(ilqr)
 @test U ≈ res["U"] atol=1e-6
 
 # State diff Jacobian
-TO.state_diff_jacobian!(ilqr.G, ilqr.model, ilqr.Z)
+TO.state_diff_jacobian!(ilqr.model, ilqr.G, ilqr.Z)
 G = ilqr.G
 @test G[1] == zeros(n,n)
 @test G[N] == zeros(n,n)
 @test G ≈ res["G"] atol=1e-6
 
 # Dynamics Jacobians
-TO.dynamics_expansion!(TO.integration(ilqr), ilqr.D, ilqr.model, ilqr.Z)
+TO.dynamics_expansion!(RD.StaticReturn(), RD.ForwardAD(), ilqr.model, ilqr.D, ilqr.Z)
 TO.error_expansion!(ilqr.D, ilqr.model, ilqr.G)
 A = [Matrix(D.A_) for D in ilqr.D]
 B = [Matrix(D.B_) for D in ilqr.D]
@@ -48,8 +48,8 @@ grad0 = [Vector([E.q; E.r]) for E in ilqr.E]
 # AL Cost Expansion
 TO.cost_expansion!(ilqr.quad_obj, ilqr.obj, ilqr.Z, init=true, rezero=true)
 TO.error_expansion!(ilqr.E, ilqr.quad_obj, ilqr.model, ilqr.Z, ilqr.G)
-hess = [[E.Q E.H'; E.H E.R] for E in ilqr.E]
-grad = [Vector([E.q; E.r]) for E in ilqr.E]
+hess = [Array(E.hess) for E in ilqr.E]
+grad = [Array(E.grad) for E in ilqr.E]
 @test hess ≈ res["hess"] atol=1e-6
 @test grad ≈ res["grad"] atol=1e-6
 
@@ -72,4 +72,4 @@ if save_results
     @save joinpath(@__DIR__,"cartpole.jld2") X U G A B hess0 grad0 hess grad K d S s Qzz Qz
 end
 
-end
+# end

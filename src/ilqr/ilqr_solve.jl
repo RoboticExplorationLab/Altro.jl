@@ -11,9 +11,16 @@ function initialize!(solver::iLQRSolver)
     TO.cost!(solver.obj, solver.Z)
 end
 
+function mysolve(solver)
+    println("Initializing solver")
+    Altro.initialize!(solver)
+end
+
 # Generic solve methods
 "iLQR solve method (non-allocating)"
 function solve!(solver::iLQRSolver{T}) where T<:AbstractFloat
+    println("Initializing solver...")
+    sleep(1e-3)
     initialize!(solver)
 
     Z = solver.Z; Z̄ = solver.Z̄;
@@ -24,22 +31,31 @@ function solve!(solver::iLQRSolver{T}) where T<:AbstractFloat
     J_prev = sum(_J)
 
     grad_only = false
+    println("Starting iterations...")
     for i = 1:solver.opts.iterations
+        println("Iteration %i")
         J = step!(solver, J_prev, grad_only)
+        println("Finished step")
+        return
 
         # check for a change in solver status
         status(solver) > SOLVE_SUCCEEDED && break
 
+        println("Copy trajectories")
         copy_trajectories!(solver)
 
         dJ = abs(J - J_prev)
         J_prev = copy(J)
+        println("Calc gradient")
         gradient_todorov!(solver)
 
         # Record iteration and evaluate convergence
+        println("Record iterations")
         record_iteration!(solver, J, dJ)
+        println("Evaluate convergence")
         exit = evaluate_convergence(solver)
 
+        println("Check if cost function is quadratic")
         # check if the cost function is quadratic
         if !grad_only && solver.opts.reuse_jacobians && TO.is_quadratic(solver.E)
             @logmsg InnerLoop "Gradient-only LQR"
@@ -48,6 +64,7 @@ function solve!(solver::iLQRSolver{T}) where T<:AbstractFloat
 
         # check for cost blow up
 
+        println("print iteration")
         # Print iteration
         if is_verbose(solver) 
             print_level(InnerLoop, global_logger())
@@ -60,6 +77,7 @@ function solve!(solver::iLQRSolver{T}) where T<:AbstractFloat
             break
         end
     end
+    println("Terminate solve")
     terminate!(solver)
     return solver
 end
@@ -81,18 +99,25 @@ end
 function step!(solver::iLQRSolver{<:Any,<:Any,L}, J, grad_only::Bool=false) where L
     to = solver.stats.to
     init = !solver.opts.reuse_jacobians  # force recalculation if not reusing
+    println("State diff Jacobians")
     @timeit_debug to "diff jac"     TO.state_diff_jacobian!(solver.G, solver.model, solver.Z)
+    println("Dynamics expansion")
     if !solver.opts.reuse_jacobians || !(L <: RD.LinearModel) || !grad_only
         @timeit_debug to "dynamics jac" TO.dynamics_expansion!(integration(solver), solver.D, solver.model, solver.Z, solver.cache)
     end
+    println("Error expansion")
 	@timeit_debug to "err jac"      TO.error_expansion!(solver.D, solver.model, solver.G)
+    println("Cost expansion")
     @timeit_debug to "cost exp"     TO.cost_expansion!(solver.quad_obj, solver.obj, solver.Z, solver.exp_cache, init=init, rezero=true)
+    println("Cost err")
     @timeit_debug to "cost err"     TO.error_expansion!(solver.E, solver.quad_obj, solver.model, solver.Z, solver.G)
+    println("backward pass")
 	@timeit_debug to "backward pass" if solver.opts.static_bp
     	ΔV = static_backwardpass!(solver, grad_only)
 	else
 		ΔV = backwardpass!(solver)
     end
+    println("Forward pass")
     @timeit_debug to "forward pass" forwardpass!(solver, ΔV, J)
 end
 

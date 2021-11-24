@@ -12,9 +12,9 @@ function Cartpole(method=:none; constrained::Bool=true, N=101,
     # tf = 5.
     dt = tf/(N-1)
 
-    Q = Qv*Diagonal(@SVector ones(n))
+    Q = Qv*Diagonal(@SVector ones(n)) * dt
     Qf = Qfv*Diagonal(@SVector ones(n))
-    R = Rv*Diagonal(@SVector ones(m))
+    R = Rv*Diagonal(@SVector ones(m)) * dt
     x0 = @SVector zeros(n)
     xf = @SVector [0, pi, 0, 0]
     obj = LQRObjective(Q,R,Qf,xf,N)
@@ -32,7 +32,7 @@ function Cartpole(method=:none; constrained::Bool=true, N=101,
     u0 = @SVector fill(0.01,m)
     U0 = [u0 for k = 1:N-1]
     Z = Traj(X0,U0,dt*ones(N))
-    prob = Problem{RK3}(model, obj, conSet, x0, xf, Z, N, 0.0, tf)
+    prob = Problem(model, obj, conSet, x0, xf, Z, N, 0.0, tf, integration=RD.RK3(model))
     rollout!(prob)
 
     return prob, opts

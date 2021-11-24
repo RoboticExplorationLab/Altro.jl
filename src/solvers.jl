@@ -249,8 +249,8 @@ end
 
 TO.set_initial_state!(solver::AbstractSolver, x0) = copyto!(get_initial_state(solver), x0)
 
-@inline TO.initial_states!(solver::AbstractSolver, X0) = RobotDynamics.set_states!(get_trajectory(solver), X0)
-@inline TO.initial_controls!(solver::AbstractSolver, U0) = RobotDynamics.set_controls!(get_trajectory(solver), U0)
+@inline TO.initial_states!(solver::AbstractSolver, X0) = RobotDynamics.setstates!(get_trajectory(solver), X0)
+@inline TO.initial_controls!(solver::AbstractSolver, U0) = RobotDynamics.setcontrols!(get_trajectory(solver), U0)
 function TO.initial_trajectory!(solver::AbstractSolver, Z0::Traj)
     Z = get_trajectory(solver)
     for k in eachindex(Z)
@@ -259,7 +259,7 @@ function TO.initial_trajectory!(solver::AbstractSolver, Z0::Traj)
 end
 
 # Default getters
-@inline RobotDynamics.get_times(solver::AbstractSolver) = 
+@inline RobotDynamics.gettimes(solver::AbstractSolver) = 
     RobotDynamics.get_times(get_trajectory(solver))
 
 

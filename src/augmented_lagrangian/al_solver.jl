@@ -34,18 +34,18 @@ Form an augmented Lagrangian cost function from a Problem and AugmentedLagrangia
     Does not allocate new memory for the internal arrays, but points to the arrays in the solver.
 """
 function AugmentedLagrangianSolver(
-        prob::Problem{Q,T}, 
+        prob::Problem{T}, 
         opts::SolverOptions=SolverOptions(), 
         stats::SolverStats=SolverStats(parent=solvername(AugmentedLagrangianSolver));
         solver_uncon=iLQRSolver,
         kwarg_opts...
-    ) where {Q,T}
+    ) where {T}
     set_options!(opts; kwarg_opts...)
 
     # Build Augmented Lagrangian Objective
     alobj = ALObjective(prob)
     rollout!(prob)
-    prob_al = Problem{Q}(prob.model, alobj, ConstraintList(size(prob)...),
+    prob_al = Problem(prob.model, alobj, ConstraintList(size(prob)...),
         prob.x0, prob.xf, prob.Z, prob.N, prob.t0, prob.tf)
 
     # Instantiate the unconstrained solver
@@ -65,7 +65,6 @@ Base.size(solver::AugmentedLagrangianSolver) = size(solver.solver_uncon)
 @inline TO.get_objective(solver::AugmentedLagrangianSolver) = get_objective(solver.solver_uncon)
 @inline TO.get_model(solver::AugmentedLagrangianSolver) = get_model(solver.solver_uncon)
 @inline get_initial_state(solver::AugmentedLagrangianSolver) = get_initial_state(solver.solver_uncon)
-@inline TrajectoryOptimization.integration(solver::AugmentedLagrangianSolver) = integration(solver.solver_uncon)
 solvername(::Type{<:AugmentedLagrangianSolver}) = :AugmentedLagrangian
 
 function TO.get_constraints(solver::AugmentedLagrangianSolver{T}) where T

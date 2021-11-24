@@ -53,7 +53,7 @@ end
 
 function ALConstraintSet(cons::TO.ConstraintList, model::RD.AbstractModel)
     n,m = cons.n, cons.m
-    n̄ = RobotDynamics.state_diff_size(model)
+    n̄ = RobotDynamics.errstate_dim(model)
     ncon = length(cons)
     useG = model isa RD.LieGroupModel
 	errvals = map(1:ncon) do i

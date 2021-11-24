@@ -69,39 +69,39 @@ end
 
 @inline RobotDynamics.rotation_type(model::InfeasibleModel) where D = rotation_type(model.model)
 
-@generated function RobotDynamics.discrete_jacobian!(::Type{Q}, ∇f, model::InfeasibleModel{N,M},
-        z::AbstractKnotPoint{T,N}, cache=nothing) where {T,N,M,Q<:Explicit}
+# @generated function RobotDynamics.discrete_jacobian!(::Type{Q}, ∇f, model::InfeasibleModel{N,M},
+#         z::AbstractKnotPoint{T,N}, cache=nothing) where {T,N,M,Q<:Explicit}
 
-    ∇ui = [(@SMatrix zeros(N,N+M)) Diagonal(@SVector ones(N)) @SVector zeros(N)]
-    _x = SVector{N}(1:N)
-    _u = SVector{M}((1:M) .+ N)
-    _z = SVector{N+M}(1:N+M)
-    _ui = SVector{N}((1:N) .+ (N+M))
-    zi = [:(z.z[$i]) for i = 1:N+M]
-    NM1 = N+M+1
-	NM = N+M
-    ∇u0 = @SMatrix zeros(N,N)
+#     ∇ui = [(@SMatrix zeros(N,N+M)) Diagonal(@SVector ones(N)) @SVector zeros(N)]
+#     _x = SVector{N}(1:N)
+#     _u = SVector{M}((1:M) .+ N)
+#     _z = SVector{N+M}(1:N+M)
+#     _ui = SVector{N}((1:N) .+ (N+M))
+#     zi = [:(z.z[$i]) for i = 1:N+M]
+#     NM1 = N+M+1
+# 	NM = N+M
+#     ∇u0 = @SMatrix zeros(N,N)
 
-    quote
-        # Build KnotPoint for original model
-        s0 = SVector{$NM1}($(zi...), z.dt)
+#     quote
+#         # Build KnotPoint for original model
+#         s0 = SVector{$NM1}($(zi...), z.dt)
 
-        u0 = z.z[$_u]
-        ui = z.z[$_ui]
-		z_ = StaticKnotPoint(z.z[$_z], $_x, $_u, z.dt, z.t)
-		∇f_ = uview(∇f, 1:N, 1:$NM)
-        discrete_jacobian!($Q, ∇f_, model.model, z_)
-		# ∇f[$_x, N+NM] .= ∇f_[$_x, N+M] # ∇dt
-		∇f[$_x, $_ui] .= Diagonal(@SVector ones(N))
-		return
-		# ∇f[$_x,$_ui]
-        # [∇f[$_x, $_z] $∇u0 ∇dt] + $∇ui
-    end
-end
-function RD._discrete_jacobian!(::RD.ForwardAD, ::Type{Q}, ∇f, model::InfeasibleModel{N,M},
-        z::AbstractKnotPoint{T,N}, cache=nothing) where {T,N,M,Q<:Explicit}
-    RD.discrete_jacobian!(Q, ∇f, model, z, cache)
-end
+#         u0 = z.z[$_u]
+#         ui = z.z[$_ui]
+# 		z_ = StaticKnotPoint(z.z[$_z], $_x, $_u, z.dt, z.t)
+# 		∇f_ = uview(∇f, 1:N, 1:$NM)
+#         discrete_jacobian!($Q, ∇f_, model.model, z_)
+# 		# ∇f[$_x, N+NM] .= ∇f_[$_x, N+M] # ∇dt
+# 		∇f[$_x, $_ui] .= Diagonal(@SVector ones(N))
+# 		return
+# 		# ∇f[$_x,$_ui]
+#         # [∇f[$_x, $_z] $∇u0 ∇dt] + $∇ui
+#     end
+# end
+# function RD._discrete_jacobian!(::RD.ForwardAD, ::Type{Q}, ∇f, model::InfeasibleModel{N,M},
+#         z::AbstractKnotPoint{T,N}, cache=nothing) where {T,N,M,Q<:Explicit}
+#     RD.discrete_jacobian!(Q, ∇f, model, z, cache)
+# end
 
 
 function RobotDynamics.state_diff(model::InfeasibleModel, x::SVector, x0::SVector)
@@ -116,7 +116,7 @@ function RobotDynamics.∇²differential!(∇G, model::InfeasibleModel, x::SVect
 	return ∇²differential!(∇G, model.model, x, dx)
 end
 
-RobotDynamics.state_diff_size(model::InfeasibleModel) = RobotDynamics.state_diff_size(model.model)
+RobotDynamics.errstate_dim(model::InfeasibleModel) = RobotDynamics.state_diff_size(model.model)
 
 Base.position(model::InfeasibleModel, x::SVector) = position(model.model, x)
 

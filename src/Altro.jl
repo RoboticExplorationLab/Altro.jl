@@ -22,10 +22,10 @@ const TO = TrajectoryOptimization
 const RD = RobotDynamics
 
 using TrajectoryOptimization:
-    integration, num_constraints, get_trajectory
+    num_constraints, get_trajectory
 
 import TrajectoryOptimization: rollout!, get_constraints, get_model, get_objective
-import RobotDynamics: discrete_jacobian!, discrete_dynamics, dynamics
+import RobotDynamics: discrete_dynamics, dynamics, dynamics!, evaluate, evaluate!
 
 using TrajectoryOptimization:
     Problem,
@@ -42,7 +42,10 @@ using TrajectoryOptimization:
 using RobotDynamics:
     AbstractModel,
     QuadratureRule, Implicit, Explicit,
+    FunctionSignature, InPlace, StaticReturn, 
+    DiffMethod, ForwardAD, FiniteDifference, UserDefined,
     AbstractKnotPoint, KnotPoint, StaticKnotPoint,
+    state_dim, control_dim, output_dim,
     state, control
 
 

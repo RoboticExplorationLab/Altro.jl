@@ -69,7 +69,8 @@ function backwardpass!(solver::iLQRSolver{T,QUAD,L,O,n,n̄,m}) where {T,QUAD<:Qu
 
 end
 
-function static_backwardpass!(solver::iLQRSolver{T,QUAD,L,O,n,n̄,m}, grad_only=false) where {T,QUAD<:QuadratureRule,L,O,n,n̄,m}
+function static_backwardpass!(solver::iLQRSolver{L,O,Nx,Ne,Nu}, grad_only=false) where {L,O,Nx,Ne,Nu}
+	n,n̄,m = Nx,Ne,Nu
 	N = solver.N
 
     # Objective
@@ -99,8 +100,8 @@ function static_backwardpass!(solver::iLQRSolver{T,QUAD,L,O,n,n̄,m}, grad_only=
 	
 	k = N-1
     while k > 0
-        ix = Z[k]._x
-        iu = Z[k]._u
+        # ix = Z[k]._x
+        # iu = Z[k]._u
 
 		# Get error state expanions
 		fdx,fdu = TO.error_expansion(solver.D[k], model)

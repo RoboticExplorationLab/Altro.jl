@@ -31,21 +31,21 @@ Achieves machine-level constraint satisfaction by projecting onto the feasible s
 This solver is to be used exlusively for solutions that are close to the optimal solution.
     It is intended to be used as a "solution polishing" method for augmented Lagrangian methods.
 """
-struct ProjectedNewtonSolver{T,N,M,NM} <: ConstrainedSolver{T}
+struct ProjectedNewtonSolver{Nx,Nu,Nxu,T} <: ConstrainedSolver{T}
     # Problem Info
-    prob::ProblemInfo{T,N}
-    Z::Traj{N,M,T,KnotPoint{T,N,M,NM}}
-    Z̄::Traj{N,M,T,KnotPoint{T,N,M,NM}}
+    prob::ProblemInfo{T,Nx}
+    Z::Traj{Nx,Nu,T,KnotPoint{Nx,Nu,Nxu,T}}
+    Z̄::Traj{Nx,Nu,T,KnotPoint{Nx,Nu,Nxu,T}}
 
     opts::SolverOptions{T}
     stats::SolverStats{T}
-    P::Primals{T,N,M}
-    P̄::Primals{T,N,M}
+    P::Primals{T,Nx,Nu}
+    P̄::Primals{T,Nx,Nu}
 
     H::SparseMatrixCSC{T,Int}
     g::Vector{T}
     # E::Vector{CostExpansion{T,N,N,M}}
-    E::TO.CostExpansion{N,M,T}
+    E::TO.CostExpansion{Nx,Nu,T}
 
     D::SparseMatrixCSC{T,Int}
     d::Vector{T}
@@ -54,7 +54,7 @@ struct ProjectedNewtonSolver{T,N,M,NM} <: ConstrainedSolver{T}
     dyn_vals::DynamicsVals{T}
     active_set::Vector{Bool}
 
-    dyn_inds::Vector{SVector{N,Int}}
+    dyn_inds::Vector{SVector{Nx,Int}}
     con_inds::Vector{<:Vector}
 end
 
@@ -67,7 +67,7 @@ function ProjectedNewtonSolver(prob::Problem,
     NN = n*N + m*(N-1)
 
     # Add dynamics constraints
-    TO.add_dynamics_constraints!(prob, integration(prob), 1)
+    TO.add_dynamics_constraints!(prob, 1)
     conSet = prob.constraints
     NP = sum(num_constraints(conSet))
 
@@ -110,7 +110,8 @@ primals(solver::ProjectedNewtonSolver) = solver.P.Z
 primal_partition(solver::ProjectedNewtonSolver) = solver.P.xinds, solver.P.uinds
 
 # AbstractSolver interface
-Base.size(solver::ProjectedNewtonSolver{T,n,m}) where {T,n,m} = n,m,length(solver.Z)
+RD.dims(solver::ProjectedNewtonSolver{Nx,Nu}) where {Nx,Nu} = Nx,Nu,length(solver.Z)
+Base.size(solver::ProjectedNewtonSolver{n,m}) where {n,m} = n,m,length(solver.Z)
 TO.get_model(solver::ProjectedNewtonSolver) = solver.prob.model
 TO.get_constraints(solver::ProjectedNewtonSolver) = solver.prob.conSet
 TO.get_trajectory(solver::ProjectedNewtonSolver) = solver.Z

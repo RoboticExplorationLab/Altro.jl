@@ -28,15 +28,15 @@ function TO.cost!(obj::ALObjective, Z::AbstractTrajectory)
     TO.cost!(obj.obj, Z)
 
     # Calculate constrained cost
-    TO.evaluate!(obj.constraints, Z)
+    RD.evaluate!(obj.constraints, Z)
     # update_active_set!(obj.constraints, Val(0.0))
     TO.cost!(TO.get_J(obj), obj.constraints)
 end
 
-function TO.cost_expansion!(E, obj::ALObjective, Z::Traj, cache=TO.ExpansionCache(obj.obj); 
+function TO.cost_expansion!(E, obj::ALObjective, Z::Traj; 
         init::Bool=false, rezero::Bool=false)
     # Update constraint jacobians
-    TO.jacobian!(obj.constraints, Z, init)
+    RD.jacobian!(obj.constraints, Z, init)
 
     # Calculate expansion of original objective
     TO.cost_expansion!(E, obj.obj, Z, init=true, rezero=rezero)  # needs to be computed every time...

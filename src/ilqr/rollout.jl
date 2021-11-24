@@ -36,8 +36,9 @@ function rollout!(solver::iLQRSolver{T,Q,n}, α) where {T,Q,n}
 end
 
 "Simulate the forward the dynamics open-loop"
-function rollout!(solver::iLQRSolver{<:Any,Q}) where Q
-    rollout!(Q, solver.model, solver.Z, SVector(solver.x0))
+function rollout!(solver::iLQRSolver)
+    # TODO: Take the signature from the solver options
+    rollout!(RD.StaticReturn(), solver.model, solver.Z, SVector(solver.x0))
     for k in eachindex(solver.Z)
         solver.Z̄[k].t = solver.Z[k].t
     end
