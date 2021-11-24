@@ -1,12 +1,17 @@
+using Test
+using Altro
+using TrajectoryOptimization
 using RobotZoo
 using RobotDynamics
 using FileIO
+using JLD2
+const TO = TrajectoryOptimization
 const RD = RobotDynamics
 
-save_results = true 
+save_results = false 
 
 TO.diffmethod(::RobotZoo.Cartpole) = RD.ForwardAD()
-@testset "Cartpole" begin
+# @testset "Cartpole" begin
 # load expected results
 res = load(joinpath(@__DIR__,"cartpole.jld2"))
 
@@ -73,8 +78,27 @@ Qz = [Vector([E.q; E.r]) for E in ilqr.Q]
 @test Qzz ≈ res["Qzz"] atol=1e-6
 @test Qz  ≈ res["Qz"] atol=1e-6
 
-# Forward Pass
+## Forward Pass
 J = cost(ilqr)
+TO.rollout!(ilqr, 1.0)
+@test cost(ilqr.obj, ilqr.Z̄) ≈ 42918.1164958687
+δx = RD.state_diff(ilqr.model, RD.state(ilqr.Z̄[1]), RD.state(ilqr.Z[1]))
+δu = d[1]
+RD.set_control!(ilqr.Z̄[1], control(ilqr.Z[1]) + δu)
+RD.set_state!(ilqr.Z̄[2], RD.discrete_dynamics(Altro.integration(ilqr), ilqr.model, ilqr.Z̄[1]))
+@test δx ≈ zeros(n)
+@test RD.control(ilqr.Z̄[1]) ≈ [-13.987381820157527]
+@test RD.state(ilqr.Z̄[2]) ≈ [-0.017484227275196912, 0.034968454550393824, -0.6980029115441456, 1.3840172471758034]
+
+δx = RD.state_diff(ilqr.model, RD.state(ilqr.Z̄[2]), RD.state(ilqr.Z[2]))
+δu = d[1] + K[2] * δx
+RD.set_control!(ilqr.Z̄[2], control(ilqr.Z[2]) + δu)
+RD.set_state!(ilqr.Z̄[3], RD.discrete_dynamics(Altro.integration(ilqr), ilqr.model, ilqr.Z̄[2]))
+@test δx ≈ res["dx2"]
+@test δu ≈ res["du2"]
+@test control(ilqr.Z̄[2]) ≈ res["u2"]
+@test state(ilqr.Z̄[3]) ≈ res["x3"]
+
 J_new = Altro.forwardpass!(ilqr, ΔV, J)
 @test J_new ≈ 3968.9692481
 dJ = J - J_new
@@ -145,7 +169,12 @@ end
 
 ##
 if save_results
-    @save joinpath(@__DIR__,"cartpole.jld2") X U G A B hess0 grad0 hess grad K d S s Qzz Qz K2 d2 hess2 grad2
+    dx2 = δx
+    du2 = δu
+    u2 = control(ilqr.Z̄[2])
+    x3 = state(ilqr.Z̄[3])
+
+    @save joinpath(@__DIR__,"cartpole.jld2") X U G A B hess0 grad0 hess grad K d S s Qzz Qz K2 d2 hess2 grad2 dx2 du2 u2 x3
 end
 
-end
+# end
