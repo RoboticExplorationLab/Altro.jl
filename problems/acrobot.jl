@@ -33,7 +33,7 @@ function Acrobot()
     u0 = @SVector fill(0.0,m)
 
     # set up problem
-    prob = Problem(model, obj, xf, tf, x0=x0, constraints=conSet)
+    prob = Problem(model, obj, x0, tf, xf=xf, constraints=conSet)
     rollout!(prob)
 
     return prob, opts

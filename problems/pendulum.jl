@@ -28,7 +28,7 @@ function Pendulum()
 
     # problem
     U = [@SVector fill(0.1, m) for k = 1:N-1]
-    pendulum_static = Problem(model, obj, xf, tf, constraints=conSet, x0=x0)
+    pendulum_static = Problem(model, obj, x0, tf, constraints=conSet, xf=xf)
     initial_controls!(pendulum_static, U)
     rollout!(pendulum_static)
     return pendulum_static, opts

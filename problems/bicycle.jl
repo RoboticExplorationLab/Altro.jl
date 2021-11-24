@@ -30,7 +30,7 @@ function BicycleCar(scenario=:parallel_park, ;N=101)
         add_constraint!(cons, GoalConstraint(xf), N)
 
         # Problem
-        prob = Problem(model, obj, xf, tf, x0=x0, constraints=cons)
+        prob = Problem(model, obj, x0, tf, xf=xf, constraints=cons)
         initial_controls!(prob, SA[-0.1,0.0])
         rollout!(prob)
 
@@ -60,7 +60,7 @@ function BicycleCar(scenario=:parallel_park, ;N=101)
         add_constraint!(cons, GoalConstraint(xf), N)
 
         # Problem
-        prob = Problem(model, obj, xf, tf, x0=x0, constraints=cons)
+        prob = Problem(model, obj, x0, tf, xf=xf, constraints=cons)
         initial_controls!(prob, SA[-0.1,0.0])
         rollout!(prob)
 

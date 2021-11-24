@@ -41,7 +41,7 @@ function DubinsCar(scenario=:three_obstacles; N=101)
 
         # Create problem
         U = [@SVector fill(0.01,m) for k = 1:N-1]
-        car_3obs_static = Problem(model, obj, xf, tf, constraints=conSet, x0=x0)
+        car_3obs_static = Problem(model, obj, x0, tf, constraints=conSet, xf=xf)
         initial_controls!(car_3obs_static, U)
         rollout!(car_3obs_static)
         return car_3obs_static, opts
@@ -73,7 +73,7 @@ function DubinsCar(scenario=:three_obstacles; N=101)
         cons = ConstraintList(n,m,N)
         add_constraint!(cons, GoalConstraint(xf), N)
 
-        prob = Problem(model, obj, xf, tf, x0=x0, U0=U)
+        prob = Problem(model, obj, x0, tf, xf=xf, U0=U)
         rollout!(prob)
 
         return prob, opts
@@ -116,7 +116,7 @@ function DubinsCar(scenario=:three_obstacles; N=101)
         U = [@SVector fill(0.1,m) for k = 1:N-1]
         obj = LQRObjective(Q,R,Qf,xf,N)
 
-        prob = Problem(model, obj, xf, tf, constraints=conSet, x0=x0, U0=U)
+        prob = Problem(model, obj, x0, tf, constraints=conSet, xf=xf, U0=U)
         rollout!(prob)
 
         return prob, opts
@@ -193,8 +193,8 @@ function DubinsCar(scenario=:three_obstacles; N=101)
         # Build problem
         U0 = [@SVector ones(m) for k = 1:N-1]
 
-        car_escape_static = Problem(model, obj, xf, tf;
-            constraints=conSet, x0=x0)
+        car_escape_static = Problem(model, obj, x0, tf;
+            constraints=conSet, xf=xf)
         initial_controls!(car_escape_static, U0);
 
         X_guess = [2.5 2.5 0.;

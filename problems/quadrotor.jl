@@ -94,7 +94,7 @@ function Quadrotor(scenario=:zigzag, Rot=UnitQuaternion{Float64};
         add_constraint!(conSet, bnd, 1:N-1)
 
         # Problem
-        prob = Problem(model, obj, xf, tf, x0=x0, constraints=conSet)
+        prob = Problem(model, obj, x0, tf, xf=xf, constraints=conSet)
         initial_controls!(prob, U_hover)
         rollout!(prob)
 

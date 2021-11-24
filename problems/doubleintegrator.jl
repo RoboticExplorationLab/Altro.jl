@@ -32,7 +32,7 @@ function DoubleIntegrator()
     add_constraint!(conSet, bnd, 1:N-1)
     add_constraint!(conSet, goal, N:N)
 
-    doubleintegrator_static = Problem(model, obj, xf, tf, constraints=conSet, x0=x0, N=N)
+    doubleintegrator_static = Problem(model, obj, x0, tf, constraints=conSet, xf=xf, N=N)
     TO.rollout!(doubleintegrator_static)
     return doubleintegrator_static, opts
 end

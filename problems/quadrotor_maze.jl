@@ -137,7 +137,7 @@ if normcon
     end
 end
 
-quadrotor_maze = Problem(model, obj, xf, tf, x0=x0, constraints=conSet)
+quadrotor_maze = Problem(model, obj, x0, tf, xf=xf, constraints=conSet)
 initial_controls!(quadrotor_maze,U_hover); # initialize problem with controls
 
 X_guess = zeros(n,7)

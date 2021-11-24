@@ -120,7 +120,7 @@ function YakProblems(;
     end
 
     # Build problem
-    prob = Problem(model, obj, xf, tf, x0=x0, constraints=conSet, integration=integration)
+    prob = Problem(model, obj, x0, tf, xf=xf, constraints=conSet, integration=integration)
     initial_controls!(prob, U0)
     prob, opts
 end
