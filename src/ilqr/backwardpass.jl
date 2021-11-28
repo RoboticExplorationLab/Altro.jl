@@ -3,7 +3,8 @@
 Calculates the optimal feedback gains K,d as well as the 2nd Order approximation of the
 Cost-to-Go, using a backward Riccati-style recursion. (non-allocating)
 """
-function backwardpass!(solver::iLQRSolver{T,QUAD,L,O,n,n̄,m}) where {T,QUAD<:QuadratureRule,L,O,n,n̄,m}
+function backwardpass!(solver::iLQRSolver{L,O,Nx,Ne,Nu}, grad_only=false) where {L,O,Nx,Ne,Nu}
+	n,n̄,m = Nx,Ne,Nu
 	N = solver.N
 
     # Objective
@@ -27,8 +28,6 @@ function backwardpass!(solver::iLQRSolver{T,QUAD,L,O,n,n̄,m}) where {T,QUAD<:Qu
 
 	k = N-1
     while k > 0
-        ix = Z[k]._x
-        iu = Z[k]._u
 
 		# Get error state expanions
 		fdx,fdu = TO.error_expansion(solver.D[k], model)

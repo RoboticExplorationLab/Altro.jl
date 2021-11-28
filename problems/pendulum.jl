@@ -9,6 +9,7 @@ function Pendulum()
     n,m = size(model)
     tf = 3.0
     N = 51
+    dt = tf / (N-1)
 
     # cost
     Q = 1e-3*Diagonal(@SVector ones(n))
@@ -16,7 +17,7 @@ function Pendulum()
     Qf = 1e-0*Diagonal(@SVector ones(n))
     x0 = @SVector zeros(n)
     xf = @SVector [pi, 0.0]  # i.e. swing up
-    obj = LQRObjective(Q,R,Qf,xf,N)
+    obj = LQRObjective(Q*dt,R*dt,Qf,xf,N)
 
     # constraints
     conSet = ConstraintList(n,m,N)

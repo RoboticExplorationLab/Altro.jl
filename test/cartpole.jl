@@ -1,9 +1,14 @@
+using Test
+using Altro
+using TrajectoryOptimization
 using RobotZoo
 using RobotDynamics
 using FileIO
+using JLD2
+const TO = TrajectoryOptimization
 const RD = RobotDynamics
 
-save_results = true 
+save_results = false 
 
 # TO.diffmethod(::RobotZoo.Cartpole) = RD.ForwardAD()
 # @testset "Cartpole" begin
@@ -73,8 +78,30 @@ Qz = [Vector([E.q; E.r]) for E in ilqr.Q]
 @test Qzz ≈ res["Qzz"] atol=1e-6
 @test Qz  ≈ res["Qz"] atol=1e-6
 
-# Forward Pass
+## Forward Pass
 J = cost(ilqr)
+TO.rollout!(ilqr, 1.0)
+@test cost(ilqr.obj, ilqr.Z̄) ≈ 42918.1164958687
+δx = RD.state_diff(ilqr.model, RD.state(ilqr.Z̄[1]), RD.state(ilqr.Z[1]))
+δu = d[1]
+RD.setcontrol!(ilqr.Z̄[1], RD.control(ilqr.Z[1]) + δu)
+RD.setstate!(ilqr.Z̄[2], RD.discrete_dynamics(ilqr.model, ilqr.Z̄[1]))
+RD.discrete_dynamics(ilqr.model, ilqr.Z̄[1])
+@test δx ≈ zeros(n)
+@test RD.control(ilqr.Z̄[1]) ≈ [-13.987381820157527]
+@test RD.state(ilqr.Z̄[2]) ≈ [-0.017484227275196912, 0.034968454550393824, -0.6980029115441456, 1.3840172471758034]
+
+δx = RD.state_diff(ilqr.model, RD.state(ilqr.Z̄[2]), RD.state(ilqr.Z[2]))
+δu = d[2] + K[2] * δx
+RD.control(ilqr.Z[2]) + δu
+RD.setcontrol!(ilqr.Z̄[2], RD.control(ilqr.Z[2]) + δu)
+RD.setstate!(ilqr.Z̄[3], RD.discrete_dynamics(ilqr.model, ilqr.Z̄[2]))
+@test δx ≈ res["dx2"]
+@test δu ≈ res["du2"]
+@test RD.control(ilqr.Z̄[2]) ≈ res["u2"]
+@test RD.state(ilqr.Z̄[3]) ≈ res["x3"]
+
+
 J_new = Altro.forwardpass!(ilqr, ΔV, J)
 @test J_new ≈ 3968.9692481
 dJ = J - J_new
@@ -142,10 +169,127 @@ end
 @test Altro.evaluate_convergence(ilqr)
 @test max_violation(al) ≈ 0.01458607 atol=1e-6
 
+##
+solver = ALTROSolver(Problems.Cartpole()..., verbose=2, verbose_pn=true)
+solve!(solver)
+
+##
+res_pn = load("/home/brian/Code/TrajOpt/cartpole_pn.jld2")
+solver = ALTROSolver(Problems.Cartpole()..., verbose=0)
+solver.opts.constraint_tolerance = solver.opts.projected_newton_tolerance
+solve!(solver.solver_al)
+pn = solver.solver_pn
+let solver = pn
+    Altro.update_constraints!(solver)
+    Altro.copy_constraints!(solver)
+    Altro.copy_multipliers!(solver)
+    Altro.constraint_jacobian!(solver)
+    Altro.copy_jacobians!(solver)
+    TO.cost_expansion!(solver)
+    Altro.update_active_set!(solver; tol=solver.opts.active_set_tolerance_pn)
+    Altro.copy_active_set!(solver)
+end
+
+# Projection solve
+D,d = let solver = pn
+    # Update everything
+    Altro.update_constraints!(solver)
+    Altro.constraint_jacobian!(solver)
+    Altro.update_active_set!(solver; tol=solver.opts.active_set_tolerance_pn)
+    TO.cost_expansion!(solver)
+
+    # Copy results from constraint sets to sparse arrays
+    copyto!(solver.P, solver.Z)
+    Altro.copy_constraints!(solver)
+    Altro.copy_jacobians!(solver)
+    Altro.copy_active_set!(solver)
+    Altro.active_constraints(solver)
+end
+max_violation(pn)
+norm(d,Inf)
+
+
+#
+H = pn.H
+HinvD = Diagonal(H)\D'
+S = Symmetric(D*HinvD)
+Sreg = cholesky(S + solver.opts.ρ_chol * I)
+
+# Line Search
+dY,dZ = let solver = pn
+    a = solver.active_set
+    d = solver.d[a]
+    viol0 = norm(d,Inf)
+
+    δλ = Altro.reg_solve(S, d, Sreg, 1e-8, 25)
+    δZ = -HinvD*δλ
+    δλ, δZ
+end
+
+let
+    pn.P̄.Z .= pn.P.Z + dZ
+    copyto!(pn.Z̄, pn.P̄)
+    Altro.update_constraints!(pn, pn.Z̄)
+    TO.max_violation!(get_constraints(pn))
+    Altro.copy_constraints!(pn)
+    d = pn.d[pn.active_set]
+    copyto!(pn.P.Z, pn.P̄.Z)
+end
+norm(pn.d[pn.active_set], Inf)
+
+##
+vals = [conval.vals for conval in Altro.get_constraints(pn).convals]
+@test vals[1] ≈ res_pn["vals"][1] atol=1e-10
+@test vals[2][1:end-1] ≈ res_pn["vals"][2][1:end]
+@test vals[3] ≈ res_pn["vals"][3] atol=1e-10
+@test vals[4] ≈ res_pn["vals"][4] atol=1e-10
+
+##
+pn.P.Z ≈ res_pn["Z1"]
+pn.d ≈ res_pn["d1"]
+pn.active_set ≈ res_pn["a1"]
+pn.d[pn.active_set]
+res_pn["d1"][res_pn["a1"]]
+
+## Next Line search
+let solver = pn, S=(S,Sreg)
+    Z̄ = solver.Z̄
+    P̄ = solver.P̄
+    P = solver.P
+    α = 1.0
+
+    d = solver.d[solver.active_set]
+    δλ = Altro.reg_solve(S[1], d, S[2], 1e-8, 25)
+    @show norm(δλ)
+    δZ = -HinvD*δλ
+    P̄.Z .= P.Z + α*δZ
+
+    copyto!(Z̄, P̄)
+    Altro.update_constraints!(solver, Z̄)
+    TO.max_violation!(get_constraints(solver))
+    # viol_ = maximum(conSet.c_max)
+    Altro.copy_constraints!(solver)
+    d = solver.d[solver.active_set]
+    viol = norm(d,Inf)
+end
+
+# Save the results
+copyto!(pn.Z, pn.P)
+
+# Multiplier projection
+res = Altro.multiplier_projection!(pn)
+@test pn.λ ≈ res_pn["Y"]
+
+##
 
 ##
 if save_results
-    @save joinpath(@__DIR__,"cartpole.jld2") X U G A B hess0 grad0 hess grad K d S s Qzz Qz K2 d2 hess2 grad2
+    dx2 = δx
+    du2 = δu
+    u2 = control(ilqr.Z̄[2])
+    x3 = state(ilqr.Z̄[3])
+
+    @save joinpath(@__DIR__,"cartpole.jld2") X U G A B hess0 grad0 hess grad K d S s Qzz Qz K2 d2 hess2 grad2 dx2 du2 u2 x3
 end
 
 # end

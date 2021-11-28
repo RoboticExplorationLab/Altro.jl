@@ -41,7 +41,7 @@ struct ALConVal{C,P,W,V,M} <: TO.AbstractConstraintValues{C}
 			sig::FunctionSignature=StaticReturn(), diffmethod::DiffMethod=UserDefined()
     )
 		if !iserr && (output_dim(con), n+m) != size(jac[1])
-			throw(DimensionMismatch("size of jac[i] $(size(jac[1])) does not match the expected size of $(size(gen_jacobian(con)))"))
+			throw(DimensionMismatch("size of jac[i] $(size(jac[1])) does not match the expected size of $((output_dim(con), n+m))"))
 		end
         params = ConstraintParams()
         p = length(con)
@@ -78,14 +78,25 @@ struct ALConVal{C,P,W,V,M} <: TO.AbstractConstraintValues{C}
     end
 end
 
-function ALConVal(n::Int, m::Int, cval::ALConVal)
+function ALConVal(n::Int, m::Int, cval::ALConVal{C}) where C
 	# create a ConVal for the "raw" Jacobians, if needed
 	# 	otherwise return the same ConVal
 	if cval.iserr
 		p = length(cval.con)
-		ws = TO.widths(cval.con, n, m)
-		jac = [SizedMatrix{p,w}(zeros(p,w)) for k in cval.inds, w in ws]
-		ALConVal(n, m, cval.con, cval.inds, jac, cval.vals, false)
+		# ws = TO.widths(cval.con, n, m)
+		# jac = [SizedMatrix{p,w}(zeros(p,w)) for k in cval.inds, w in ws]
+        if C <: TO.StageConstraint
+            njac = 1
+            len = length(cval.inds)
+        elseif C <: TO.CoupledConstraint
+            njac = 2
+            len = length(cval.inds) + 1
+        else
+            error("gen_convals only defined for Stage and Coupled Constraints.")
+        end
+        jac = [SizedMatrix{p,n+m}(zeros(p,n+m)) for k in 1:len, w in 1:njac]
+		ALConVal(n, m, cval.con, cval.inds, jac, cval.vals, false, 
+                 sig=cval.sig, diffmethod=cval.diffmethod)
 	else
 		return cval
 	end

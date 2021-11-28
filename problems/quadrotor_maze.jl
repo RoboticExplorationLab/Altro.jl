@@ -29,15 +29,15 @@ R = Diagonal(R_diag)
 Qf = Diagonal(@SVector fill(1e3,n))
 
 if costfun == :Quadratic
-    cost = LQRCost(Q, R, xf)
+    cost = LQRCost(Q*dt, R*dt, xf)
     obj = Objective(cost, N)
     # obj = LQRObjective(Q, R, Qf, xf, N) # objective with same stagewise costs
 elseif costfun == :QuatLQR
-    cost = QuatLQRCost(Q, R, xf, w=1e-1)
+    cost = QuatLQRCost(Q*dt, R*dt, xf, w=1e-1)
     cost_term = QuatLQRCost(Qf, R, xf, w=1.0)
     obj = Objective(cost, cost_term, N)
 elseif costfun == :ErrorQuad
-    cost = ErrorQuadratic(model, Diagonal(Q_diag[rm_quat]), R, xf)
+    cost = ErrorQuadratic(model, Diagonal(Q_diag[rm_quat])*dt, R*dt, xf)
     cost_term = ErrorQuadratic(model, Diagonal(diag(Qf)[rm_quat]), R, xf)
     obj = Objective(cost, cost_term, N)
 end

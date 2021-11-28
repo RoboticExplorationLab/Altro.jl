@@ -56,21 +56,25 @@ Dispatches on bandedness of the constraint"""
 function copy_jacobian!(D, con::ALConVal{<:TO.StageConstraint}, cinds, xinds, uinds) where T
     for (i,k) in enumerate(con.inds)
         zind = [xinds[k]; uinds[k]]
-        D[cinds[i], zind] .= con.jac[i]
+        if uinds[k][1] > size(D,2)  # handle the last time step
+            D[cinds[i], xinds[k]] .= con.jac[i][:,xinds[1]]
+        else
+            D[cinds[i], zind] .= con.jac[i]
+        end
     end
 end
 
-function copy_jacobian!(D, con::ALConVal{<:TO.StateConstraint}, cinds, xinds, uinds) where T
-    for (i,k) in enumerate(con.inds)
-        D[cinds[i], xinds[k]] .= con.jac[i]
-    end
-end
+# function copy_jacobian!(D, con::ALConVal{<:TO.StateConstraint}, cinds, xinds, uinds) where T
+#     for (i,k) in enumerate(con.inds)
+#         D[cinds[i], xinds[k]] .= con.jac[i]
+#     end
+# end
 
-function copy_jacobian!(D, con::ALConVal{<:TO.ControlConstraint}, cinds, xinds, uinds) where T
-    for (i,k) in enumerate(con.inds)
-        D[cinds[i], uinds[k]] .= con.jac[i]
-    end
-end
+# function copy_jacobian!(D, con::ALConVal{<:TO.ControlConstraint}, cinds, xinds, uinds) where T
+#     for (i,k) in enumerate(con.inds)
+#         D[cinds[i], uinds[k]] .= con.jac[i]
+#     end
+# end
 
 # function copy_jacobian!(D, con::ConstraintVals{T,Coupled}, cinds, xinds, uinds) where T
 #     for (i,k) in enumerate(con.inds)
@@ -79,7 +83,7 @@ end
 #     end
 # end
 
-function copy_jacobian!(D, con::TO.AbstractConstraintValues{<:DynamicsConstraint{<:Explicit}},
+function copy_jacobian!(D, con::TO.AbstractConstraintValues{<:DynamicsConstraint},
 		cinds, xinds, uinds)
 	N = length(xinds)
     for (i,k) in enumerate(con.inds)

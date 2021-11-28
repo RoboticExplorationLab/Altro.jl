@@ -29,11 +29,11 @@ function Quadrotor(scenario=:zigzag, Rot=UnitQuaternion{Float64};
         x_nom = Dynamics.build_state(model, zeros(3), q_nom, v_nom, ω_nom)
 
         if costfun == :QuatLQR
-            cost_nom = QuatLQRCost(Q, R, x_nom, w=0.0)
+            cost_nom = QuatLQRCost(Q*dt, R*dt, x_nom, w=0.0)
         elseif costfun == :ErrorQuad
-            cost_nom = ErrorQuadratic(model, Diagonal(Q_diag[rm_quat]), R, x_nom)
+            cost_nom = ErrorQuadratic(model, Diagonal(Q_diag[rm_quat])*dt, R*dt, x_nom)
         else
-            cost_nom = LQRCost(Q, R, x_nom)
+            cost_nom = LQRCost(Q*dt, R*dt, x_nom)
         end
 
         # waypoints
@@ -52,11 +52,11 @@ function Quadrotor(scenario=:zigzag, Rot=UnitQuaternion{Float64};
                 Q = Diagonal(Qf_diag)
                 w = 40.0
             else
-                Q = Diagonal(1e-3*Qw_diag)
+                Q = Diagonal(1e-3*Qw_diag) * dt
                 w = 0.1
             end
             if costfun == :QuatLQR
-                QuatLQRCost(Q, R, xg, w=w)
+                QuatLQRCost(Q, R*dt, xg, w=w)
             elseif costfun == :ErrorQuad
                 Qd = diag(Q)
                 ErrorQuadratic(model, Diagonal(Qd[rm_quat]), R, xg)

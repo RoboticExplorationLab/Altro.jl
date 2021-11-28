@@ -55,10 +55,11 @@ function ALConstraintSet(cons::TO.ConstraintList, model::RD.AbstractModel)
     n,m = cons.n, cons.m
     n̄ = RobotDynamics.errstate_dim(model)
     ncon = length(cons)
-    useG = model isa RD.LieGroupModel
+    useG = model isa RD.DiscreteLieDynamics
 	errvals = map(1:ncon) do i
         C,c = TO.gen_convals(n̄, m, cons[i], cons.inds[i])
-        ALConVal(n̄, m, cons[i], cons.inds[i], C, c, useG)
+        ALConVal(n̄, m, cons[i], cons.inds[i], C, c, useG, 
+				 sig=cons.sigs[i], diffmethod=cons.diffs[i])
     end
     convals = map(errvals) do errval
         ALConVal(n, m, errval)

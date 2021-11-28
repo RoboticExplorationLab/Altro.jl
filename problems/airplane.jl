@@ -60,27 +60,27 @@ function YakProblems(;
         end
         if costfun == :Quadratic
             costfuns = map(Xref) do xref
-                LQRCost(Q, R, xf, utrim)
+                LQRCost(Q*dt, R*dt, xf, utrim)
             end
-            costfun = LQRCost(Q, R, xf, utrim)
+            costfun = LQRCost(Q*dt, R*dt, xf, utrim)
             costterm = LQRCost(Qf, R, xf, utrim)
             costfuns[end] = costterm
         elseif costfun == :QuatLQR
             costfuns = map(Xref) do xref
-                QuatLQRCost(Q, R, xf, utrim, w=0.1)
+                QuatLQRCost(Q*dt, R*dt, xf, utrim, w=0.1)
             end
-            costfun = QuatLQRCost(Q, R, xf, utrim; w=0.1)
+            costfun = QuatLQRCost(Q*dt, R*dt, xf, utrim; w=0.1)
             costterm = QuatLQRCost(Qf, R, xf, utrim; w=200.0)
             costfuns[end] = costterm
         elseif costfun == :LieLQR
-            costfun = LieLQR(s, Q, R, xf, utrim)
-            costterm = LieLQR(s, Qf, R, xf, utrim)
+            costfun = LieLQR(s, Q*dt, R*dt, xf, utrim)
+            costterm = LieLQR(s, Qf, R*dt, xf, utrim)
         elseif costfun == :ErrorQuadratic
             costfuns = map(Xref) do xref
-                ErrorQuadratic(model, Q, R, xref, utrim)
+                ErrorQuadratic(model, Q*dt, R*dt, xref, utrim)
             end
-            costfun = ErrorQuadratic(model, Q, R, xf, utrim)
-            costterm = ErrorQuadratic(model, Qf, R, xf, utrim)
+            costfun = ErrorQuadratic(model, Q*dt, R*dt, xf, utrim)
+            costterm = ErrorQuadratic(model, Qf*10, R, xf, utrim)
             costfuns[end] = costterm
         end
         obj = Objective(costfuns)
@@ -88,17 +88,19 @@ function YakProblems(;
         # Constraints
         conSet = ConstraintList(n,m,N)
         vecgoal = GoalConstraint(xf, vinds) 
+        rot_diffmethod = RD.UserDefined()
         if termcon == :goal
             rotgoal = GoalConstraint(xf, SA[4,5,6,7])
         elseif termcon == :quatvec
             rotgoal = QuatVecEq(n, UnitQuaternion(pf), SA[4,5,6,7])
+            rot_diffmethod = RD.ForwardAD()
         elseif termcon == :quaterr
             rotgoal = QuatErr(n, UnitQuaternion(pf), SA[4,5,6,7])
         else
             throw(ArgumentError("$termcon is not a known option for termcon. Options are :goal, :quatvec, :quaterr"))
         end
         add_constraint!(conSet, vecgoal, N)
-        add_constraint!(conSet, rotgoal, N)
+        add_constraint!(conSet, rotgoal, N, diffmethod=rot_diffmethod)
 
     else
         throw(ArgumentError("$scenario isn't a known scenario"))
@@ -120,7 +122,7 @@ function YakProblems(;
     end
 
     # Build problem
-    prob = Problem(model, obj, x0, tf, xf=xf, constraints=conSet, integration=integration)
+    prob = Problem(model, obj, x0, tf, xf=xf, constraints=conSet, integration=integration(model))
     initial_controls!(prob, U0)
     prob, opts
 end

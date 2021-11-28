@@ -182,7 +182,7 @@ Calculate all the constraint values given the trajectory `Z`
 """
 function update_constraints!(solver::ConstrainedSolver, Z::Traj=get_trajectory(solver))
     conSet = get_constraints(solver)
-    TO.evaluate!(conSet, Z)
+    RD.evaluate!(conSet, Z)
 end
 
 function update_active_set!(solver::ConstrainedSolver, 
@@ -196,7 +196,7 @@ Calculate all the constraint Jacobians given the trajectory `Z`
 """
 function constraint_jacobian!(solver::ConstrainedSolver, Z=get_trajectory(solver))
     conSet = get_constraints(solver)
-    TO.jacobian!(conSet, Z)
+    RD.jacobian!(conSet, Z)
     return nothing
 end
 
@@ -237,7 +237,7 @@ function rollout!(solver::AbstractSolver)
     Z = get_trajectory(solver)
     model = get_model(solver)
     x0 = get_initial_state(solver)
-    rollout!(integration(solver), model, Z, x0)
+    RD.rollout!(StaticReturn(), model, Z, x0)
 end
 
 TO.states(solver::AbstractSolver) = [state(z) for z in get_trajectory(solver)]
@@ -254,7 +254,7 @@ TO.set_initial_state!(solver::AbstractSolver, x0) = copyto!(get_initial_state(so
 function TO.initial_trajectory!(solver::AbstractSolver, Z0::Traj)
     Z = get_trajectory(solver)
     for k in eachindex(Z)
-        RobotDynamics.set_z!(Z[k], Z0[k].z)
+        RobotDynamics.setdata!(Z[k], Z0[k].z)
     end
 end
 
@@ -285,7 +285,7 @@ TO.num_constraints(solver::AbstractSolver) = num_constraints(get_constraints(sol
 function TO.max_violation(solver::ConstrainedSolver, Z::Traj=get_trajectory(solver); recalculate=true)
     conSet = get_constraints(solver)
     if recalculate
-        TO.evaluate!(conSet, Z)
+        RD.evaluate!(conSet, Z)
     end
     TO.max_violation(conSet)
 end
@@ -293,7 +293,7 @@ end
 function TO.norm_violation(solver::ConstrainedSolver, Z::Traj=get_trajectory(solver); recalculate=true, p=2)
     conSet = get_constraints(solver)
     if recalculate
-        evaluate!(conSet, Z)
+        RD.evaluate!(conSet, Z)
     end
     TO.norm_violation(conSet, p)
 end
@@ -304,7 +304,7 @@ end
 function second_order_correction!(solver::ConstrainedSolver)
     conSet = get_constraints(solver)
 	Z = get_primals(solver)     # get the current value of z + α⋅δz
-	evaluate!(conSet, Z)        # update constraints at new step
+	RD.evaluate!(conSet, Z)        # update constraints at new step
 	throw(ErrorException("second order correction not implemented yet..."))
 end
 
@@ -338,8 +338,8 @@ function norm_dgrad(solver::AbstractSolver, Z=get_primals(solver), dZ=get_step(s
     conSet = get_constraints(solver)
 	if recalculate
 		Z_ = Traj(Z)
-		evaluate!(conSet, Z_)
-		jacobian!(conSet, Z_)
+		RD.evaluate!(conSet, Z_)
+		RD.jacobian!(conSet, Z_)
 	end
     Dc = TO.norm_dgrad(conSet, Traj(dZ), 1)
 end

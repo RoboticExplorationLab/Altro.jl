@@ -21,7 +21,7 @@ function DubinsCar(scenario=:three_obstacles; N=101)
         Q = Diagonal(@SVector [1., 1., 1.])
         R = Diagonal(@SVector [0.5, 0.5])
         Qf = 10.0*Diagonal(@SVector ones(n))
-        obj = LQRObjective(Q,R,Qf,xf,N)
+        obj = LQRObjective(Q*dt,R*dt,Qf,xf,N)
 
         # create obstacle constraints
         r_circle_3obs = 0.25
@@ -67,7 +67,7 @@ function DubinsCar(scenario=:three_obstacles; N=101)
 
         # problem
         U = [@SVector fill(0.1,m) for k = 1:N-1]
-        obj = LQRObjective(Q,R,Qf,xf,N)
+        obj = LQRObjective(Q*dt,R*dt,Qf,xf,N)
 
         # constraints
         cons = ConstraintList(n,m,N)
@@ -88,6 +88,7 @@ function DubinsCar(scenario=:three_obstacles; N=101)
         model = RobotZoo.DubinsCar()
         n,m = size(model)
         tf = 3.
+        dt = tf / (N-1)
 
         # cost
         d = 1.5
@@ -114,7 +115,7 @@ function DubinsCar(scenario=:three_obstacles; N=101)
 
         # problem
         U = [@SVector fill(0.1,m) for k = 1:N-1]
-        obj = LQRObjective(Q,R,Qf,xf,N)
+        obj = LQRObjective(Q*dt,R*dt,Qf,xf,N)
 
         prob = Problem(model, obj, x0, tf, constraints=conSet, xf=xf, U0=U)
         rollout!(prob)
@@ -141,12 +142,13 @@ function DubinsCar(scenario=:three_obstacles; N=101)
         xf = @SVector [7.5,2.5,0.]
         N = 101
         tf = 3.0
+        dt = tf / (N-1)
 
         # cost
         Q = (1e-3)*Diagonal(@SVector ones(n))
         R = (1e-2)*Diagonal(@SVector ones(m))
         Qf = 100.0*Diagonal(@SVector ones(n))
-        obj = LQRObjective(Q,R,Qf,xf,N)
+        obj = LQRObjective(Q*dt,R*dt,Qf,xf,N)
 
         # constraints
         r = 0.5

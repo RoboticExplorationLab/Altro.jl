@@ -21,7 +21,7 @@ function DoubleIntegrator()
     Q = 1.0*Diagonal(@SVector ones(n))
     Qf = 1.0*Diagonal(@SVector ones(n))
     R = 1.0e-1*Diagonal(@SVector ones(m))
-    obj = LQRObjective(Q,R,Qf,xf,N)
+    obj = LQRObjective(Q*dt,R*dt,Qf,xf,N)
 
     # Constraints
     u_bnd = 3.0

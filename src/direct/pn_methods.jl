@@ -95,7 +95,10 @@ function _projection_solve!(solver::ProjectedNewtonSolver)
     end
 
     S = Symmetric(D*HinvD)
-    Sreg = cholesky(S + ρ_chol*I) #TODO is this fast or slow? try above
+    Sreg = cholesky(S + ρ_chol*I, check=false) #TODO is this fast or slow? try above
+    if !issuccess(Sreg) 
+        throw(PosDefException(0))
+    end
     viol_prev = viol0
     count = 0
     while count < max_refinements
