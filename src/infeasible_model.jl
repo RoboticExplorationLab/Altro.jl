@@ -2,16 +2,15 @@
 ############################################################################################
 #                               INFEASIBLE MODELS                                          #
 ############################################################################################
-struct Infeasible{N,M,D<:AbstractModel} <: AbstractModel
+RD.@autodiff struct InfeasibleModel{Nx,Nu,D<:DiscreteDynamics} <: DiscreteDynamics 
     model::D
-    _u::SVector{M,Int}  # inds to original controls
-    _ui::SVector{N,Int} # inds to infeasible controls
-end
-
-struct InfeasibleLie{N,M,D<:AbstractModel} <: RobotDynamics.LieGroupModel 
-    model::D
-    _u::SVector{M,Int}  # inds to original controls
-    _ui::SVector{N,Int} # inds to infeasible controls
+    _u::SVector{Nu,Int}  # inds to original controls
+    _ui::SVector{Nx,Int} # inds to infeasible controls
+    function InfeasibleModel{Nx,Nu}(model::D) where {Nx,Nu,D<:DiscreteDynamics}
+        _u = SVector{Nu}(1:Nu)
+        _ui = SVector{Nx}((1:Nx) .+ Nu)
+        new{Nx,Nu,D}(model, _u, _ui)
+    end
 end
 
 """ $(TYPEDEF)
@@ -29,45 +28,55 @@ to be zero by the end of the solve.
 InfeasibleModel(model::AbstractModel)
 ```
 """
-const InfeasibleModel{N,M,D} = Union{Infeasible{N,M,D},InfeasibleLie{N,M,D}} where {N,M,D}
+InfeasibleModel
+
+# struct InfeasibleLie{N,M,D<:AbstractModel} <: RobotDynamics.LieGroupModel 
+#     model::D
+#     _u::SVector{M,Int}  # inds to original controls
+#     _ui::SVector{N,Int} # inds to infeasible controls
+# end
+
+# const InfeasibleModel{N,M,D} = Union{Infeasible{N,M,D},InfeasibleLie{N,M,D}} where {N,M,D}
 
 function InfeasibleModel(model::AbstractModel)
     n,m = size(model)
-    _u  = SVector{m}(1:m)
-    _ui = SVector{n}((1:n) .+ m)
-    Infeasible(model, _u, _ui)
+    InfeasibleModel{n,m}(model)
 end
 
-function InfeasibleModel(model::RobotDynamics.LieGroupModel)
-    n,m = size(model)
-    _u  = SVector{m}(1:m)
-    _ui = SVector{n}((1:n) .+ m)
-    InfeasibleLie(model, _u, _ui)
-end
+# function InfeasibleModel(model::RobotDynamics.LieGroupModel)
+#     n,m = size(model)
+#     _u  = SVector{m}(1:m)
+#     _ui = SVector{n}((1:n) .+ m)
+#     InfeasibleLie(model, _u, _ui)
+# end
 
-RobotDynamics.LieState(model::InfeasibleLie) = RobotDynamics.LieState(model.model)
+RD.statevectortype(::Type{<:InfeasibleModel{<:Any,<:Any,D}}) where D = RD.statevectortype(D)
+RD.LieState(model::InfeasibleModel) = RD.LieState(model.model)
+@inline RD.rotation_type(model::InfeasibleModel) where D = rotation_type(model.model)
 
 # Generic Infeasible Methods
-RobotDynamics.state_dim(model::InfeasibleModel{n}) where n = n
-RobotDynamics.control_dim(model::InfeasibleModel{n,m}) where {n,m} = n+m
+@inline RD.state_dim(model::InfeasibleModel{n}) where n = n
+@inline RD.control_dim(model::InfeasibleModel{n,m}) where {n,m} = n+m
+@inline RD.errstate_dim(model::InfeasibleModel) = RD.errstate_dim(model.model)
 
-RobotDynamics.dynamics(::InfeasibleModel, x, u) =
-    throw(ErrorException("Cannot evaluate continuous dynamics on an infeasible model"))
+# RD.dynamics(::InfeasibleModel, x, u) =
+#     throw(ErrorException("Cannot evaluate continuous dynamics on an infeasible model"))
 
-@generated function RobotDynamics.discrete_dynamics(::Type{Q}, model::InfeasibleModel{N,M},
-        z::AbstractKnotPoint{T,N}) where {T,N,M,Q<:Explicit}
-    _u = SVector{M}((1:M) .+ N)
-    _ui = SVector{N}((1:N) .+ (N+M))
-    quote
-        x = state(z)
-        dt = z.dt
-        u0 = z.z[$_u]
-        ui = z.z[$_ui]
-        RobotDynamics.discrete_dynamics($Q, model.model, x, u0, z.t, dt) + ui
-    end
+function RD.discrete_dynamics(model::InfeasibleModel,
+        x, u, t, dt)
+    u0 = u[model._u]
+    ui = u[model._ui]
+    RobotDynamics.discrete_dynamics(model.model, x, u0, t, dt) + ui
 end
 
-@inline RobotDynamics.rotation_type(model::InfeasibleModel) where D = rotation_type(model.model)
+function RD.discrete_dynamics!(model::InfeasibleModel{Nx,Nu}, xn,
+        x, u, t, dt) where {Nx,Nu}
+    u0 = view(x, 1:Nx)
+    ui = view(x, Nx+1:Nx+Nu)
+    RobotDynamics.discrete_dynamics!(model.model, xn, x, u0, t, dt)
+    xn .+= ui
+    return
+end
 
 # @generated function RobotDynamics.discrete_jacobian!(::Type{Q}, ∇f, model::InfeasibleModel{N,M},
 #         z::AbstractKnotPoint{T,N}, cache=nothing) where {T,N,M,Q<:Explicit}
@@ -104,19 +113,14 @@ end
 # end
 
 
-function RobotDynamics.state_diff(model::InfeasibleModel, x::SVector, x0::SVector)
-	RobotDynamics.state_diff(model.model, x, x0)
-end
+@inline RD.state_diff(model::InfeasibleModel, x::SVector, x0::SVector) = 
+    RD.state_diff(model.model, x, x0)
 
-function RobotDynamics.state_diff_jacobian!(G, model::InfeasibleModel, Z::Traj)
+@inline RobotDynamics.state_diff_jacobian!(G, model::InfeasibleModel, Z::Traj) =
 	RobotDynamics.state_diff_jacobian!(G, model.model, Z)
-end
 
-function RobotDynamics.∇²differential!(∇G, model::InfeasibleModel, x::SVector, dx::SVector)
-	return ∇²differential!(∇G, model.model, x, dx)
-end
-
-RobotDynamics.errstate_dim(model::InfeasibleModel) = RobotDynamics.state_diff_size(model.model)
+@inline RobotDynamics.∇²differential!(∇G, model::InfeasibleModel, x::SVector, dx::SVector) = 
+    ∇²differential!(∇G, model.model, x, dx)
 
 Base.position(model::InfeasibleModel, x::SVector) = position(model.model, x)
 
@@ -127,15 +131,15 @@ desired trajectory"
 function infeasible_trajectory(model::InfeasibleModel{n,m}, Z0::Traj) where {T,n,m}
     x,u = zeros(model)
     ui = @SVector zeros(n)
-    Z = [KnotPoint(state(z), [control(z); ui], z.dt, z.t) for z in Z0]
+    Z = [KnotPoint(state(z), [control(z); ui], z.t, z.dt) for z in Z0]
     N = length(Z0)
     for k = 1:N-1
-        RobotDynamics.propagate_dynamics(RobotDynamics.RK4, model, Z[k+1], Z[k])
+        RD.propagate_dynamics!(RD.default_signature(model), model, Z[k+1], Z[k])
         x′ = state(Z[k+1])
         u_slack = state(Z0[k+1]) - x′
         u = [control(Z0[k]); u_slack]
-        RobotDynamics.set_control!(Z[k], u)
-        RobotDynamics.set_state!(Z[k+1], x′ + u_slack)
+        RD.setcontrol!(Z[k], u)
+        RD.setstate!(Z[k+1], x′ + u_slack)
     end
     return Traj(Z)
 end
@@ -150,27 +154,31 @@ InfeasibleConstraint(model::InfeasibleModel)
 InfeasibleConstraint(n,m)
 ```
 """
-struct InfeasibleConstraint{n} <: TO.ControlConstraint
-	ui::SVector{n,Int}
-	m::Int
-	function InfeasibleConstraint(n::Int, m::Int)
-		ui = SVector{n}((1:n) .+ m)
-		new{n}(ui, m)
+struct InfeasibleConstraint{Nx,Nu} <: TO.ControlConstraint
+	ui::SVector{Nx,Int}
+	function InfeasibleConstraint{Nx,Nu}() where {Nx,Nu}
+		ui = SVector{Nx}((1:Nx) .+ Nu)
+		new{Nx,Nu}(ui)
 	end
 end
 
-InfeasibleConstraint(model::InfeasibleModel{n,m}) where {n,m} = InfeasibleConstraint(n,m)
-RobotDynamics.control_dim(con::InfeasibleConstraint{n}) where n = n + con.m
+InfeasibleConstraint(model::InfeasibleModel{n,m}) where {n,m} = InfeasibleConstraint{n,m}()
+RobotDynamics.state_dim(con::InfeasibleConstraint{n,m}) where {n,m} = n
+RobotDynamics.control_dim(con::InfeasibleConstraint{n,m}) where {n,m} = n+m 
 @inline TO.sense(::InfeasibleConstraint) = TO.Equality()
-@inline Base.length(::InfeasibleConstraint{n}) where n = n
+@inline RD.output_dim(::InfeasibleConstraint{n}) where n = n
 
-function TO.evaluate(con::InfeasibleConstraint, u::SVector)
-    ui = u[con.ui] # infeasible controls
+RD.evaluate(con::InfeasibleConstraint, x, u) = u[con.ui] # infeasible controls
+function RD.evaluate!(con::InfeasibleConstraint, c, x, u)
+    for (i,j) in enumerate(con.ui)
+        c[i] = u[j]
+    end
+    return
 end
 
-function TO.jacobian!(∇c, con::InfeasibleConstraint{n}, u::SVector) where n
+function RD.jacobian!(con::InfeasibleConstraint{Nx}, ∇c, c, x, u) where {Nx}
 	for (i,j) in enumerate(con.ui)
-		∇c[i,j] = 1
+		∇c[i,Nx+j] = 1
     end
-    return true
+    return
 end

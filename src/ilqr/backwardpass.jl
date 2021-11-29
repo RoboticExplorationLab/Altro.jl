@@ -62,6 +62,7 @@ function backwardpass!(solver::iLQRSolver{L,O,Nx,Ne,Nu}, grad_only=false) where 
         k -= 1
     end
 
+	# solver.stats.status = SOLVE_SUCCEEDED
     regularization_update!(solver, :decrease)
 
     return ΔV
@@ -146,6 +147,7 @@ function static_backwardpass!(solver::iLQRSolver{L,O,Nx,Ne,Nu}, grad_only=false)
         k -= 1
     end
 
+	# solver.stats.status = SOLVE_SUCCEEDED
     regularization_update!(solver, :decrease)
 
     return ΔV

@@ -40,7 +40,7 @@ using TrajectoryOptimization:
     Equality, Inequality, SecondOrderCone
 
 using RobotDynamics:
-    AbstractModel, DiscreteLieDynamics,
+    AbstractModel, DiscreteDynamics, DiscreteLieDynamics,
     QuadratureRule, Implicit, Explicit,
     FunctionSignature, InPlace, StaticReturn, 
     DiffMethod, ForwardAD, FiniteDifference, UserDefined,

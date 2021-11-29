@@ -99,7 +99,7 @@ end
 * `NO_PROGRESS`: iLQR was unable to make any progress for `dJ_counter_limit` consecutive iterations.
 * `COST_INCREASE`: The cost increased during the iLQR forward pass.
 """
-@enum(TerminationStatus, UNSOLVED, SOLVE_SUCCEEDED, MAX_ITERATIONS, MAX_ITERATIONS_OUTER,
+@enum(TerminationStatus, UNSOLVED, LINESEARCH_FAIL, SOLVE_SUCCEEDED, MAX_ITERATIONS, MAX_ITERATIONS_OUTER,
     MAXIMUM_COST, STATE_LIMIT, CONTROL_LIMIT, NO_PROGRESS, COST_INCREASE)
 
 @inline status(solver::AbstractSolver) = stats(solver).status
@@ -242,7 +242,7 @@ end
 
 TO.states(solver::AbstractSolver) = [state(z) for z in get_trajectory(solver)]
 function TO.controls(solver::AbstractSolver)
-    N = size(solver)[3]
+    N = RD.dims(solver)[3]
     Z = get_trajectory(solver)
     [control(Z[k]) for k = 1:N-1]
 end

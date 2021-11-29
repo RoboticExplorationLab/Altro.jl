@@ -92,7 +92,7 @@ function YakProblems(;
         if termcon == :goal
             rotgoal = GoalConstraint(xf, SA[4,5,6,7])
         elseif termcon == :quatvec
-            rotgoal = QuatVecEq(n, UnitQuaternion(pf), SA[4,5,6,7])
+            rotgoal = QuatVecEq{Float64}(n, UnitQuaternion(pf), SA[4,5,6,7])
             rot_diffmethod = RD.ForwardAD()
         elseif termcon == :quaterr
             rotgoal = QuatErr(n, UnitQuaternion(pf), SA[4,5,6,7])

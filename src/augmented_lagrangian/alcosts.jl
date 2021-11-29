@@ -68,27 +68,56 @@ end
 function TO.cost_expansion!(::Inequality, conval, i)
     c = SVector(conval.vals[i])
     ∇c = conval.jac[i]
-    tmp = conval.tmp
     λ = SVector(conval.λ[i])
-    # μ = SVector(conval.μ[i])
     μ = conval.μ[i][1]
     a = @. (c >= 0) | (λ > 0)
-    Iμ = Diagonal(a)
-    
     λbar = λ + μ * (a .* c)
-    conval.const_hess[i] = false 
-
-    if prod(size(∇c)) < 24*24
+    Iμ = Diagonal(a)
+    if prod(∇c) < 24*24
         ∇c = SMatrix(∇c)
         conval.grad[i] .= ∇c'λbar
         conval.hess[i] .= μ*∇c'Iμ*∇c
     else
         mul!(conval.grad[i].data, Transpose(∇c.data), λbar)
-        mul!(tmp.data, Iμ, ∇c.data)  # TODO: do this directly on the SizedArrays
-        mul!(conval.hess[i].data, Transpose(∇c), tmp)
+        mul!(conval.tmp, Iμ, ∇c)
+        mul!(conval.hess[i].data, Transpose(∇c.data), conval.tmp)
         conval.hess[i] .*= μ
     end
+    return
 end
+
+# function TO.cost_expansion!(::Inequality, conval, i)
+#     c = SVector(conval.vals[i])
+#     ∇c = conval.jac[i]
+#     tmp = conval.tmp
+#     λ = SVector(conval.λ[i])
+#     # μ = SVector(conval.μ[i])
+#     μ = conval.μ[i][1]
+#     active = @. (c >= 0) | (λ > 0)
+#     @show any(active)
+#     # @show sum(a)
+#     # @show size(a)
+#     # @show a
+#     Iμ = Diagonal(active)
+    
+#     λbar = λ + μ * (active .* c)
+#     conval.const_hess[i] = false 
+
+#     if prod(size(∇c)) < 24*24
+#         ∇c = SMatrix(∇c)
+#         conval.grad[i] .= ∇c'λbar
+#         conval.hess[i] .= μ*∇c'Iμ*∇c
+#     else
+#         mul!(conval.grad[i].data, Transpose(∇c.data), λbar)
+#         mul!(tmp.data, Iμ, ∇c.data)  # TODO: do this directly on the SizedArrays
+#         @show sum(Iμ)
+#         @show norm(Iμ,Inf)
+#         @show sum(tmp.data)
+#         mul!(conval.hess[i].data, Transpose(∇c), tmp)
+#         conval.hess[i] .*= μ
+#     end
+#     return active
+# end
 
 function TO.cost_expansion!(cone::SecondOrderCone, conval, i)
     c = SVector(conval.vals[i])

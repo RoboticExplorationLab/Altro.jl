@@ -43,7 +43,7 @@ function ALTROSolver(prob::Problem{T}, opts::SolverOptions=SolverOptions();
     ) where {Q,T}
     if infeasible
         # Convert to an infeasible problem
-        prob = InfeasibleProblem(prob, prob.Z, R_inf/prob.Z[1].dt)
+        prob = InfeasibleProblem(prob, prob.Z, R_inf)
 
         # Set infeasible constraint parameters
         # con_inf = get_constraints(prob).constraints[end]
@@ -165,7 +165,7 @@ function InfeasibleProblem(prob::Problem{RK}, Z0::Traj, R_inf::Real) where RK
     obj = infeasible_objective(prob.obj, R_inf)
 
     # Create new problem
-    Problem{RK}(model_inf, obj, conSet, prob.x0, prob.xf, Z, N, prob.t0, prob.tf)
+    Problem(model_inf, obj, conSet, prob.x0, prob.xf, Z, N, prob.t0, prob.tf)
 end
 
 function infeasible_objective(obj::Objective, regularizer)

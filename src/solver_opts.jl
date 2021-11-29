@@ -113,6 +113,7 @@ end
 
     # iLQR
     dJ_zero_counter::Int = 0
+    ls_failed::Bool = false
 
     # Other
     tstart::Float64 = time()

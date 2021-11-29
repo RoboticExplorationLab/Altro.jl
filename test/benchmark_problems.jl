@@ -118,7 +118,6 @@ TEST_TIME && @test minimum(b).time / 1e6 < 25
 ## Zig-zag
 v && println("Quadrotor")
 solver = ALTROSolver(Problems.Quadrotor(:zigzag)...)
-solve!(solver)
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time / 1e6 < 60
 @test max_violation(solver) < 1e-6
@@ -138,18 +137,15 @@ if !ci
     end
 
     # Test infeasible Quadrotor (note that this allocates for the static-bp)
-    # v && println("Quadrotor (infeasible)")
-    # solver = ALTROSolver(Problems.Quadrotor(:zigzag)..., projected_newton=false, 
-    #     infeasible=true, static_bp=false, constraint_tolerance=1e-4)
-    # b = benchmark_solve!(solver, samples=2, evals=2)
-    # # if !Sys.iswindows() && VERSION < v"1.5"
-    # #     @test b.allocs == 0
-    # # end
-    # if VERSION < v"1.5"
-    #     @test iterations(solver) == 19 # 20
-    # end
-    # @test status(solver) == Altro.SOLVE_SUCCEEDED
+    v && println("Quadrotor (infeasible)")
+    solver = ALTROSolver(Problems.Quadrotor(:zigzag)..., projected_newton=false, 
+        infeasible=true, static_bp=false, constraint_tolerance=1e-4, verbose=2)
+    b = benchmark_solve!(solver)
+    @test iterations(solver) == 25
+    @test max_violation(solver) < 1e-4
+    @test solver.stats.gradient[end] < 1e-4
 end
+
 
 # Barrell Roll
 if !ci
@@ -158,28 +154,7 @@ if !ci
     b = benchmark_solve!(solver)
     TEST_TIME && @test minimum(b).time / 1e6 < 100 
     @test max_violation(solver) < 1e-6
-    @test iterations(solver) == 25 # 18
+    @test iterations(solver) == 20 # 18
     @test solver.stats.gradient[end] < 2e-3  # 1e-3
     @test status(solver) == Altro.SOLVE_SUCCEEDED 
-
-    # solver = ALTROSolver(Problems.YakProblems(costfun=:QuatLQR, termcon=:quatvec)...)
-    # b = benchmark_solve!(solver)
-    # TEST_TIME && @test minimum(b).time / 1e6 < 100 
-    # @test iterations(solver) == 17
-    # @test solver.stats.gradient[end] < 2e-3
-    # @test status(solver) == Altro.SOLVE_SUCCEEDED
-
-    # # Check allocations and cache type
-    # ilqr = Altro.iLQRSolver(Problems.YakProblems(costfun=:QuatLQR, termcon=:quatvec)...)
-    # b = benchmark_solve!(ilqr)
-    # @test b.allocs == 0
-    # @test ilqr.exp_cache isa NTuple{4,Nothing}
-    # U = controls(ilqr)
-
-    # # Make sure FiniteDiff methods don't allocate
-    # ilqr = Altro.iLQRSolver(Problems.YakProblems(costfun=:ErrorQuadratic, termcon=:quatvec)...)
-    # initial_controls!(ilqr, U)
-    # b = benchmark_solve!(ilqr)
-    # @test b.allocs == 0
-    # @test !(ilqr.exp_cache isa NTuple{4,Nothing})
 end

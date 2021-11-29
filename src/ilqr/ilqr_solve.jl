@@ -125,6 +125,8 @@ function forwardpass!(solver::iLQRSolver, ΔV, J_prev)
     expected = 0.0
     flag = true
 
+    solver.stats.ls_failed = false
+
     while (z ≤ solver.opts.line_search_lower_bound || z > solver.opts.line_search_upper_bound) && J >= J_prev
 
         # Check that maximum number of line search decrements has not occured
@@ -138,7 +140,10 @@ function forwardpass!(solver::iLQRSolver, ΔV, J_prev)
             z = 0
             α = 0.0
             expected = 0.0
+            @logmsg InnerLoop "Max Line Search Iterations."
+            solver.stats.ls_failed = true
 
+            # solver.stats.status = LINESEARCH_FAIL
             regularization_update!(solver, :increase)
             solver.ρ[1] += solver.opts.bp_reg_fp
             break
@@ -243,7 +248,7 @@ function evaluate_convergence(solver::iLQRSolver)
 
     # Check for cost convergence
     # must satisfy both 
-    if (0.0 <= dJ < solver.opts.cost_tolerance) && (grad < solver.opts.gradient_tolerance)
+    if (0.0 <= dJ < solver.opts.cost_tolerance) && (grad < solver.opts.gradient_tolerance) && !solver.stats.ls_failed
         @logmsg InnerLoop "Cost criteria satisfied."
         solver.stats.status = SOLVE_SUCCEEDED
         return true
