@@ -14,7 +14,7 @@ and nonlinear dynamics. The key features of the ALTRO solver are:
 
 Altro.jl solves trajectory optimization problems set up using [TrajectoryOptimization.jl](https://github.com/RoboticExplorationLab/TrajectoryOptimization.jl).
 
-For details on the solver, see the original [conference paper](https://rexlab.stanford.edu/papers/altro-iros.pdf) or related
+For details on the solver, see the original [conference paper](http://roboticexplorationlab.org/papers/altro-iros.pdf) or related
 [tutorial](https://bjack205.github.io/papers/AL_iLQR_Tutorial.pdf).
 
 ## Simple Example
