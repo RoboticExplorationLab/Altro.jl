@@ -51,10 +51,11 @@ Altro.trim!(stats)
 
 solver = ALTROSolver(Problems.DoubleIntegrator()...)
 set_options!(solver, verbose=0, projected_newton=true, show_summary=false)
+solver.opts.verbose = 2
+Z0 = copy(get_trajectory(solver))
 solve!(solver)
 
 # Check if final stats match output
-Z0 = copy(get_trajectory(solver))
 iters = iterations(solver)
 c_max = solver.stats.c_max[end]
 J = solver.stats.cost[end]
@@ -66,6 +67,7 @@ J = solver.stats.cost[end]
 
 # Make sure ALTRO resets properly
 initial_trajectory!(solver, Z0)
+
 solve!(solver)
 @test iterations(solver) == iters
 @test cost(solver) ≈ J

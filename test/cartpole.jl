@@ -11,7 +11,7 @@ const RD = RobotDynamics
 save_results = false 
 
 # TO.diffmethod(::RobotZoo.Cartpole) = RD.ForwardAD()
-# @testset "Cartpole" begin
+@testset "Cartpole" begin
 # load expected results
 res = load(joinpath(@__DIR__,"cartpole.jld2"))
 
@@ -93,13 +93,16 @@ RD.discrete_dynamics(ilqr.model, ilqr.Z̄[1])
 
 δx = RD.state_diff(ilqr.model, RD.state(ilqr.Z̄[2]), RD.state(ilqr.Z[2]))
 δu = d[2] + K[2] * δx
-RD.control(ilqr.Z[2]) + δu
+# RD.control(ilqr.Z[2]) + δu
 RD.setcontrol!(ilqr.Z̄[2], RD.control(ilqr.Z[2]) + δu)
 RD.setstate!(ilqr.Z̄[3], RD.discrete_dynamics(ilqr.model, ilqr.Z̄[2]))
 @test δx ≈ res["dx2"]
 @test δu ≈ res["du2"]
-@test RD.control(ilqr.Z̄[2]) ≈ res["u2"]
-@test RD.state(ilqr.Z̄[3]) ≈ res["x3"]
+
+u2 = RD.control(ilqr.Z̄[2])
+x3 = RD.state(ilqr.Z̄[3])
+@test u2 ≈ res["u2"]
+@test x3 ≈ res["x3"]
 
 
 J_new = Altro.forwardpass!(ilqr, ΔV, J)
@@ -124,7 +127,7 @@ J_prev = J_new
 Altro.set_tolerances!(solver.solver_al, ilqr, 1)
 for i = 3:26
     J = Altro.step!(ilqr, J_prev, false)
-    println("iter = $i, J = $J")
+    # println("iter = $i, J = $J")
     dJ = J_prev - J
     J_prev = J
     Altro.copy_trajectories!(ilqr)
@@ -159,7 +162,7 @@ Altro.record_iteration!(ilqr, J, dJ)
 
 for i = 2:3
     J = Altro.step!(ilqr, J_prev, false)
-    println("iter = $i, J = $J")
+    # println("iter = $i, J = $J")
     dJ = J_prev - J
     J_prev = J
     Altro.copy_trajectories!(ilqr)
@@ -170,14 +173,19 @@ end
 @test max_violation(al) ≈ 0.01458607 atol=1e-6
 
 ##
-solver = ALTROSolver(Problems.Cartpole()..., verbose=2, verbose_pn=true)
-solve!(solver)
+if save_results
+    dx2 = δx
+    du2 = δu
 
-##
+    @save joinpath(@__DIR__,"cartpole.jld2") X U G A B hess0 grad0 hess grad K d S s Qzz Qz K2 d2 hess2 grad2 dx2 du2 u2 x3
+end
+
+## Projected Newton
 res_pn = load("/home/brian/Code/TrajOpt/cartpole_pn.jld2")
 solver = ALTROSolver(Problems.Cartpole()..., verbose=0)
 solver.opts.constraint_tolerance = solver.opts.projected_newton_tolerance
 solve!(solver.solver_al)
+@test iterations(solver) == 39
 pn = solver.solver_pn
 let solver = pn
     Altro.update_constraints!(solver)
@@ -278,18 +286,7 @@ copyto!(pn.Z, pn.P)
 
 # Multiplier projection
 res = Altro.multiplier_projection!(pn)
-@test pn.λ ≈ res_pn["Y"]
+@test pn.λ ≈ res_pn["Y"] atol=1e-6
 
-##
 
-##
-if save_results
-    dx2 = δx
-    du2 = δu
-    u2 = control(ilqr.Z̄[2])
-    x3 = state(ilqr.Z̄[3])
-
-    @save joinpath(@__DIR__,"cartpole.jld2") X U G A B hess0 grad0 hess grad K d S s Qzz Qz K2 d2 hess2 grad2 dx2 du2 u2 x3
 end
-
-# end

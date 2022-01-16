@@ -80,7 +80,7 @@ if !ci
     v && println("Parallel Park")
     solver = ALTROSolver(Problems.DubinsCar(:parallel_park)...)
     b =  benchmark_solve!(solver)
-    TEST_TIME && @test minimum(b).time /1e6 < 8 
+    TEST_TIME && @test minimum(b).time /1e6 < 10 
     @test max_violation(solver) < 1e-6
     @test iterations(solver) == 13 # 13
     @test solver.stats.gradient[end] < 1e-3

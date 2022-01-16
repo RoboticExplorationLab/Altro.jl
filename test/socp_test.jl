@@ -59,9 +59,9 @@ function DI_objective(Q,R,Qf,xf,dt)
         append!(h, R.diag)
         c += 0.5*xf'Q*xf
 	end
-	g .*= dt
-	h .*= dt
-	c *= dt
+	# g .*= dt
+	# h .*= dt
+	# c *= dt
     append!(g, -Qf*xf)
     # append!(g, zeros(m))
     append!(h, Qf.diag)
@@ -154,7 +154,7 @@ cone = TO.SecondOrderCone()
 u_bnd = 6.0
 connorm = NormConstraint(n, m, u_bnd, cone, :control)
 add_constraint!(cons, connorm, 1:N-1)
-prob = Problem(model, obj, xf, tf, x0=x0, constraints=cons, integration=RD.Euler)
+prob = Problem(model, obj, x0, tf, xf=xf, constraints=cons, integration=RD.Euler(model))
 solver = Altro.AugmentedLagrangianSolver(prob)
 conSet = TO.get_constraints(solver)
 alobj = TO.get_objective(solver)
@@ -187,8 +187,8 @@ end
 
 # test augmented Lagrangian value
 LA(x) = auglag(di_obj, di_soc, x, z, μ)
-cost(solver) ≈ LA(x0)
-!(cost(solver) ≈ di_obj(x0))   # make sure the AL cost isn't the same as the normal cost
+@test cost(solver) ≈ LA(x0)
+@test !(cost(solver) ≈ di_obj(x0))   # make sure the AL cost isn't the same as the normal cost
 
 λbar = z .- μ .* di_soc(x0)
 statuses = [TO.cone_status(TO.SecondOrderCone(), λ) for λ in λbar]
@@ -197,7 +197,7 @@ statuses = [TO.cone_status(TO.SecondOrderCone(), λ) for λ in λbar]
 # E = TO.QuadraticObjective(n,m,N)
 E = TO.CostExpansion(n,m,N)
 TO.cost_expansion!(E, alobj, Z0)
-grad = vcat([[e.q; e.r] for e in E]...)[1:end-m]
+grad = vcat([e.grad for e in E]...)[1:end-m]
 @test grad ≈ ForwardDiff.gradient(LA, x0)
 
 hess_blocks = vcat([[e.Q, e.R] for e in E]...)
@@ -248,8 +248,8 @@ dt = 0.1
 tf = (N-1)*dt
 x0 = SA_F64[10,10,100, 0,0,-10] 
 xf = @SVector zeros(n)
-Q = Diagonal(@SVector fill(1.0, n))
-R = Diagonal(@SVector fill(1e-1, m))
+Q = Diagonal(@SVector fill(1.0, n)) * dt
+R = Diagonal(@SVector fill(1e-1, m)) * dt
 Qf = (N-1)*Q * 100
 
 ##
@@ -261,10 +261,10 @@ connorm = NormConstraint(n, m, u_bnd, TO.SecondOrderCone(), :control)
 add_constraint!(cons, GoalConstraint(xf), N)
 add_constraint!(cons, connorm, 1:N-1)
 
-prob = Problem(model, obj, xf, tf, x0=x0, constraints=cons)
+prob = Problem(model, obj, x0, tf, xf=xf, constraints=cons)
 solver = ALTROSolver(prob, projected_newton=false, show_summary=false) 
 solve!(solver)
-@test iterations(solver) == 12
+@test iterations(solver) == 13 # 12
 
 @test abs(maximum(norm.(controls(solver))) - u_bnd) < 1e-6
 @test norm(states(solver)[end] - xf) < 1e-6

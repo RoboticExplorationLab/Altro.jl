@@ -1,14 +1,9 @@
+@testset "Escape Solve" begin
 using FileIO
 ##
 res = load(joinpath(@__DIR__, "escape_solve.jld2"))
 prob,opts = Problems.DubinsCar(:escape)
 solver = ALTROSolver(prob, opts, infeasible=true, R_inf=0.1)
-
-##
-res = load(joinpath(@__DIR__, "quad_solve.jld2"))
-prob,opts = Problems.Quadrotor(:zigzag)
-solver = ALTROSolver(prob,opts, projected_newton=false, 
-    infeasible=true, static_bp=false, constraint_tolerance=1e-4, verbose=2)
 
 ##
 ilqr = Altro.get_ilqr(solver)
@@ -19,19 +14,8 @@ let solver = ilqr
     TO.cost_expansion!(solver.quad_obj, solver.obj.obj, solver.Z, init=true, rezero=true)
     TO.error_expansion!(solver.E, solver.quad_obj, solver.model, solver.Z, solver.G)
 end
-model_inf = get_model(solver)
-model = model_inf.model
-jac = zeros(13,13+4)
-xn = zeros(13)
-Z = get_trajectory(solver)
-RD.jacobian!(RD.StaticReturn(), RD.ForwardAD(), model, jac, xn, prob.Z[1])
-jac[:,13:end]
 
-@test Matrix.(ilqr.G) ≈ res["G"]
-RD.dims(solver)
-ilqr.D[1].∇f[:,14:end]
-res["D"][1][:,14:end]
-(ilqr.D[1].∇f .≈ res["D"][1])[:,14:end]
+@test Matrix.(ilqr.G) ≈ fill(zeros(3,3), prob.N+1) 
 @test [D.∇f for D in ilqr.D] ≈ res["D"]
 @test [E.xx for E in ilqr.E] ≈ res["Q0"]
 @test [E.uu for E in ilqr.E] ≈ res["R0"]
@@ -81,3 +65,4 @@ hess = [Matrix.(cv.hess) for cv in conset.convals]
 J = cost(ilqr)
 J_new = Altro.forwardpass!(ilqr, ΔV, J)
 @test J_new ≈ res["J_new"]
+end

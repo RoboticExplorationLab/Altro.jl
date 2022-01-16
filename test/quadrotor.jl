@@ -6,7 +6,7 @@ res = load(joinpath(@__DIR__,"quadrotor.jld2"))
 
 # Set up problem and solver
 prob, opts = Problems.Quadrotor()
-times = TO.get_times(prob)
+times = TO.gettimes(prob)
 u0 = zeros(prob.model)[2]
 U = [u0 + 0.1*SA[sin(t), sin(t), -sin(t), -sin(t)] for t in times] 
 initial_controls!(prob, U)
@@ -14,7 +14,7 @@ rollout!(prob)
 states(prob)[end]
 
 solver = ALTROSolver(prob, opts, save_S=true)
-n,m,N = size(solver)
+n,m,N = RD.dims(solver)
 ilqr = Altro.get_ilqr(solver)
 Altro.initialize!(ilqr)
 X = states(ilqr)
@@ -23,14 +23,14 @@ U = controls(ilqr)
 @test U ≈ res["U"] atol=1e-6
 
 # State diff Jacobian
-TO.state_diff_jacobian!(ilqr.G, ilqr.model, ilqr.Z)
+TO.state_diff_jacobian!(ilqr.model, ilqr.G, ilqr.Z)
 G = ilqr.G
 @test G[1] != zeros(n,n)
 @test G[N] != zeros(n,n)
 @test G ≈ res["G"] atol=1e-6
 
 # Dynamics Jacobians
-TO.dynamics_expansion!(TO.integration(ilqr), ilqr.D, ilqr.model, ilqr.Z)
+TO.dynamics_expansion!(RD.StaticReturn(), RD.ForwardAD(), ilqr.model, ilqr.D, ilqr.Z)
 TO.error_expansion!(ilqr.D, ilqr.model, ilqr.G)
 A_ = [Matrix(D.A_) for D in ilqr.D]
 B_ = [Matrix(D.B_) for D in ilqr.D]
@@ -44,16 +44,16 @@ B = [Matrix(D.B) for D in ilqr.D]
 # Unconstrained Cost Expansion
 TO.cost_expansion!(ilqr.quad_obj, ilqr.obj.obj, ilqr.Z, init=true, rezero=true)
 TO.error_expansion!(ilqr.E, ilqr.quad_obj, ilqr.model, ilqr.Z, ilqr.G)
-hess0 = [[E.Q E.H'; E.H E.R] for E in ilqr.E]
-grad0 = [Vector([E.q; E.r]) for E in ilqr.E]
+hess0 = [Array(E.hess) for E in ilqr.E]
+grad0 = [Array(E.grad) for E in ilqr.E]
 @test hess0 ≈ res["hess0"] atol=1e-6
 @test grad0 ≈ res["grad0"] atol=1e-6
 
 # AL Cost Expansion
 TO.cost_expansion!(ilqr.quad_obj, ilqr.obj, ilqr.Z, init=true, rezero=true)
 TO.error_expansion!(ilqr.E, ilqr.quad_obj, ilqr.model, ilqr.Z, ilqr.G)
-hess = [[E.Q E.H'; E.H E.R] for E in ilqr.E]
-grad = [Vector([E.q; E.r]) for E in ilqr.E]
+hess = [Array(E.hess) for E in ilqr.E]
+grad = [Array(E.grad) for E in ilqr.E]
 @test hess ≈ res["hess"] atol=1e-6
 @test grad ≈ res["grad"] atol=1e-6
 

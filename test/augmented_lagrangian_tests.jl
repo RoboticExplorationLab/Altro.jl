@@ -5,8 +5,8 @@ model = RobotZoo.Cartpole()
 n,m = size(model)
 N = 11
 x,u = rand(model)
-dt = 0.1
-z = KnotPoint(x,u,dt)
+t,dt = 1.1,0.1
+z = KnotPoint(x,u,t,dt)
 
 
 #--- Generate some constraints
@@ -34,7 +34,8 @@ umax = +@SVector rand(m)
 bnd = BoundConstraint(n,m, x_min=xmin, x_max=xmax, u_min=umin, u_max=umax)
 
 # Dynamics Constraint
-dyn = TO.DynamicsConstraint(model, N)
+dmodel = RD.DiscretizedDynamics{RD.RK4}(model)
+dyn = TO.DynamicsConstraint(dmodel)
 
 ##--- Create the Constraint List
 cons = ConstraintList(n,m,N)
@@ -52,29 +53,29 @@ Altro.reset!(conset, SolverOptions())
 cval = conset.convals[1]
 @test cval isa Altro.ALConVal{typeof(cir)}
 @test cval.inds == cons.inds[1]
-@test size(cval.jac[1]) == (length(cir), n)
+@test size(cval.jac[1]) == (RD.output_dim(cir), n+m)
 @test size(cval.jac) == (N,1)
 cval.jac[1] .= 1
-@test cval.jac[1] == ones(length(cir), n)
+@test cval.jac[1] == ones(RD.output_dim(cir), n+m)
 @test cval.iserr == false
 
 cval = conset.convals[3]
 @test cval isa Altro.ALConVal{typeof(lin)}
 @test cval.inds == cons.inds[3]
-@test size(cval.jac[1]) == (length(lin), n+m)
+@test size(cval.jac[1]) == (RD.output_dim(lin), n+m)
 @test size(cval.jac) == (N-2,1)
 cval.jac[2] .= 1
 cval.jac[2][:,n+1:end] .= 2
-@test cval.jac[2] ≈ [ones(length(lin), n) 2*ones(length(lin),m)]
+@test cval.jac[2] ≈ [ones(RD.output_dim(lin), n) 2*ones(RD.output_dim(lin),m)]
 @test cval.iserr == false
 
 cval = conset.convals[end]
 @test cval isa Altro.ALConVal{typeof(dyn)}
 @test cval.inds == cons.inds[end]
 @test size(cval.jac[1]) == (n, n+m)
-@test size(cval.jac) == (N-1,2)
+@test size(cval.jac) == (N,2)
 @test cval.iserr == false
-@test cval.jac[3,2] == zeros(n,n)
+@test cval.jac[3,2] == zeros(n,n+m)
 
 # Test iteration
 @test all([con for con in conset] .=== [con for con in cons])
@@ -82,19 +83,21 @@ cval = conset.convals[end]
 
 ##--- Test evaluation
 Z = Traj([rand(n) for k = 1:N], [rand(m) for k = 1:N-1], fill(dt,N)) 
-TO.evaluate!(conset, Z)
-@test conset.errvals[end].vals[1] ≈ discrete_dynamics(RK3, model, Z[1]) - state(Z[2])
-@test conset.errvals[3].vals[2] ≈ TO.evaluate(lin, Z[3])
-@test conset.errvals[2].vals[1] ≈ TO.evaluate(goal, Z[end])
+RD.evaluate!(conset, Z)
+@test conset.errvals[end].vals[1] ≈ RD.discrete_dynamics(dmodel, Z[1]) - RD.state(Z[2])
+@test conset.errvals[3].vals[2] ≈ RD.evaluate(lin, Z[3])
+@test conset.errvals[2].vals[1] ≈ RD.evaluate(goal, Z[end])
 
-TO.jacobian!(conset, Z)
+RD.jacobian!(conset, Z)
 ∇c = TO.gen_jacobian(dyn)
-discrete_jacobian!(RK3, ∇c, model, Z[1])
+xn = zeros(n)
+RD.jacobian!(RD.StaticReturn(), RD.ForwardAD(), dmodel, ∇c, xn, Z[1])
 @test conset.errvals[end].jac[1] ≈ ∇c
-@test conset.errvals[end].jac[1,2] ≈ -I(n)
-@test conset.errvals[2].jac[1] ≈ I(n)
+@test conset.errvals[end].jac[1,2] ≈ [-I(n) zeros(n,m)]
+@test conset.errvals[2].jac[1] ≈ [I(n) zeros(n,m)]
 ∇c = TO.gen_jacobian(lin)
-TO.jacobian!(∇c, lin, Z[5])
+c = zeros(RD.output_dim(lin))
+RD.jacobian!(lin, ∇c, c, Z[5])
 @test conset.errvals[3].jac[5] ≈ ∇c ≈ A
 
 ##--- Stats functions
@@ -129,7 +132,7 @@ p = Inf
 
 # TODO: test penalty reset
 @test Altro.max_penalty(conset) ≈ 1.0
-conset.convals[3].μ[6] = @SVector fill(30, length(cons[3]))
+conset.convals[3].μ[6] = @SVector fill(30, RD.output_dim(cons[3]))
 @test Altro.max_penalty(conset) == 30
 Altro.reset_penalties!(conset)
 @test Altro.max_penalty(conset) ≈ 1.0
@@ -137,7 +140,7 @@ conset.convals[1].params.μ0 = 10
 Altro.reset_penalties!(conset)
 @test Altro.max_penalty(conset) ≈ 10
 
-TO.evaluate!(conset, Z)
+RD.evaluate!(conset, Z)
 conset.convals[2].vals[1][2] = 2*max_violation(conset)
 @test TO.findmax_violation(conset) == "GoalConstraint at time step 11 at index 2"
 conset.convals[4].vals[2][3] = 2*max_violation(conset)
@@ -153,20 +156,20 @@ Altro.dual_update!(conset)
 Altro.dual_update!(conset)
 @test conset.convals[1].λ[3] ≈ clamp.(λ0 .+ 10*conset.convals[1].vals[3], 0, Inf)
 Altro.reset_duals!(conset)
-@test conset.convals[1].λ[3] == zeros(length(cons[1]))
+@test conset.convals[1].λ[3] == zeros(RD.output_dim(cons[1]))
 
 Altro.reset_penalties!(conset)
 Altro.penalty_update!(conset)
 @test Altro.max_penalty(conset) ≈ 100
-@test conset.convals[2].μ[1] ≈ fill(10, length(cons[2]))
+@test conset.convals[2].μ[1] ≈ fill(10, RD.output_dim(cons[2]))
 
 #--- Active Set
 Altro.dual_update!(conset)
 Altro.update_active_set!(conset)
 @test conset.convals[2].active[1] == ones(n)
-@test conset.convals[end].active == [ones(n) for k = 1:N-1]
+@test conset.convals[end].active == [ones(n) for k = 1:N]
 for i = 1:length(conset.convals[1].active)
-    for j = 1:length(cons[1])
+    for j = 1:RD.output_dim(cons[1])
         if conset.convals[1].active[i][j]
             @test (conset.convals[1].vals[i][j] > 0) | (conset.convals[1].λ[i][j] > 0)
         else
@@ -188,9 +191,10 @@ TO.cost!(J, conset.convals[3])#, conset.λ[3], conset.μ[3], conset.active[3])
 
 E = TO.CostExpansion(n,m,N)
 TO.cost_expansion!(E, conset.convals[1])
-cx = conset.convals[1].jac[1]
+cx = view(conset.convals[1].jac[1], :, 1:n)
 Iμ = Diagonal(conset.convals[1].active[1] .* conset.convals[1].μ[1])
 g = Iμ * conset.convals[1].vals[1] .+ conset.convals[1].λ[1]
+E[1].Q
 @test E[1].Q ≈ cx'Iμ*cx + I(n)
 @test E[1].q ≈ cx'g
 
