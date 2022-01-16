@@ -5,9 +5,9 @@ function gen_con_inds(conSet::ConstraintList, structure=:by_knotpoint)
 	n,m = conSet.n, conSet.m
     N = length(conSet.p)
     numcon = length(conSet.constraints)
-    conLen = length.(conSet.constraints)
+    conLen = RD.output_dim.(conSet.constraints)
 
-    cons = [[@SVector ones(Int,length(con)) for j in eachindex(conSet.inds[i])]
+    cons = [[@SVector ones(Int,RD.output_dim(con)) for j in eachindex(conSet.inds[i])]
 		for (i,con) in enumerate(conSet.constraints)]
 
     # Dynamics and general constraints

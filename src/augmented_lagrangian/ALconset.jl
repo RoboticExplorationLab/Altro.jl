@@ -213,7 +213,7 @@ function max_penalty!(conSet::ALConstraintSet{T}) where T
 end
 
 function max_penalty!(μ_max::Vector{<:Real}, cval::ALConVal)
-    for i in eachindex(cval.μ)
+    for i in eachindex(μ_max)
         μ_max[i] = maximum(cval.μ[i])
     end
     return nothing

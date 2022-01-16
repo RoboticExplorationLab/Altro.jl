@@ -44,7 +44,7 @@ struct ALConVal{C,P,W,V,M} <: TO.AbstractConstraintValues{C}
 			throw(DimensionMismatch("size of jac[i] $(size(jac[1])) does not match the expected size of $((output_dim(con), n+m))"))
 		end
         params = ConstraintParams()
-        p = length(con)
+        p = RD.output_dim(con)
         P = length(vals)
 
         viol = deepcopy(vals)
@@ -82,7 +82,7 @@ function ALConVal(n::Int, m::Int, cval::ALConVal{C}) where C
 	# create a ConVal for the "raw" Jacobians, if needed
 	# 	otherwise return the same ConVal
 	if cval.iserr
-		p = length(cval.con)
+		p = RD.output_dim(cval.con)
 		# ws = TO.widths(cval.con, n, m)
 		# jac = [SizedMatrix{p,w}(zeros(p,w)) for k in cval.inds, w in ws]
         if C <: TO.StageConstraint

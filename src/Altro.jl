@@ -16,6 +16,7 @@ using LinearAlgebra
 using Logging
 using Statistics
 using TimerOutputs
+using ForwardDiff
 using FiniteDiff
 
 const TO = TrajectoryOptimization
@@ -45,7 +46,7 @@ using RobotDynamics:
     FunctionSignature, InPlace, StaticReturn, 
     DiffMethod, ForwardAD, FiniteDifference, UserDefined,
     AbstractKnotPoint, KnotPoint, StaticKnotPoint,
-    state_dim, control_dim, output_dim,
+    state_dim, control_dim, output_dim, dims,
     state, control
 
 

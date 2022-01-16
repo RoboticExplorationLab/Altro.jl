@@ -108,12 +108,16 @@ function iLQRSolver(
 end
 
 # Getters
-Base.size(solver::iLQRSolver{<:Any,<:Any,n,<:Any,m}) where {n,m} = n,m,solver.N
+RD.dims(solver::iLQRSolver{<:Any,<:Any,n,<:Any,m}) where {n,m} = n,m,solver.N
 @inline TO.get_trajectory(solver::iLQRSolver) = solver.Z
 @inline TO.get_objective(solver::iLQRSolver) = solver.obj
 @inline TO.get_model(solver::iLQRSolver) = solver.model
 @inline get_initial_state(solver::iLQRSolver) = solver.x0
 solvername(::Type{<:iLQRSolver}) = :iLQR
+
+using RobotDynamics: dims
+import Base: size
+@deprecate size(solver::iLQRSolver) dims(solver)
 
 log_level(::iLQRSolver) = InnerLoop
 

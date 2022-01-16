@@ -22,7 +22,7 @@ function solve!(solver::iLQRSolver)
 
     Z = solver.Z; Z̄ = solver.Z̄;
 
-    n,m,N = size(solver)
+    n,m,N = dims(solver)
     J = Inf
     _J = TO.get_J(solver.obj)
     J_prev = sum(_J)

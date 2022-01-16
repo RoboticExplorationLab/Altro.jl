@@ -59,7 +59,9 @@ function AugmentedLagrangianSolver(
 end
 
 # Getters
-Base.size(solver::AugmentedLagrangianSolver) = size(solver.solver_uncon)
+RD.dims(solver::AugmentedLagrangianSolver) = RD.dims(solver.solver_uncon)
+import Base.size
+@deprecate size(solver::AugmentedLagrangianSolver) dims(solver)
 @inline TO.cost(solver::AugmentedLagrangianSolver) = TO.cost(solver.solver_uncon)
 @inline TO.get_trajectory(solver::AugmentedLagrangianSolver) = get_trajectory(solver.solver_uncon)
 @inline TO.get_objective(solver::AugmentedLagrangianSolver) = get_objective(solver.solver_uncon)
