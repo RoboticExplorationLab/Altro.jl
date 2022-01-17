@@ -45,7 +45,7 @@ function AugmentedLagrangianSolver(
     # Build Augmented Lagrangian Objective
     alobj = ALObjective(prob)
     rollout!(prob)
-    prob_al = Problem(prob.model, alobj, ConstraintList(size(prob)...),
+    prob_al = Problem(prob.model, alobj, ConstraintList(dims(prob)...),
         prob.x0, prob.xf, prob.Z, prob.N, prob.t0, prob.tf)
 
     # Instantiate the unconstrained solver

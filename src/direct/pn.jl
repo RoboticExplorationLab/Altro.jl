@@ -17,7 +17,7 @@ struct ProblemInfo{T,N}
 end
 
 function ProblemInfo(prob::Problem)
-    n = size(prob)[1]
+    n = dims(prob)[1]
     ProblemInfo(prob.model, prob.obj, ALConstraintSet(prob), SVector{n}(prob.x0), SVector{n}(prob.xf))
 end
 
@@ -63,7 +63,7 @@ function ProjectedNewtonSolver(prob::Problem,
     Z = prob.Z  # grab trajectory before copy to keep associativity
     prob = copy(prob)  # don't modify original problem
 
-    n,m,N = size(prob)
+    n,m,N = dims(prob)
     NN = n*N + m*(N-1)
 
     # Add dynamics constraints

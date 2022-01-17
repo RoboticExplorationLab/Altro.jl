@@ -62,7 +62,7 @@ function iLQRSolver(
     set_options!(opts; kwarg_opts...)
 
     # Init solver results
-    n,m,N = size(prob)
+    n,m,N = dims(prob)
     n̄ = RobotDynamics.errstate_dim(prob.model)
 
     x0 = prob.x0
