@@ -85,11 +85,11 @@ end
 function step!(solver::iLQRSolver{<:Any,<:Any,L}, J, grad_only::Bool=false) where L
     to = solver.stats.to
     init = !solver.opts.reuse_jacobians  # force recalculation if not reusing
+    # sig = StaticReturn()
+    # diff = ForwardAD()
     @timeit_debug to "diff jac"     TO.state_diff_jacobian!(solver.model, solver.G, solver.Z)
     if !solver.opts.reuse_jacobians || !(L <: RD.LinearModel) || !grad_only
-        @timeit_debug to "dynamics jac" TO.dynamics_expansion!(
-            RD.StaticReturn(), RD.ForwardAD(), solver.model, solver.D, solver.Z
-        )
+        @timeit_debug to "dynamics jac" dynamics_jacobians!(solver)
     end
 	@timeit_debug to "err jac"      TO.error_expansion!(solver.D, solver.model, 
                                                         solver.G)
@@ -99,12 +99,25 @@ function step!(solver::iLQRSolver{<:Any,<:Any,L}, J, grad_only::Bool=false) wher
     @timeit_debug to "cost err"     TO.error_expansion!(solver.E, solver.quad_obj, 
                                                         solver.model, solver.Z, 
                                                         solver.G)
-	@timeit_debug to "backward pass" if solver.opts.static_bp
-    	ΔV = static_backwardpass!(solver, grad_only)
-	else
-		ΔV = backwardpass!(solver)
-    end
+    ΔV = backwardpass!(solver)
+    # return
+	# @timeit_debug to "backward pass" if solver.opts.static_bp
+    # 	ΔV = static_backwardpass!(solver, grad_only)::SVector{2,Float64}
+	# else
+	# 	ΔV = backwardpass!(solver)::SVector{2,Float64}
+    # end
     @timeit_debug to "forward pass" forwardpass!(solver, ΔV, J)
+end
+
+function dynamics_jacobians!(solver::iLQRSolver)
+    sig = solver.opts.dynamics_funsig
+    diff = solver.opts.dynamics_diffmethod
+    D = solver.D
+    Z = solver.Z
+    model = solver.model
+    for k in eachindex(D)
+        RobotDynamics.jacobian!(sig, diff, model, D[k].∇f, D[k].f, Z[k])
+    end
 end
 
 """

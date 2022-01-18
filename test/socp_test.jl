@@ -60,7 +60,7 @@ function DI_objective(Q,R,Qf,xf,dt)
         c += 0.5*xf'Q*xf
 	end
 	# g .*= dt
-	# h .*= dt
+	# h .*= dtk
 	# c *= dt
     append!(g, -Qf*xf)
     # append!(g, zeros(m))
@@ -130,8 +130,8 @@ dt = 0.1
 tf = (N-1)*dt
 x0 = @SVector fill(0., n) 
 xf = [(@SVector fill(1.,D)); (@SVector fill(0, D))]
-Q = Diagonal(@SVector fill(1.0, n))
-R = Diagonal(@SVector fill(1e-1, m))
+Q = Diagonal(@SVector fill(1.0, n)) * dt
+R = Diagonal(@SVector fill(1e-1, m)) * dt
 Qf = (N-1)*Q * 100
 qinds = DI_cones(D,N)
 u_bnd = 6.0
@@ -159,6 +159,7 @@ solver = Altro.AugmentedLagrangianSolver(prob)
 conSet = TO.get_constraints(solver)
 alobj = TO.get_objective(solver)
 
+
 ## Initialization 
 inds = LinearIndices(zeros(3D,N))
 xinds = [SVector{n}(z[1:n]) for z in eachcol(inds)]
@@ -175,7 +176,7 @@ Z0 = Traj(X0,U0,fill(dt,N))
 initial_trajectory!(solver, Z0)
 
 ## Test objective and soc constraints
-cost(obj, Z0) ≈ di_obj(x0)
+cost(alobj, Z0) ≈ di_obj(x0)
 conSet.convals[1].vals ≈ di_soc(x0)
 
 # copy multipliers to ALconSet
@@ -232,14 +233,15 @@ hess = cat(hess_blocks..., dims=(1,2))[1:end-m, 1:end-m]
 @test hess ≈ ForwardDiff.hessian(LA, x0)
 
 ## Solve it 
+prob = Problem(model, obj, zero(SVector{n}), tf, xf=xf, constraints=cons, integration=RD.Euler(model))
 solver = Altro.AugmentedLagrangianSolver(prob, verbose=0, show_summary=false, 
 	projected_newton=true, penalty_initial=100.0, penalty_scaling=50, 
 	cost_tolerance_intermediate=1e-1)
 initial_controls!(solver, [rand(D) for k = 1:N])
 solve!(solver)
-norm.(controls(solver))
-@test all(abs.(norm.(controls(solver))[[1,2,N-2,N-1]] .- u_bnd) .< 1e-6)
-
+Altro.print_summary(solver)
+norm.(controls(solver)) .- u_bnd
+@test all(abs.(norm.(controls(solver))[[1,2,N-2,N-1]] .- u_bnd) .< 1e-5)
 
 ## Rocket landing problem
 D,N = 3,101
@@ -266,6 +268,7 @@ solver = ALTROSolver(prob, projected_newton=false, show_summary=false)
 solve!(solver)
 @test iterations(solver) == 13 # 12
 
+norm.(controls(solver)) .- u_bnd
 @test abs(maximum(norm.(controls(solver))) - u_bnd) < 1e-6
 @test norm(states(solver)[end] - xf) < 1e-6
 

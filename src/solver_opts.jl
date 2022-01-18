@@ -84,6 +84,8 @@ end
     r_threshold::T = 1.1
 
     # General options
+    dynamics_funsig::RobotDynamics.FunctionSignature = StaticReturn()
+    dynamics_diffmethod::RobotDynamics.DiffMethod = ForwardAD()
     projected_newton::Bool = true
     reuse_jacobians::Bool = false
     iterations::Int = 1000   # max number of iterations

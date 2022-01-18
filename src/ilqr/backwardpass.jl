@@ -1,9 +1,18 @@
+using RobotDynamics: get_data
 
 """
 Calculates the optimal feedback gains K,d as well as the 2nd Order approximation of the
 Cost-to-Go, using a backward Riccati-style recursion. (non-allocating)
 """
-function backwardpass!(solver::iLQRSolver{L,O,Nx,Ne,Nu}, grad_only=false) where {L,O,Nx,Ne,Nu}
+@generated function backwardpass!(solver::iLQRSolver{L,O,Nx,Ne,Nu}, grad_only=false) where {L,O,Nx,Ne,Nu}
+	if Ne+Nu < 15
+		return :(static_backwardpass!(solver, grad_only))
+	else
+		return :(_backwardpass!(solver, grad_only))
+	end
+end
+
+function _backwardpass!(solver::iLQRSolver{L,O,Nx,Ne,Nu}, grad_only=false) where {L,O,Nx,Ne,Nu}
 	n,n̄,m = Nx,Ne,Nu
 	N = solver.N
 
@@ -20,8 +29,8 @@ function backwardpass!(solver::iLQRSolver{L,O,Nx,Ne,Nu}, grad_only=false) where 
 
     # Terminal cost-to-go
 	Q = solver.E[N]
-    S[N].Q .= Q.Q
-    S[N].q .= Q.q
+    get_data(S[N].Q) .= get_data(Q.Q)
+    get_data(S[N].q) .= get_data(Q.q)
 
     # Initialize expecte change in cost-to-go
     ΔV = @SVector zeros(2)
@@ -38,9 +47,9 @@ function backwardpass!(solver::iLQRSolver{L,O,Nx,Ne,Nu}, grad_only=false) where 
 		_calc_Q!(Q, cost_exp, S[k+1], fdx, fdu, S[k])
 
 		# Regularization
-		Quu_reg .= Q.R #+ solver.ρ[1]*I
-		Quu_reg .+= solver.ρ[1]*Diagonal(@SVector ones(m))
-		Qux_reg .= Q.H
+		get_data(Quu_reg) .= get_data(Q.R) #+ solver.ρ[1]*I
+		get_data(Quu_reg) .+= solver.ρ[1]*Diagonal(@SVector ones(m))
+		get_data(Qux_reg) .= get_data(Q.H)
 
 	    if solver.opts.bp_reg
 	        vals = eigvals(Hermitian(Quu_reg))
@@ -155,14 +164,14 @@ end
 
 function _bp_reg!(Quu_reg::SizedMatrix{m,m}, Qux_reg, Q, fdx, fdu, ρ, ver=:control) where {m}
     if ver == :state
-        Quu_reg .= Q.uu #+ solver.ρ[1]*fdu'fdu
+        Quu_reg.data .= get_data(Q.uu) #+ solver.ρ[1]*fdu'fdu
 		mul!(Quu_reg, Transpose(fdu), fdu, ρ, 1.0)
-        Qux_reg .= Q.ux #+ solver.ρ[1]*fdu'fdx
+        Qux_reg.data .= get_data(Q.ux) #+ solver.ρ[1]*fdu'fdx
 		mul!(Qux_reg, fdu', fdx, ρ, 1.0)
     elseif ver == :control
-        Quu_reg .= Q.uu #+ solver.ρ[1]*I
-		Quu_reg .+= ρ*Diagonal(@SVector ones(m))
-        Qux_reg .= Q.ux
+        Quu_reg.data .= get_data(Q.uu) #+ solver.ρ[1]*I
+		Quu_reg.data .+= ρ*Diagonal(@SVector ones(m))
+        Qux_reg.data .= get_data(Q.ux)
     end
 end
 
@@ -182,26 +191,26 @@ function _calc_Q!(Q, cost_exp, S1, fdx, fdu, Q_tmp)
 	# Compute the cost-to-go, stashing temporary variables in S[k]
 	# Qx =  Q.x[k] + fdx'S.x[k+1]
 	mul!(Q.q, Transpose(fdx), S1.q)
-	Q.q .+= cost_exp.q
+	get_data(Q.q) .+= get_data(cost_exp.q)
 
     # Qu =  Q.u[k] + fdu'S.x[k+1]
 	mul!(Q.r, Transpose(fdu), S1.q)
-	Q.r .+= cost_exp.r
+	get_data(Q.r) .+= get_data(cost_exp.r)
 
     # Qxx = Q.xx[k] + fdx'S.xx[k+1]*fdx
 	mul!(Q_tmp.Q, Transpose(fdx), S1.Q)
 	mul!(Q.Q, Q_tmp.Q, fdx)
-	Q.Q .+= cost_exp.Q
+	get_data(Q.Q) .+= get_data(cost_exp.Q)
 
     # Quu = Q.uu[k] + fdu'S.xx[k+1]*fdu
 	mul!(Q_tmp.H, Transpose(fdu), S1.Q)
 	mul!(Q.R, Q_tmp.H, fdu)
-	Q.R .+= cost_exp.R
+	get_data(Q.R) .+= get_data(cost_exp.R)
 
     # Qux = Q.ux[k] + fdu'S.xx[k+1]*fdx
 	mul!(Q_tmp.H, Transpose(fdu), S1.Q)
 	mul!(Q.H, Q_tmp.H, fdx)
-	Q.H .+= cost_exp.H
+	get_data(Q.H) .+= get_data(cost_exp.H)
 
 	return nothing
 end
@@ -224,12 +233,12 @@ end
 
 function _calc_gains!(K::SizedArray, d::SizedArray, Quu::SizedArray, Qux::SizedArray, Qu)
 	LAPACK.potrf!('U',Quu.data)
-	K .= Qux
-	d .= Qu
+	K.data .= Qux.data
+	d.data .= Qu.data
 	LAPACK.potrs!('U', Quu.data, K.data)
 	LAPACK.potrs!('U', Quu.data, d.data)
-	K .*= -1
-	d .*= -1
+	K.data .*= -1
+	d.data .*= -1
 	# return K,d
 end
 
@@ -248,22 +257,22 @@ end
 function _calc_ctg!(S, Q, K, d)
 	# S.x[k]  =  Qx + K[k]'*Quu*d[k] + K[k]'* Qu + Qux'd[k]
 	tmp1 = S.r
-	S.q .= Q.q
-	mul!(tmp1, Q.R, d)
-	mul!(S.q, Transpose(K), tmp1, 1.0, 1.0)
-	mul!(S.q, Transpose(K), Q.r, 1.0, 1.0)
-	mul!(S.q, Transpose(Q.H), d, 1.0, 1.0)
+	get_data(S.q) .= get_data(Q.q)
+	mul!(get_data(tmp1), get_data(Q.R), get_data(d))
+	mul!(get_data(S.q), Transpose(get_data(K)), get_data(tmp1), 1.0, 1.0)
+	mul!(get_data(S.q), Transpose(get_data(K)), get_data(Q.r), 1.0, 1.0)
+	mul!(get_data(S.q), Transpose(get_data(Q.H)), get_data(d), 1.0, 1.0)
 
 	# S.xx[k] = Qxx + K[k]'*Quu*K[k] + K[k]'*Qux + Qux'K[k]
 	tmp2 = S.H
-	S.Q .= Q.Q
-	mul!(tmp2, Q.R, K)
-	mul!(S.Q, Transpose(K), tmp2, 1.0, 1.0)
-	mul!(S.Q, Transpose(K), Q.H, 1.0, 1.0)
-	mul!(S.Q, Transpose(Q.H), K, 1.0, 1.0)
-	transpose!(Q.Q, S.Q)
-	S.Q .+= Q.Q
-	S.Q .*= 0.5
+	get_data(S.Q) .= get_data(Q.Q)
+	mul!(get_data(tmp2), get_data(Q.R), get_data(K))
+	mul!(get_data(S.Q), Transpose(get_data(K)), get_data(tmp2), 1.0, 1.0)
+	mul!(get_data(S.Q), Transpose(get_data(K)), get_data(Q.H), 1.0, 1.0)
+	mul!(get_data(S.Q), Transpose(get_data(Q.H)), get_data(K), 1.0, 1.0)
+	transpose!(get_data(Q.Q), get_data(S.Q))
+	get_data(S.Q) .+= get_data(Q.Q)
+	get_data(S.Q) .*= 0.5
 
     # calculated change is cost-to-go over entire trajectory
 	t1 = dot(d, Q.r)

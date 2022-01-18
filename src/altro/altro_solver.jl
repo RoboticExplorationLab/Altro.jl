@@ -145,7 +145,7 @@ end
 function InfeasibleProblem(prob::Problem{RK}, Z0::Traj, R_inf::Real) where RK
     @assert !isnan(sum(sum.(states(Z0))))
 
-    n,m,N = size(prob)  # original sizes
+    n,m,N = dims(prob)  # original sizes
 
     # Create model with augmented controls
     model_inf = InfeasibleModel(prob.model)

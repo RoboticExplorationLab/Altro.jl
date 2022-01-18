@@ -60,7 +60,7 @@ function TO.cost_expansion!(::Equality, conval, i)
     else
         mul!(conval.grad[i].data, Transpose(∇c.data), λbar)
         mul!(conval.hess[i].data, Transpose(∇c), ∇c)
-        conval.hess[i] .*= μ
+        get_data(conval.hess[i]) .*= μ
     end
     return
 end
@@ -81,7 +81,7 @@ function TO.cost_expansion!(::Inequality, conval, i)
         mul!(conval.grad[i].data, Transpose(∇c.data), λbar)
         mul!(conval.tmp, Iμ, ∇c)
         mul!(conval.hess[i].data, Transpose(∇c.data), conval.tmp)
-        conval.hess[i] .*= μ
+        get_data(conval.hess[i]) .*= μ
     end
     return
 end
@@ -142,11 +142,11 @@ function TO.cost_expansion!(cone::SecondOrderCone, conval, i)
     μ = μ[1]
     mul!(tmp, ∇proj, ∇c)
     mul!(conval.grad[i], Transpose(tmp), λp)
-    conval.grad[i] .*= -1                      # -∇cproj'λp
+    get_data(conval.grad[i]) .*= -1            # -∇cproj'λp
     mul!(conval.hess[i], Transpose(tmp), tmp)  # ∇cproj'∇cproj
     mul!(tmp, ∇²proj, ∇c)
     mul!(conval.hess[i], Transpose(∇c), tmp, 1.0, 1.0)
-    conval.hess[i] .*= μ
+    get_data(conval.hess[i]) .*= μ
 end
 
 # function copy_expansion!(E::TO.CostExpansion{n,m}, conval::ALConVal{<:TO.StateConstraint}) where {n,m}
@@ -170,8 +170,8 @@ end
 function copy_expansion!(E::TO.CostExpansion{n,m}, conval::ALConVal{<:TO.StageConstraint}) where {n,m}
     ix,iu = SVector{n}(1:n), SVector{m}((1:m) .+ n)
     for (i,k) in enumerate(conval.inds)
-        E[k].hess .+= conval.hess[i]
-        E[k].grad.+= conval.grad[i]
+        get_data(E[k].hess) .+= get_data(conval.hess[i])
+        get_data(E[k].grad) .+= get_data(conval.grad[i])
         # E[k].q .+= conval.grad[i].data[ix]
         # E[k].r .+= conval.grad[i].data[iu]
         # E[k].Q .+= conval.hess[i].data[ix,ix]
@@ -184,6 +184,7 @@ end
 function copy_expansion!(E::TO.CostExpansion{n,m}, conval::ALConVal{<:TO.CoupledConstraint}) where {n,m}
     ix,iu = SVector{n}(1:n), SVector{m}((1:m) .+ n)
     for (i,k) in enumerate(conval.inds)
+        error("This method isn't supported anymore.")
         E[k].q .+= conval.grad[i][ix]
         E[k].r .+= conval.grad[i][iu]
         E[k].Q .+= conval.hess[i][ix,ix]

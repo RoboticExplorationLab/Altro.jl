@@ -49,6 +49,7 @@ struct iLQRSolver{L,O,Nx,Ne,Nu,V,T} <: UnconstrainedSolver{T}
     dρ::Vector{T}  # Regularization rate of change
 
     grad::Vector{T}  # Gradient
+    xdot::Vector{T}
 
     logger::SolverLogger
 end
@@ -92,6 +93,7 @@ function iLQRSolver(
     dρ = zeros(T,1)
 
     grad = zeros(T,N-1)
+    xdot = zeros(T,n)
 
     logger = SolverLogging.default_logger(opts.verbose >= 2)
 	L = typeof(prob.model)
@@ -101,7 +103,7 @@ function iLQRSolver(
         prob.model, prob.obj, x0, xf,
 		prob.tf, N, opts, stats,
         Z, Z̄, K, d, D, G, quad_exp, S, E, Q, Qprev, Q_tmp, Quu_reg, Qux_reg, ρ, dρ, 
-        grad, logger)
+        grad, xdot, logger)
 
     reset!(solver)
     return solver

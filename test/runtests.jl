@@ -7,6 +7,7 @@ using RobotZoo
 using StaticArrays, LinearAlgebra
 using JLD2
 using FileIO
+using ForwardDiff
 using FiniteDiff
 using Random
 const RD = RobotDynamics
@@ -21,9 +22,9 @@ Random.seed!(1)
 # end
 
 @testset "Benchmark Problems" begin
-    if !haskey(ENV, "CI")
-        include("benchmark_problems.jl")
-    end
+    # if !haskey(ENV, "CI")
+    #     include("benchmark_problems.jl")
+    # end
     include("nl_cartpole.jl")
     include("cartpole.jl")
     include("quadrotor.jl")
@@ -32,9 +33,9 @@ Random.seed!(1)
 end
 
 @testset "Solvers" begin
-    # include("constructors.jl")
-    # include("augmented_lagrangian_tests.jl")
-    # include("solve_tests.jl")
+    include("constructors.jl")
+    include("augmented_lagrangian_tests.jl")
+    include("solve_tests.jl")
     include("socp_test.jl")
 end
 
