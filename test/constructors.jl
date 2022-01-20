@@ -37,4 +37,4 @@ VERSION > v"1.5" && @test b0.allocs == 0  # 4700 on v1.5
 VERSION > v"1.5" && @test b1.allocs == 0  # 4700 on v1.5
 t0 = minimum(b0).time 
 t1 = minimum(b1).time
-@test abs(t0-t1)/t1 < 0.1
+@test abs(t0-t1)/t1 < 0.2

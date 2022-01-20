@@ -80,6 +80,11 @@ function terminate!(solver::AbstractSolver)
     # Delete extra stats entries, only if terminal solver
     trim!(stats(solver), solvername(solver))
 
+    # if is_parentsolver(solver)
+    #     # Reset global solver
+    #     Logging.global_logger(ConsoleLogger())
+    # end
+
     # Print solve summary
     if solver.opts.show_summary && is_parentsolver(solver)
         print_summary(solver)
