@@ -145,14 +145,13 @@ function forwardpass!(solver::iLQRSolver, ΔV, J_prev)
         # Check that maximum number of line search decrements has not occured
         if iter > solver.opts.iterations_linesearch
             for k in eachindex(Z)
-                Z̄[k].z = Z[k].z
+                Z̄[k].z = copy(Z[k].z)
             end
             TO.cost!(obj, Z̄)
             J = sum(_J)
 
             z = 0
             α = 0.0
-            expected = 0.0
             @logmsg InnerLoop "Max Line Search Iterations."
             solver.stats.ls_failed = true
 
@@ -180,6 +179,19 @@ function forwardpass!(solver::iLQRSolver, ΔV, J_prev)
         J = sum(_J)
 
         expected::Float64 = -α*(ΔV[1] + α*ΔV[2])
+        if 0.0 < expected < solver.opts.expected_decrease_tolerance 
+            α = 0.0
+            z = Inf 
+            for k in eachindex(Z)
+                Z̄[k].z = copy(Z[k].z)
+            end
+            TO.cost!(obj, Z̄)
+            J = sum(_J)
+            @logmsg InnerLoop "Expected cost decrease under tolerance. Skipping step"
+            regularization_update!(solver, :increase)
+            solver.ρ[1] += solver.opts.bp_reg_fp
+            break
+        end
         if expected > 0.0
             z::Float64  = (J_prev - J)/expected
         else
@@ -192,6 +204,7 @@ function forwardpass!(solver::iLQRSolver, ΔV, J_prev)
 
     if J > J_prev
         # error("Error: Cost increased during Forward Pass")
+        # println("Got a cost increase of $(J - J_prev)")
         solver.stats.status = COST_INCREASE
         return NaN
     end

@@ -38,6 +38,7 @@ end
     gradient_tolerance_intermediate::T = 1.0
 
     # iLQR
+    expected_decrease_tolerance::Float64 = 1e-10
     iterations_inner::Int = 300
     dJ_counter_limit::Int = 10
     square_root::Bool = false
