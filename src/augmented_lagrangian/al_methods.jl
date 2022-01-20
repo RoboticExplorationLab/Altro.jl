@@ -31,6 +31,10 @@ function solve!(solver::AugmentedLagrangianSolver{T,S}) where {T,S}
 
         # Check for convergence before doing the outer loop udpate
         converged = evaluate_convergence(solver)
+
+        if is_verbose(solver) 
+            print_level(OuterLoop, global_logger())
+        end
         if converged
             break
         end
@@ -90,15 +94,11 @@ function record_iteration!(solver::AugmentedLagrangianSolver{T,S}, J::T, c_max::
     # Just update constraint violation and max penalty
     record_iteration!(solver.stats, c_max=c_max, penalty_max=max_penalty, is_outer=true)
     j = solver.stats.iterations_outer::Int
-
-	if is_verbose(solver) 
-        @logmsg OuterLoop :iter value=j
-        @logmsg OuterLoop :total value=solver.stats.iterations
-        @logmsg OuterLoop :cost value=J
-        @logmsg OuterLoop :c_max value=c_max
-        @logmsg OuterLoop :penalty value=max_penalty
-		print_level(OuterLoop, global_logger())
-	end
+    @logmsg OuterLoop :iter value=j
+    @logmsg OuterLoop :total value=solver.stats.iterations
+    @logmsg OuterLoop :cost value=J
+    @logmsg OuterLoop :c_max value=c_max
+    @logmsg OuterLoop :penalty value=max_penalty
 end
 
 function set_tolerances!(solver::AugmentedLagrangianSolver{T},
@@ -119,8 +119,25 @@ end
 
 function evaluate_convergence(solver::AugmentedLagrangianSolver)
 	i = solver.stats.iterations
-    solver.stats.c_max[i] < solver.opts.constraint_tolerance ||
-		solver.stats.penalty_max[i] >= solver.opts.penalty_max
+    if solver.stats.c_max[i] < solver.opts.constraint_tolerance
+        @logmsg OuterLoop "Constraint tolerance satisfied"
+        return true
+    end
+    if solver.stats.penalty_max[i] >= solver.opts.penalty_max
+        @logmsg OuterLoop "Reached max penalty"
+        return true
+    end
+    if i >= solver.opts.iterations 
+        @logmsg OuterLoop "Reached max number of iterations"
+        solver.stats.status = MAX_ITERATIONS
+        return true 
+    end
+    if solver.stats.iterations_outer > solver.opts.iterations_outer
+        @logmsg OuterLoop "Reached max number of outer iterations"
+        solver.stats.status = MAX_ITERATIONS_OUTER
+        return true 
+    end
+    return false
 end
 
 "General Dual Update"
