@@ -33,6 +33,7 @@ Random.seed!(1)
 end
 
 @testset "Solvers" begin
+    include("ilqr_test.jl")
     include("constructors.jl")
     include("augmented_lagrangian_tests.jl")
     include("solve_tests.jl")
