@@ -234,10 +234,8 @@ end
 
 #--- Rollout ---#
 function rollout!(solver::AbstractSolver)
-    Z = get_trajectory(solver)
-    model = get_model(solver)
-    x0 = get_initial_state(solver)
-    RD.rollout!(StaticReturn(), model, Z, x0)
+    ilqr = get_ilqr(solver)
+    rollout!(ilqr)
 end
 
 TO.states(solver::AbstractSolver) = [state(z) for z in get_trajectory(solver)]

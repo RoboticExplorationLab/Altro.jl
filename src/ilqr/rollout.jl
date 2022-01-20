@@ -44,8 +44,18 @@ end
 "Simulate the forward the dynamics open-loop"
 function rollout!(solver::iLQRSolver)
     # TODO: Take the signature from the solver options
-    rollout!(RD.StaticReturn(), solver.model, solver.Z, SVector(solver.x0))
-    for k in eachindex(solver.Z)
-        solver.Z̄[k].t = solver.Z[k].t
+    # rollout!(RD.StaticReturn(), solver.model, solver.Z, SVector(solver.x0))
+    Z = solver.Z
+    xdot = solver.xdot
+    RD.setstate!(Z[1], solver.x0)
+    for k in 1:solver.N-1 
+        if solver.opts.dynamics_funsig == StaticReturn()
+            RD.propagate_dynamics!(StaticReturn(), solver.model, Z[k+1], Z[k])
+            # Z[k+1].z = [RD.discrete_dynamics(solver.model, Z[k]);
+            #     control(Z[k+1])]
+        else
+            RD.discrete_dynamics!(solver.model, xdot, Z[k])
+            RD.setstate!(Z[k+1], xdot)
+        end
     end
 end

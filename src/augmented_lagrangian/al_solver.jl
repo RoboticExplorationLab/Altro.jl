@@ -44,12 +44,12 @@ function AugmentedLagrangianSolver(
 
     # Build Augmented Lagrangian Objective
     alobj = ALObjective(prob)
-    rollout!(prob)
     prob_al = Problem(prob.model, alobj, ConstraintList(dims(prob)...),
         prob.x0, prob.xf, prob.Z, prob.N, prob.t0, prob.tf)
 
     # Instantiate the unconstrained solver
     solver_uncon = solver_uncon(prob_al, opts, stats)
+    rollout!(solver_uncon)
 
     # Build solver
     solver = AugmentedLagrangianSolver(opts, stats, solver_uncon)
@@ -68,6 +68,7 @@ import Base.size
 @inline TO.get_model(solver::AugmentedLagrangianSolver) = get_model(solver.solver_uncon)
 @inline get_initial_state(solver::AugmentedLagrangianSolver) = get_initial_state(solver.solver_uncon)
 solvername(::Type{<:AugmentedLagrangianSolver}) = :AugmentedLagrangian
+get_ilqr(solver::AugmentedLagrangianSolver) = solver.solver_uncon
 
 function TO.get_constraints(solver::AugmentedLagrangianSolver{T}) where T
     obj = get_objective(solver)::ALObjective{T}
