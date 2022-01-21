@@ -89,6 +89,7 @@ end
     dynamics_diffmethod::RobotDynamics.DiffMethod = ForwardAD()
     projected_newton::Bool = true
     reuse_jacobians::Bool = false
+    trim_stats::Bool = true  # disable if you want to call methods after solve that add to history
     iterations::Int = 1000   # max number of iterations
     show_summary::Bool = true 
     verbose::Int = 0 

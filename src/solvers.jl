@@ -78,7 +78,10 @@ function terminate!(solver::AbstractSolver)
     stat.tsolve = (time_ns() - stat.tstart)*1e-6  # in ms
 
     # Delete extra stats entries, only if terminal solver
-    trim!(stats(solver), solvername(solver))
+    opts = options(solver)
+    if opts.trim_stats
+        trim!(stats(solver), solvername(solver))
+    end
 
     # if is_parentsolver(solver)
     #     # Reset global solver
