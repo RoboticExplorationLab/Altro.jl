@@ -209,14 +209,14 @@ function copy_expansion!(H, g, E, xinds, uinds)
     N = length(E)
 
     for k = 1:N-1
-        H[xinds[k],xinds[k]] .= E[k].Q
-        H[uinds[k],uinds[k]] .= E[k].R
-        H[uinds[k],xinds[k]] .= E[k].H
-        g[xinds[k]] .= E[k].q
-        g[uinds[k]] .= E[k].r
+        H[xinds[k],xinds[k]] .= get_data(E[k].Q)
+        H[uinds[k],uinds[k]] .= get_data(E[k].R)
+        H[uinds[k],xinds[k]] .= get_data(E[k].H)
+        g[xinds[k]] .= get_data(E[k].q)
+        g[uinds[k]] .= get_data(E[k].r)
     end
-    H[xinds[N],xinds[N]] .= E[N].Q
-    g[xinds[N]] .= E[N].q
+    H[xinds[N],xinds[N]] .= get_data(E[N].Q)
+    g[xinds[N]] .= get_data(E[N].q)
     return nothing
 end
 

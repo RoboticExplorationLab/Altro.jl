@@ -35,15 +35,15 @@ obj = LQRObjective(Q, R, Qf, xf, N)
 prob = Problem(model, obj, x0, tf, xf = xf, constraints=cons)
 
 # Initialize the solver
-t = @elapsed altrosolver = ALTROSolver(prob)
+t = @elapsed altrosolver = ALTROSolver(prob, dynamics_funsig=RD.InPlace())
 @test t < 60  # it should finish initializing the solver in under a minute (usually about 8 seconds on a desktop)
 t
 
 ##
 altrosolver.opts.verbose = 2
 altrosolver.opts.static_bp = false
-altrosolver.opts.dynamics_funsig = RD.InPlace()
 altrosolver.opts.projected_newton = false
+altrosolver.opts.trim_stats = false
 
 solver = altrosolver.solver_al
 conset = get_constraints(solver)
@@ -57,3 +57,9 @@ t_step = @elapsed Altro.step!(ilqr, J_prev)
 ##
 t_solve = @elapsed solve!(altrosolver)
 @test t_solve < 120  # should be close to 12 seconds
+t_solve
+
+## Projected Newton
+pn = altrosolver.solver_pn
+t_pn = @elapsed solve!(pn)
+@test t_pn < 10*17  # should be about 17 seconds

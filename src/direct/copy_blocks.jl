@@ -57,9 +57,10 @@ function copy_jacobian!(D, con::ALConVal{<:TO.StageConstraint}, cinds, xinds, ui
     for (i,k) in enumerate(con.inds)
         zind = [xinds[k]; uinds[k]]
         if uinds[k][1] > size(D,2)  # handle the last time step
-            D[cinds[i], xinds[k]] .= con.jac[i][:,xinds[1]]
+            jac = view(get_data(con.jac[i]), :, xinds[1])
+            D[cinds[i], xinds[k]] .= jac 
         else
-            D[cinds[i], zind] .= con.jac[i]
+            D[cinds[i], zind] .= get_data(con.jac[i])
         end
     end
 end
@@ -87,11 +88,12 @@ function copy_jacobian!(D, con::TO.AbstractConstraintValues{<:DynamicsConstraint
 		cinds, xinds, uinds)
 	N = length(xinds)
     for (i,k) in enumerate(con.inds)
-        zind = [xinds[k]; uinds[k]; xinds[k+1]]
+        # zind = [xinds[k]; uinds[k]; xinds[k+1]]
 		zind1 = [xinds[k]; uinds[k]]
-		zind2 = [xinds[k+1]; uinds[k+1]]
-        D[cinds[i], zind1] .= con.jac[i,1]
-		D[cinds[i], xinds[k+1]] .= con.jac[i,2][:,xinds[1]]
+		# zind2 = [xinds[k+1]; uinds[k+1]]
+        D[cinds[i], zind1] .= get_data(con.jac[i,1])
+        jac2 = view(get_data(con.jac[i,2]), :, xinds[1])
+		D[cinds[i], xinds[k+1]] .= jac2 
 		# D[cinds[i], zind2] .= con.jac[i,2]
     end
 end
@@ -113,7 +115,7 @@ end
 function copy_jacobian!(d::AbstractVector{<:Real}, con::TO.AbstractConstraintValues, linds)
 	for (j,k) in enumerate(con.inds)
 		inds = linds[j]
-		d[inds] = con.jac[j]
+		d[inds] = get_data(con.jac[j])
 	end
 end
 
