@@ -5,7 +5,7 @@ Calculates the optimal feedback gains K,d as well as the 2nd Order approximation
 Cost-to-Go, using a backward Riccati-style recursion. (non-allocating)
 """
 @generated function backwardpass!(solver::iLQRSolver{L,O,Nx,Ne,Nu}, grad_only=false) where {L,O,Nx,Ne,Nu}
-	if Ne+Nu < 15
+	if Ne+Nu < 15 
 		return :(static_backwardpass!(solver, grad_only))
 	else
 		return :(_backwardpass!(solver, grad_only))
@@ -41,10 +41,16 @@ function _backwardpass!(solver::iLQRSolver{L,O,Nx,Ne,Nu}, grad_only=false) where
 		# Get error state expanions
 		fdx,fdu = TO.error_expansion(solver.D[k], model)
 		cost_exp = solver.E[k]
-		Q = solver.Q_tmp 
+		Q = solver.Q_tmp
 
 		# Calculate action-value expansion
 		_calc_Q!(Q, cost_exp, S[k+1], fdx, fdu, S[k])
+
+		solver.Q[k].xx .= Q.xx
+		solver.Q[k].ux .= Q.ux
+		solver.Q[k].uu .= Q.uu
+		solver.Q[k].x .= Q.x
+		solver.Q[k].u .= Q.u
 
 		# Regularization
 		get_data(Quu_reg) .= get_data(Q.R) #+ solver.ρ[1]*I

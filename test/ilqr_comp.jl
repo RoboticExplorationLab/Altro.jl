@@ -1,5 +1,10 @@
 using Altro
 using TrajectoryOptimization
+using RobotDynamics
+using BenchmarkTools
+using Test
+using LinearAlgebra
+const RD = RobotDynamics
 const TO = TrajectoryOptimization
 
 prob,opts = Problems.Pendulum()
@@ -35,4 +40,16 @@ Altro.error_expansion!(s2.model, s2.Eerr, s2.Efull, s2.G, s2.Z)
 for k = 1:prob.N
     @test s1.E[k].hess ≈ s2.Eerr[k].hess
     @test s1.E[k].grad ≈ s2.Eerr[k].grad
+end
+
+## Backwardpass
+s1.ρ[1]
+s2.reg.ρ
+DV1 = Altro.backwardpass!(s1)
+DV2 = Altro.backwardpass!(s2)
+@test s1.K ≈ s2.K
+@test s1.d ≈ s2.d
+for k = 1:N
+    @test s1.S[k].xx ≈ s2.S[k].xx
+    @test s1.S[k].x ≈ s2.S[k].x
 end

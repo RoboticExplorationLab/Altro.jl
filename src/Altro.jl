@@ -69,6 +69,7 @@ export
 export
     Problems
 
+const ColonSlice = Base.Slice{Base.OneTo{Int}}
 
 include("utils.jl")
 include("infeasible_model.jl")
@@ -79,6 +80,7 @@ include("ilqr/ilqr.jl")
 include("ilqr/cost_expansion.jl")
 include("ilqr/dynamics_expansion.jl")
 include("ilqr/ilqr2.jl")
+include("ilqr/backwardpass2.jl")
 include("ilqr/ilqr_solve.jl")
 include("ilqr/backwardpass.jl")
 include("ilqr/rollout.jl")

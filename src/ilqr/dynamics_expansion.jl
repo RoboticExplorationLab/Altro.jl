@@ -15,11 +15,11 @@ the control dimension.
 struct DynamicsExpansion2{T}
     f::Vector{T}   # (Nx,)
     ∇f::Matrix{T}  # (Nx, Nx+Nu)
-    A::SubArray{T,2,Matrix{T},Tuple{Base.Slice{Base.OneTo{Int}}, UnitRange{Int}}, true}
-    B::SubArray{T,2,Matrix{T},Tuple{Base.Slice{Base.OneTo{Int}}, UnitRange{Int}}, true}
+    A::SubArray{T,2,Matrix{T},Tuple{ColonSlice, UnitRange{Int}}, true}
+    B::SubArray{T,2,Matrix{T},Tuple{ColonSlice, UnitRange{Int}}, true}
     ∇e::Matrix{T}
-    fx::SubArray{T,2,Matrix{T},Tuple{Base.Slice{Base.OneTo{Int}}, UnitRange{Int}}, true}
-    fu::SubArray{T,2,Matrix{T},Tuple{Base.Slice{Base.OneTo{Int}}, UnitRange{Int}}, true}
+    fx::SubArray{T,2,Matrix{T},Tuple{ColonSlice, UnitRange{Int}}, true}
+    fu::SubArray{T,2,Matrix{T},Tuple{ColonSlice, UnitRange{Int}}, true}
     tmp::Matrix{T}  # (Nx,Ne)
     function DynamicsExpansion2{T}(n, e, m; errstate::Bool=n!=e) where T
         f = zeros(T,n)
