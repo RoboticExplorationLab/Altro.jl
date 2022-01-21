@@ -45,45 +45,59 @@ function TO.cost_expansion!(E, conval)
     copy_expansion!(E, conval)
 end
 
-function TO.cost_expansion!(::Equality, conval, i)
-    c = SVector(conval.vals[i])
-    ∇c = conval.jac[i]
-    λ = SVector(conval.λ[i])
-    μ = conval.μ[i][1]
-    
-    λbar = λ + μ * c
-    conval.const_hess[i] = true
-    if prod(size(∇c)) < 24*24
-        ∇c = SMatrix(∇c)
-        conval.grad[i] .= ∇c'λbar
-        conval.hess[i] .= μ*∇c'∇c
+@generated function TO.cost_expansion!(::Equality, conval::ALConVal{<:Any,P,W}, i) where {P,W}
+    if W < 20
+        linalg = quote
+            ∇c = SMatrix(∇c)
+            conval.grad[i] .= ∇c'λbar
+            conval.hess[i] .= μ*∇c'∇c
+        end
     else
-        mul!(conval.grad[i].data, Transpose(∇c.data), λbar)
-        mul!(conval.hess[i].data, Transpose(∇c), ∇c)
-        get_data(conval.hess[i]) .*= μ
+        linalg = quote
+            mul!(conval.grad[i].data, Transpose(∇c.data), λbar)
+            mul!(conval.hess[i].data, Transpose(∇c), ∇c)
+            get_data(conval.hess[i]) .*= μ
+        end
     end
-    return
+    quote
+        c = SVector(conval.vals[i])
+        ∇c = conval.jac[i]
+        λ = SVector(conval.λ[i])
+        μ = conval.μ[i][1]
+        
+        λbar = λ + μ * c
+        conval.const_hess[i] = true
+        $linalg
+        return
+    end
 end
 
-function TO.cost_expansion!(::Inequality, conval, i)
-    c = SVector(conval.vals[i])
-    ∇c = conval.jac[i]
-    λ = SVector(conval.λ[i])
-    μ = conval.μ[i][1]
-    a = @. (c >= 0) | (λ > 0)
-    λbar = λ + μ * (a .* c)
-    Iμ = Diagonal(a)
-    if prod(∇c) < 24*24
-        ∇c = SMatrix(∇c)
-        conval.grad[i] .= ∇c'λbar
-        conval.hess[i] .= μ*∇c'Iμ*∇c
+@generated function TO.cost_expansion!(::Inequality, conval::ALConVal{<:Any,P,W}, i) where {P,W}
+    if W < 20
+        linalg = quote
+            ∇c = SMatrix(∇c)
+            conval.grad[i] .= ∇c'λbar
+            conval.hess[i] .= μ*∇c'Iμ*∇c
+        end
     else
-        mul!(conval.grad[i].data, Transpose(∇c.data), λbar)
-        mul!(conval.tmp, Iμ, ∇c)
-        mul!(conval.hess[i].data, Transpose(∇c.data), conval.tmp)
-        get_data(conval.hess[i]) .*= μ
+        linalg = quote
+            mul!(conval.grad[i].data, Transpose(∇c.data), λbar)
+            mul!(conval.tmp, Iμ, ∇c)
+            mul!(conval.hess[i].data, Transpose(∇c.data), conval.tmp)
+            get_data(conval.hess[i]) .*= μ
+        end
     end
-    return
+    quote
+        c = SVector(conval.vals[i])
+        ∇c = conval.jac[i]
+        λ = SVector(conval.λ[i])
+        μ = conval.μ[i][1]
+        a = @. (c >= 0) | (λ > 0)
+        λbar = λ + μ * (a .* c)
+        Iμ = Diagonal(a)
+        $linalg
+        return
+    end
 end
 
 # function TO.cost_expansion!(::Inequality, conval, i)

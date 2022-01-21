@@ -13,18 +13,18 @@ function rollout!(solver::iLQRSolver{T,Q,n}, α) where {T,Q,n}
     for k = 1:solver.N-1
         δx .= RobotDynamics.state_diff(solver.model, state(Z̄[k]), state(Z[k]))
 		δu .= d[k] .* α
-		mul!(δu, K[k], δx, 1.0, 1.0)
+		mul!(get_data(δu), get_data(K[k]), get_data(δx), 1.0, 1.0)
         ū = control(Z[k]) + δu
         RobotDynamics.setcontrol!(Z̄[k], ū)
 
         # Z̄[k].z = [state(Z̄[k]); control(Z[k]) + δu]
-        if solver.opts.dynamics_funsig == StaticReturn()
-            Z̄[k+1].z = [RD.discrete_dynamics(solver.model, Z̄[k]);
-                control(Z[k+1])]
-        else
+        # if solver.opts.dynamics_funsig == StaticReturn()
+        #     Z̄[k+1].z = [RD.discrete_dynamics(solver.model, Z̄[k]);
+        #         control(Z[k+1])]
+        # else
             RD.discrete_dynamics!(solver.model, xdot, Z̄[k])
             RD.setstate!(Z̄[k+1], xdot)
-        end
+        # end
 
         max_x = norm(state(Z̄[k+1]),Inf)
         if max_x > solver.opts.max_state_value || isnan(max_x)

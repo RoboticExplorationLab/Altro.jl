@@ -190,26 +190,26 @@ end
 function _calc_Q!(Q, cost_exp, S1, fdx, fdu, Q_tmp)
 	# Compute the cost-to-go, stashing temporary variables in S[k]
 	# Qx =  Q.x[k] + fdx'S.x[k+1]
-	mul!(Q.q, Transpose(fdx), S1.q)
+	mul!(get_data(Q.q), Transpose(fdx), get_data(S1.q))
 	get_data(Q.q) .+= get_data(cost_exp.q)
 
     # Qu =  Q.u[k] + fdu'S.x[k+1]
-	mul!(Q.r, Transpose(fdu), S1.q)
+	mul!(get_data(Q.r), Transpose(fdu), get_data(S1.q))
 	get_data(Q.r) .+= get_data(cost_exp.r)
 
     # Qxx = Q.xx[k] + fdx'S.xx[k+1]*fdx
-	mul!(Q_tmp.Q, Transpose(fdx), S1.Q)
-	mul!(Q.Q, Q_tmp.Q, fdx)
+	mul!(get_data(Q_tmp.Q), Transpose(get_data(fdx)), get_data(S1.Q))
+	mul!(get_data(Q.Q), get_data(Q_tmp.Q), get_data(fdx))
 	get_data(Q.Q) .+= get_data(cost_exp.Q)
 
     # Quu = Q.uu[k] + fdu'S.xx[k+1]*fdu
-	mul!(Q_tmp.H, Transpose(fdu), S1.Q)
-	mul!(Q.R, Q_tmp.H, fdu)
+	mul!(get_data(Q_tmp.H), Transpose(get_data(fdu)), get_data(S1.Q))
+	mul!(get_data(Q.R), get_data(Q_tmp.H), get_data(fdu))
 	get_data(Q.R) .+= get_data(cost_exp.R)
 
     # Qux = Q.ux[k] + fdu'S.xx[k+1]*fdx
-	mul!(Q_tmp.H, Transpose(fdu), S1.Q)
-	mul!(Q.H, Q_tmp.H, fdx)
+	mul!(get_data(Q_tmp.H), Transpose(get_data(fdu)), get_data(S1.Q))
+	mul!(get_data(Q.H), get_data(Q_tmp.H), get_data(fdx))
 	get_data(Q.H) .+= get_data(cost_exp.H)
 
 	return nothing
