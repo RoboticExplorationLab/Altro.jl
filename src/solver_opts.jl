@@ -44,6 +44,7 @@ end
     square_root::Bool = false
     line_search_lower_bound::T = 1e-8
     line_search_upper_bound::T = 10.0
+    line_search_decrease_factor::T = 0.5
     iterations_linesearch::Int = 20
     max_cost_value::T = 1.0e8
     max_state_value::T = 1.0e8

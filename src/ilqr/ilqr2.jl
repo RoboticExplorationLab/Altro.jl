@@ -16,6 +16,8 @@ struct iLQRSolver2{L,O,Nx,Ne,Nu,T} <: UnconstrainedSolver{T}
 
     Z::Traj{Nx,Nu,T,KnotPoint{Nx,Nu,Vector{T},T}}
     Z̄::Traj{Nx,Nu,T,KnotPoint{Nx,Nu,Vector{T},T}}
+    dx::Vector{Vector{T}}
+    du::Vector{Vector{T}}
 
     gains::Vector{Matrix{T}}  # N-1 × (Nu,Ne+1)
     K::Vector{SubArray{T,2,Matrix{T},Tuple{ColonSlice, UnitRange{Int}}, true}}  # N-1 × (Nu,Ne)
@@ -59,6 +61,9 @@ function iLQRSolver2(
         RD.KnotPoint{Nx,Nu}(Vector(RD.getdata(z)), RD.getparams(z)...)
     end)
     Z̄ = copy(Z)
+    dx = [zeros(T,e) for k = 1:N]
+    du = [zeros(T,m) for k = 1:N-1]
+
     gains = [zeros(T,m,e+1) for k = 1:N-1]
     K = [view(gain,:,1:e) for gain in gains]
     d = [view(gain,:,e+1) for gain in gains]
@@ -81,10 +86,23 @@ function iLQRSolver2(
     xdot = zeros(T,n)
 
     logger = SolverLogging.default_logger(opts.verbose >= 2)
+    # lg = SolverLogging.Logger()
+    # setentry(lg, "iter", Int, width=5)
+    # setentry(lg, "cost")
+    # setentry(lg, "expected", level=2)
+    # setentry(lg, "dJ", level=2)
+    # setentry(lg, "grad", level=2)
+    # setentry(lg, "z", level=3)
+    # setentry(lg, "α", level=3)
+    # setentry(lg, "ρ", level=3)
+    # setentry(lg, "dJ_zero", level=4)
+    # setentry(lg, "ls_iter", Int, width=8, level=5)
+    # setentry(lg, "info", String, width=30)
+
 	L = typeof(prob.model)
 	O = typeof(prob.obj)
     solver = iLQRSolver2{L,O,n,e,m,T}(
-        prob.model, prob.obj, x0, prob.tf, N,opts, stats,Z, Z̄, gains, K, d, D, G, 
+        prob.model, prob.obj, x0, prob.tf, N,opts, stats,Z, Z̄, dx, du, gains, K, d, D, G, 
         Efull, Eerr, Q, S, ΔV, Qtmp, Quu_reg, Qux_reg, reg, grad, xdot, 
         logger
     )
@@ -93,6 +111,9 @@ end
 
 # Getters
 RD.dims(solver::iLQRSolver2{<:Any,<:Any,n,<:Any,m}) where {n,m} = n,m,solver.N
+RD.state_dim(::iLQRSolver2{<:Any,<:Any,n}) where n = n
+RD.errstate_dim(::iLQRSolver2{<:Any,<:Any,<:Any,e}) where e = e
+RD.control_dim(::iLQRSolver2{<:Any,<:Any,<:Any,<:Any,m}) where m = m
 @inline TO.get_trajectory(solver::iLQRSolver2) = solver.Z
 @inline TO.get_objective(solver::iLQRSolver2) = solver.obj
 @inline TO.get_model(solver::iLQRSolver2) = solver.model
@@ -148,4 +169,19 @@ function decreaseregularization!(solver::iLQRSolver2)
     reg.dρ = min(reg.dρ/ρdot, 1/ρdot)
     reg.ρ = max(ρmin, reg.ρ*reg.dρ)
     return reg
+end
+
+"""
+    reset_gains!(solver::iLQRSolver)
+
+Resets the gains to zero. Useful if you want to call `solve!` multiple times,
+without using information from the previous solve, since the feedback gains
+are used to perform the initial rollout. See [`initialize!(::iLQRSolver2)`](@ref).
+"""
+function reset_gains!(solver::iLQRSolver2)
+    for k in eachindex(solver.K)
+        solver.K[k] .= 0
+        solver.d[k] .= 0
+    end
+    return nothing
 end

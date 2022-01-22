@@ -45,11 +45,41 @@ end
 ## Backwardpass
 s1.ρ[1]
 s2.reg.ρ
+s1.opts.save_S = true
 DV1 = Altro.backwardpass!(s1)
 DV2 = Altro.backwardpass!(s2)
 @test s1.K ≈ s2.K
 @test s1.d ≈ s2.d
-for k = 1:N
+for k = 1:prob.N-1
     @test s1.S[k].xx ≈ s2.S[k].xx
     @test s1.S[k].x ≈ s2.S[k].x
 end
+
+Altro.rollout!(s1, 1.0)
+Altro.rollout!(s2, 1.0)
+@test states(s1.Z̄) ≈ states(s2.Z̄)
+@test controls(s1.Z̄) ≈ controls(s2.Z̄)
+
+Jprev1 = cost(s1)
+Jprev2 = cost(s2)
+@test Jprev1 ≈ Jprev2
+Jnew1 = Altro.forwardpass!(s1, DV1, Jprev1)
+Jnew2 = Altro.forwardpass!(s2, Jprev2)
+@test Jnew1 ≈ Jnew2
+
+Altro.copy_trajectories!(s1)
+copyto!(s2.Z, s2.Z̄)
+@test s1.Z ≈ s2.Z
+
+Altro.gradient_todorov!(s1)
+Altro.gradient!(s2)
+@test s1.grad ≈ s2.grad
+
+
+## Try entire solve
+prob,opts = Problems.Pendulum()
+s1 = Altro.iLQRSolver(prob, opts)
+s2 = Altro.iLQRSolver2(copy(prob), copy(opts))
+s1.opts.verbose = 2
+solve!(s1)
+solve!(s2)
