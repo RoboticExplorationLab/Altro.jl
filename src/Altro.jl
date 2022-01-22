@@ -8,7 +8,7 @@ using DocStringExtensions
 using BenchmarkTools
 using Interpolations
 using UnsafeArrays
-using SolverLogging
+# using SolverLogging
 using Crayons
 
 using SparseArrays
@@ -70,6 +70,9 @@ export
     Problems
 
 const ColonSlice = Base.Slice{Base.OneTo{Int}}
+
+include("logging/SolverLogging.jl")
+using .SolverLogging_v1
 
 include("utils.jl")
 include("infeasible_model.jl")

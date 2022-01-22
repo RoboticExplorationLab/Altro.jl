@@ -95,7 +95,7 @@ function iLQRSolver(
     grad = zeros(T,N-1)
     xdot = zeros(T,n)
 
-    logger = SolverLogging.default_logger(opts.verbose >= 2)
+    logger = SolverLogging_v1.default_logger(opts.verbose >= 2)
 	L = typeof(prob.model)
 	O = typeof(prob.obj)
 

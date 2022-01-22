@@ -85,7 +85,7 @@ function iLQRSolver2(
     grad = zeros(T,N-1)
     xdot = zeros(T,n)
 
-    logger = SolverLogging.default_logger(opts.verbose >= 2)
+    logger = SolverLogging_v1.default_logger(opts.verbose >= 2)
     # lg = SolverLogging.Logger()
     # setentry(lg, "iter", Int, width=5)
     # setentry(lg, "cost")

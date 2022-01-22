@@ -386,6 +386,6 @@ end
 function clear_cache!(solver::AbstractSolver)
     llevel = log_level(solver)
     if is_verbose(solver)
-        SolverLogging.clear_cache!(global_logger().leveldata[llevel])
+        SolverLogging_v1.clear_cache!(global_logger().leveldata[llevel])
     end
 end
