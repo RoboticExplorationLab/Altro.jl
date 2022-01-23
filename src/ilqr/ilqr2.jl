@@ -40,7 +40,7 @@ struct iLQRSolver2{L,O,Nx,Ne,Nu,T} <: UnconstrainedSolver{T}
     grad::Vector{T}
     xdot::Vector{T}
 
-    logger::SolverLogger
+    logger::SolverLogging.Logger
 end
 
 function iLQRSolver2(
@@ -85,26 +85,26 @@ function iLQRSolver2(
     grad = zeros(T,N-1)
     xdot = zeros(T,n)
 
-    logger = SolverLogging_v1.default_logger(opts.verbose >= 2)
-    # lg = SolverLogging.Logger()
-    # setentry(lg, "iter", Int, width=5)
-    # setentry(lg, "cost")
-    # setentry(lg, "expected", level=2)
-    # setentry(lg, "dJ", level=2)
-    # setentry(lg, "grad", level=2)
-    # setentry(lg, "z", level=3)
-    # setentry(lg, "α", level=3)
-    # setentry(lg, "ρ", level=3)
-    # setentry(lg, "dJ_zero", level=4)
-    # setentry(lg, "ls_iter", Int, width=8, level=5)
-    # setentry(lg, "info", String, width=30)
+    # logger = SolverLogging_v1.default_logger(opts.verbose >= 2)
+    lg = SolverLogging.Logger()
+    setentry(lg, "iter", Int, width=6)
+    setentry(lg, "cost", fmt="%.6f")
+    setentry(lg, "expected", level=2)
+    setentry(lg, "dJ", level=2)
+    setentry(lg, "grad", level=2)
+    setentry(lg, "z", level=3, fmt="%.2f")
+    setentry(lg, "α", level=3)
+    setentry(lg, "ρ", level=3)
+    setentry(lg, "dJ_zero", Int, level=4)
+    setentry(lg, "ls_iter", Int, width=8, level=5)
+    setentry(lg, "info", String, width=40)
 
 	L = typeof(prob.model)
 	O = typeof(prob.obj)
     solver = iLQRSolver2{L,O,n,e,m,T}(
         prob.model, prob.obj, x0, prob.tf, N,opts, stats,Z, Z̄, dx, du, gains, K, d, D, G, 
         Efull, Eerr, Q, S, ΔV, Qtmp, Quu_reg, Qux_reg, reg, grad, xdot, 
-        logger
+        lg,
     )
     reset!(solver)
 end
