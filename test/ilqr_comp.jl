@@ -10,11 +10,13 @@ const RD = RobotDynamics
 const TO = TrajectoryOptimization
 # ENV["JULIA_DEBUG"] = SolverLogging
 
-prob,opts = Problems.Pendulum()
+# prob,opts = Problems.Pendulum()
+prob,opts = Problems.Quadrotor()
 s1 = Altro.iLQRSolver(prob, opts)
 s2 = Altro.iLQRSolver2(copy(prob), copy(opts))
 # s1.opts.verbose = 2
 s2.opts.verbose = 4
+s1.opts.save_S = true
 RD.dims(s2) == RD.dims(s1)
 
 Altro.initialize!(s1)
@@ -53,9 +55,9 @@ for k = 1:prob.N
     @test s1.E[k].grad ≈ s2.Eerr[k].grad
 end
 
-# Backwardpass
-s1.ρ[1]
-s2.reg.ρ
+## Backwardpass
+s1.ρ[1] = 1e-8 
+s2.reg.ρ = 1e-8 
 s1.opts.save_S = true
 DV1 = Altro.backwardpass!(s1)
 DV2 = Altro.backwardpass!(s2)
@@ -71,8 +73,8 @@ s1.Z ≈ s2.Z
 Altro.rollout!(s1, 1.0)
 Altro.rollout!(s2, 1.0)
 s1.Z ≈ s2.Z
-@test states(s1.Z̄) ≈ states(s2.Z̄)
-@test controls(s1.Z̄) ≈ controls(s2.Z̄)
+# @test states(s1.Z̄) ≈ states(s2.Z̄)
+# @test controls(s1.Z̄) ≈ controls(s2.Z̄)
 
 Jprev1 = cost(s1)
 Jprev2 = cost(s2)
@@ -106,6 +108,9 @@ printlog(s2.logger)
 
 ## Try entire solve
 prob,opts = Problems.Pendulum()
+prob,opts = Problems.Quadrotor()
+prob,opts = Problems.Cartpole()
+prob,opts = Problems.DubinsCar(:parallel_park)
 s1 = Altro.iLQRSolver(prob, opts)
 s2 = Altro.iLQRSolver2(copy(prob), copy(opts))
 lg = s2.logger
@@ -113,4 +118,6 @@ s1.opts.verbose = 2
 s2.opts.verbose = 4
 solve!(s1)
 solve!(s2)
-SolverLogging.getlevel(s2.logger)
+cost(s1) ≈ cost(s2)
+iterations(s1) == iterations(s2)
+get_trajectory(s1) ≈ get_trajectory(s2)

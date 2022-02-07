@@ -74,6 +74,7 @@ const ColonSlice = Base.Slice{Base.OneTo{Int}}
 include("logging/SolverLogging.jl")
 using .SolverLogging_v1
 
+include("linalg.jl")
 include("utils.jl")
 include("infeasible_model.jl")
 include("solvers.jl")

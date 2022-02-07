@@ -79,7 +79,7 @@ function iLQRSolver2(
     
     Qtmp = StateControlExpansion{T}(e,m)
     Quu_reg = zeros(T,m,m)
-    Qux_reg = zeros(T,m,n)
+    Qux_reg = zeros(T,m,e)
     reg = DynamicRegularization{T}(opts.bp_reg_initial, 0)
 
     grad = zeros(T,N-1)
@@ -88,7 +88,7 @@ function iLQRSolver2(
     # logger = SolverLogging_v1.default_logger(opts.verbose >= 2)
     lg = SolverLogging.Logger()
     setentry(lg, "iter", Int, width=6)
-    setentry(lg, "cost", fmt="%.6f")
+    setentry(lg, "cost", fmt="%.3f")
     setentry(lg, "expected", level=2)
     setentry(lg, "dJ", level=2)
     setentry(lg, "grad", level=2)
