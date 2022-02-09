@@ -62,11 +62,13 @@ end
     bp_reg_fp::T = 10.0
 
     # Augmented Lagrangian
+    use_conic_cost::Bool = false
     penalty_initial::T = 1.0 
     penalty_scaling::T = 10.0
-    active_set_tolerance_al::T = 1e-3
-    dual_max::T = 1e8 
     penalty_max::T = 1e8 
+    dual_max::T = 1e8 
+
+    active_set_tolerance_al::T = 1e-3
     iterations_outer::Int = 30
     kickout_max_penalty::Bool = false
     reset_duals::Bool = true
