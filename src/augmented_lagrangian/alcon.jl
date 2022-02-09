@@ -35,6 +35,44 @@ function setparams!(conopts::ConstraintOptions, opts::SolverOptions)
     end
 end
 
+"""
+    ALConstraint
+
+A constraint on the optimization problem, which only applies to a single 
+knot point. Stores all of the data needed to evaluate the constraint, 
+as well as the Augmented Lagrangian penalty cost and its derivatives.
+The default Augmented Lagrangian cost has the following form:
+
+$$ \\frac{1}{2} \\left( || \\Pi_K(\\lambda - I_\\mu c(x) ) ||^2 - || \\lambda ||^2 \\right) $$
+
+for a constraint in cone $K$. To use the traditional form for equality and 
+inequality constraints, set `opts.use_conic_cost = false` (default).
+
+This type also provides methods for applying the dual and penalty updates.
+
+## Constructor
+A new `ALConstraint` is created using
+
+    ALConstraint{T}(n, m, con, inds; [sig, diffmethod, kwargs...])
+
+with arguments:
+- `n` the size of the state vector
+- `m` the size of the control vector
+- `con` a TrajectoryOptimization.StageConstraint
+- `inds` the knot point indices at which the constraint is applied
+- `kwargs` keyword arguments passed to the constructor of the [`ConstraintOptions`](@ref).
+
+## Methods
+The following methods can be used with an `ALConstraint` object:
+- [`evaluate_constraint!(alcon, Z)`](@ref)
+- [`constraint_jacobian!(alcon, Z)`](@ref)
+- [`alcost(alcon, Z)`](@ref)
+- [`algrad!(alcon, Z)`](@ref)
+- [`alhess!(alcon, Z)`](@ref)
+- [`dualupdate!(alcon)`](@ref)
+- [`penaltyupdate!(alcon)`](@ref)
+"""
+
 struct ALConstraint{T, C<:TO.StageConstraint}
     n::Int  # state dimension
     m::Int  # control dimension
@@ -96,12 +134,23 @@ struct ALConstraint{T, C<:TO.StageConstraint}
     end
 end
 
+"""
+    evaluate_constraint!(alcon, Z)
+
+Evaluate the constraint at all time steps, storing the result in the [`ALConstraint`](@ref).
+"""
 function evaluate_constraint!(alcon::ALConstraint, Z::AbstractTrajectory)
     for (i,k) in enumerate(alcon.inds)
         TO.evaluate_constraint!(alcon.sig, alcon.con, alcon.vals[i], Z[k])
     end
 end
 
+"""
+    constraint_jacobian!(alcon, Z)
+
+Evaluate the constraint Jacobian at all time steps, storing the result in the 
+[`ALConstraint`](@ref).
+"""
 function constraint_jacobian!(alcon::ALConstraint, Z::AbstractTrajectory)
     for (i,k) in enumerate(alcon.inds)
         RD.jacobian!(alcon.sig, alcon.diffmethod, alcon.con, alcon.jac[i], alcon.vals[i], Z[k])
@@ -138,6 +187,22 @@ function alcost(alcon::ALConstraint{T}, Z::AbstractTrajectory) where T
     return J
 end
 
+"""
+    algrad(alcon, Z)
+
+Evaluate the gradient of the augmented Lagrangian penalty cost for all time 
+steps. Evaluates the constraint Jacobians as part of the call.
+
+Assumes that [`alcost`](@ref) has already been called, which evaluates the 
+constraint values and approximate, projected, and scaled projected multipliers. 
+
+The gradient for the generic conic cost is of the following form:
+
+    $$ \\nabla c(x)^T \\nabla \\Pi_K(\\bar{\\lambda})^T I_{\\mu}^{-1} \\Pi_K(\\bar{\\lambda}) $$
+
+where $ \\bar{\\lambda} = \\lambda - I_{\\mu} c(x) $ are the approximate dual 
+variables.
+"""
 function algrad(alcon::ALConstraint{T}, Z::AbstractTrajectory) where T
     J = zero(T)
     constraint_jacobian!(alcon, Z)
@@ -155,6 +220,24 @@ function algrad(alcon::ALConstraint{T}, Z::AbstractTrajectory) where T
     return J
 end
 
+"""
+    algrad(alcon, Z)
+
+Evaluate the Gauss-Newton Hessian of the augmented Lagrangian penalty cost for all time 
+steps. 
+
+Assumes that [`alcost`](@ref) and [`algrad`](@ref) have already been called, which evaluate 
+the constraint values, constraint Jacobians, and approximate, projected, and scaled 
+projected multipliers. 
+
+The Gauss-Newton Hessian for the generic conic cost is of the following form:
+
+    $$ \\nabla c(x)^T \\nabla \\Pi_K(\\bar{\\lambda})^T I_{\\mu}^{-1} \\nabla \\Pi_K(\\bar{\\lambda}) \\nabla c(x) 
+    +  \\nabla c(x)^T \\nabla^2 \\Pi_K(\\bar{\\lambda}, I_{\\mu}^{-1} \\Pi_K(\\bar{\\lambda})) \\nabla c(x) $$ 
+
+where $ \\bar{\\lambda} = \\lambda - I_{\\mu} c(x) $ are the approximate dual 
+variables.
+"""
 function alhess(alcon::ALConstraint{T}, Z::AbstractTrajectory) where T
     # Assumes Jacobians have already been computed
     J = zero(T)
@@ -320,6 +403,12 @@ end
 # Dual and Penalty Updates
 ##############################
 
+"""
+    dualupdate!(alcon)
+
+Update the dual variables for all time times for a single constraint.
+For now, always performs the update.
+"""
 function dualupdate!(alcon::ALConstraint)
     dualcone = TO.dualcone(TO.sense(alcon.con))
     use_conic = alcon.opts.use_conic_cost
@@ -362,6 +451,13 @@ function dualupdate!(alcon::ALConstraint, i::Integer)
     return nothing
 end
 
+"""
+    penaltyupate!(alcon)
+
+Update the penalty terms by the geometric factor `opts.penalty_increase_factor`. 
+Always updates the penalties and updates all penalties equally, thresholding at the maximum 
+specified by `opts.penalty_max`.
+"""
 function penaltyupdate!(alcon::ALConstraint)
     μ = alcon.μ
     ϕ = alcon.opts.penalty_increase_factor
