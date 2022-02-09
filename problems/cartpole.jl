@@ -4,7 +4,8 @@ function Cartpole(method=:none; constrained::Bool=true, N=101,
     opts = SolverOptions(
         cost_tolerance_intermediate=1e-2,
         penalty_scaling=10.,
-        penalty_initial=1.0
+        penalty_initial=1.0,
+        max_control_value=1.0e9,
     )
 
     model = RobotZoo.Cartpole()
