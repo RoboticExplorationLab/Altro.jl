@@ -43,9 +43,11 @@ knot point. Stores all of the data needed to evaluate the constraint,
 as well as the Augmented Lagrangian penalty cost and its derivatives.
 The default Augmented Lagrangian cost has the following form:
 
-$$ \\frac{1}{2} \\left( || \\Pi_K(\\lambda - I_\\mu c(x) ) ||^2 - || \\lambda ||^2 \\right) $$
+```math
+\\frac{1}{2} \\left( || \\Pi_K(\\lambda - I_\\mu c(x) ) ||^2 - || \\lambda ||^2 \\right)
+```
 
-for a constraint in cone $K$. To use the traditional form for equality and 
+for a constraint in cone ``K``. To use the traditional form for equality and 
 inequality constraints, set `opts.use_conic_cost = false` (default).
 
 This type also provides methods for applying the dual and penalty updates.
@@ -71,6 +73,11 @@ The following methods can be used with an `ALConstraint` object:
 - [`alhess!(alcon, Z)`](@ref)
 - [`dualupdate!(alcon)`](@ref)
 - [`penaltyupdate!(alcon)`](@ref)
+- [`normviolation!(alcon)`](@ref)
+- [`max_violation(alcon)`](@ref)
+- [`max_penalty(alcon)`](@ref)
+- [`reset_duals!(alcon)`](@ref)
+- [`reset_penalties!(alcon)`](@ref)
 """
 
 struct ALConstraint{T, C<:TO.StageConstraint}
@@ -81,13 +88,14 @@ struct ALConstraint{T, C<:TO.StageConstraint}
     diffmethod::DiffMethod
     inds::Vector{Int}             # knot point indices for constraint
     vals::Vector{Vector{T}}       # constraint values
-    jac::Vector{Matrix{T}}       # full state constraint Jacobian
+    jac::Vector{Matrix{T}}        # constraint Jacobian
     λ::Vector{Vector{T}}          # dual variables
     μ::Vector{Vector{T}}          # penalties 
     μinv::Vector{Vector{T}}       # inverted penalties 
     λbar::Vector{Vector{T}}       # approximate dual variable 
     λproj::Vector{Vector{T}}      # projected dual variables
     λscaled::Vector{Vector{T}}    # scaled projected dual variables
+    viol::Vector{Vector{T}}       # constraint violations
     c_max::Vector{T}
 
     ∇proj::Vector{Matrix{T}}   # Jacobian of projection
@@ -117,6 +125,7 @@ struct ALConstraint{T, C<:TO.StageConstraint}
         λbar = [zeros(T, p) for i = 1:P]
         λproj = [zeros(T, p) for i = 1:P]
         λscaled = [zeros(T, p) for i = 1:P]
+        viol = [zeros(T, p) for i = 1:P]
         c_max = zeros(T, P)
 
         ∇proj = [zeros(T, p, p) for i = 1:P]
@@ -129,7 +138,7 @@ struct ALConstraint{T, C<:TO.StageConstraint}
 
         new{T, typeof(con)}(
             n, m, con, sig, diffmethod, inds, vals, jac, λ, μ, μinv, λbar, 
-            λproj, λscaled, c_max, ∇proj, ∇²proj, grad, hess, tmp_jac, opts
+            λproj, λscaled, viol, c_max, ∇proj, ∇²proj, grad, hess, tmp_jac, opts
         )
     end
 end
@@ -159,7 +168,7 @@ end
 
 
 @doc raw"""
-    alcost(alcon, Z)
+    alcost(alcon)
 
 Calculates the additional cost added by the augmented Lagrangian:
 
@@ -167,12 +176,13 @@ Calculates the additional cost added by the augmented Lagrangian:
 \sum_{i=1}^{P} \frac{1}{2 \mu_i} || \Pi_K(\lambda_i - \mu_i c(x_k)) ||^2 - || \lambda_i ||^2
 ```
 
-where $k$ is the $i$th knot point of $P$ to which the constraint applies, and $K$ is the 
+where ``k`` is the ``i``th knot point of ``P`` to which the constraint applies, and ``K`` is the 
 cone for the constraint.
+
+Assumes that the constraints have already been evaluated via [`evaluate_constraint!`](@ref).
 """
-function alcost(alcon::ALConstraint{T}, Z::AbstractTrajectory) where T
+function alcost(alcon::ALConstraint{T}) where T
     J = zero(T)
-    evaluate_constraint!(alcon, Z)
     use_conic = alcon.opts.use_conic_cost
     cone = TO.sense(alcon.con)
     for i in eachindex(alcon.inds)
@@ -188,40 +198,41 @@ function alcost(alcon::ALConstraint{T}, Z::AbstractTrajectory) where T
 end
 
 """
-    algrad(alcon, Z)
+    algrad!(alcon, Z)
 
 Evaluate the gradient of the augmented Lagrangian penalty cost for all time 
-steps. Evaluates the constraint Jacobians as part of the call.
+steps. 
 
-Assumes that [`alcost`](@ref) has already been called, which evaluates the 
+Assumes that that the constraint and constraint Jacobians have already been 
+evaluated via [`evaluate_constraint!`](@ref) and [`constraint_jacobian!`](@ref), 
+and that [`alcost`](@ref) has already been called, which evaluates the 
 constraint values and approximate, projected, and scaled projected multipliers. 
 
 The gradient for the generic conic cost is of the following form:
 
-    $$ \\nabla c(x)^T \\nabla \\Pi_K(\\bar{\\lambda})^T I_{\\mu}^{-1} \\Pi_K(\\bar{\\lambda}) $$
+```math
+    \\nabla c(x)^T \\nabla \\Pi_K(\\bar{\\lambda})^T I_{\\mu}^{-1} \\Pi_K(\\bar{\\lambda})
+```
 
-where $ \\bar{\\lambda} = \\lambda - I_{\\mu} c(x) $ are the approximate dual 
+where ``\\bar{\\lambda} = \\lambda - I_{\\mu} c(x)`` are the approximate dual 
 variables.
 """
-function algrad(alcon::ALConstraint{T}, Z::AbstractTrajectory) where T
-    J = zero(T)
-    constraint_jacobian!(alcon, Z)
+function algrad!(alcon::ALConstraint{T}) where T
     use_conic = alcon.opts.use_conic_cost
     cone = TO.sense(alcon.con)
     for i in eachindex(alcon.inds)
         if use_conic
             # Use generic conic cost
-            J += algrad(alcon, i)
+            algrad!(alcon, i)
         else
             # Special-case on the cone
-            J += algrad(cone, alcon, i)
+            algrad!(cone, alcon, i)
         end
     end
-    return J
 end
 
 """
-    algrad(alcon, Z)
+    alhess!(alcon, Z)
 
 Evaluate the Gauss-Newton Hessian of the augmented Lagrangian penalty cost for all time 
 steps. 
@@ -232,27 +243,27 @@ projected multipliers.
 
 The Gauss-Newton Hessian for the generic conic cost is of the following form:
 
-    $$ \\nabla c(x)^T \\nabla \\Pi_K(\\bar{\\lambda})^T I_{\\mu}^{-1} \\nabla \\Pi_K(\\bar{\\lambda}) \\nabla c(x) 
-    +  \\nabla c(x)^T \\nabla^2 \\Pi_K(\\bar{\\lambda}, I_{\\mu}^{-1} \\Pi_K(\\bar{\\lambda})) \\nabla c(x) $$ 
+```math
+    \\nabla c(x)^T \\nabla \\Pi_K(\\bar{\\lambda})^T I_{\\mu}^{-1} \\nabla \\Pi_K(\\bar{\\lambda}) \\nabla c(x) 
+    +  \\nabla c(x)^T \\nabla^2 \\Pi_K(\\bar{\\lambda}, I_{\\mu}^{-1} \\Pi_K(\\bar{\\lambda})) \\nabla c(x)
+```
 
-where $ \\bar{\\lambda} = \\lambda - I_{\\mu} c(x) $ are the approximate dual 
+where ``\\bar{\\lambda} = \\lambda - I_{\\mu} c(x)`` are the approximate dual 
 variables.
 """
-function alhess(alcon::ALConstraint{T}, Z::AbstractTrajectory) where T
+function alhess!(alcon::ALConstraint{T}) where T
     # Assumes Jacobians have already been computed
-    J = zero(T)
     use_conic = alcon.opts.use_conic_cost
     cone = TO.sense(alcon.con)
     for i in eachindex(alcon.inds)
         if use_conic
             # Use generic conic cost
-            J += alhess(alcon, i)
+            alhess!(alcon, i)
         else
             # Special-case on the cone
-            J += alhess(cone, alcon, i)
+            alhess!(cone, alcon, i)
         end
     end
-    return J
 end
 
 
@@ -332,6 +343,8 @@ function alhess!(::TO.Inequality, alcon::ALConstraint, i::Integer)
 end
 
 @inline alcost(::TO.ConstraintSense, alcon::ALConstraint, i::Integer) = alcost(alcon, i)
+@inline algrad!(::TO.ConstraintSense, alcon::ALConstraint, i::Integer) = algrad!(alcon, i)
+@inline alhess!(::TO.ConstraintSense, alcon::ALConstraint, i::Integer) = alhess!(alcon, i)
 
 ##############################
 # Generic Cones
@@ -410,16 +423,16 @@ Update the dual variables for all time times for a single constraint.
 For now, always performs the update.
 """
 function dualupdate!(alcon::ALConstraint)
-    dualcone = TO.dualcone(TO.sense(alcon.con))
+    cone = TO.sense(alcon.con)
     use_conic = alcon.opts.use_conic_cost
     λ_max = alcon.opts.dual_max
     for i in eachindex(alcon.inds)
-        λ, μ, c = alcon.λ[i], alcon.μ[i], alcon.c[i]
+        λ, μ, c = alcon.λ[i], alcon.μ[i], alcon.vals[i]
         if use_conic 
-            dualupdate!(λ, μ, c)
+            dualupdate!(alcon, i)
         else
             # Special-case to the cone
-            dualupdate!(dualcone, λ, μ, c)
+            dualupdate!(cone, alcon, i)
         end
         # Saturate dual variables
         clamp!(λ, -λ_max, λ_max)
@@ -441,12 +454,13 @@ function dualupdate!(::TO.Inequality, alcon::ALConstraint, i::Integer)
 end
 
 @inline dualupdate!(::TO.SecondOrderCone, alcon::ALConstraint, i::Integer) = 
-    dualupdate!(λ, μ, c)
+    dualupdate!(alcon, i)
 
 function dualupdate!(alcon::ALConstraint, i::Integer)
+    # TODO: just copy the projected duals already stored
     dualcone = TO.dualcone(TO.sense(alcon.con))
     λbar, λ, μ, c = alcon.λbar[i], alcon.λ[i], alcon.μ[i], alcon.vals[i]
-    λbar .= λ .+ μ .* c
+    λbar .= λ .- μ .* c
     TO.projection!(dualcone, λ, λbar)
     return nothing
 end
@@ -454,17 +468,82 @@ end
 """
     penaltyupate!(alcon)
 
-Update the penalty terms by the geometric factor `opts.penalty_increase_factor`. 
+Update the penalty terms by the geometric factor `opts.penalty_scaling`. 
 Always updates the penalties and updates all penalties equally, thresholding at the maximum 
 specified by `opts.penalty_max`.
 """
 function penaltyupdate!(alcon::ALConstraint)
     μ = alcon.μ
-    ϕ = alcon.opts.penalty_increase_factor
+    ϕ = alcon.opts.penalty_scaling
     μ_max = alcon.opts.penalty_max
     for i = 1:length(alcon.inds)
         μ[i] .*= ϕ 
         clamp!(alcon.μ[i], 0, μ_max)
         alcon.μinv[i] .= inv.(μ[i])
+    end
+end
+
+##############################
+# Max Violation and Penalty
+##############################
+
+"""
+    normviolation!(alcon, p)
+
+Evaluate the `p`-norm of the constraint violations. The violation is 
+defined to be
+
+```math
+\\Pi_K(c(x)) - c(x)
+```
+These values for each time step are stored in `alcon.viol`.
+"""
+function normviolation!(alcon::ALConstraint, p=2)
+    cone = TO.sense(alcon.con)
+    for i = 1:length(alcon.inds)
+        TO.projection!(cone, alcon.viol[i], alcon.vals[i]) 
+        alcon.viol[i] .-= alcon.vals[i]
+        alcon.c_max[i] = norm(alcon.viol[i], p)
+    end
+    return norm(alcon.c_max, p)
+end
+max_violation(alcon::ALConstraint) = normviolation!(alcon, Inf)
+
+"""
+    max_penalty(alcon)
+
+Find the maximum penalty value over all time steps.
+"""
+function max_penalty(alcon::ALConstraint{T}) where T
+    μ_max = zero(T)
+    for i = 1:length(alcon.inds)
+        μ_max = max(maximum(alcon.μ[i]), μ_max)
+    end
+    return μ_max
+end
+
+##############################
+# Reset functions
+##############################
+"""
+    reset_duals!(alcon)
+
+Reset the dual variables to zero.
+"""
+function reset_duals!(alcon::ALConstraint)
+    for i = 1:length(alcon.inds)
+        alcon.λ[i] .= 0
+    end
+end
+
+"""
+    reset_penalties!(alcon)
+
+Reset tne penalties to the initial penalty specified by `opts.penalty_initial`.
+"""
+function reset_penalties!(alcon::ALConstraint)
+    μ_initial = alcon.opts.penalty_initial
+    for i = 1:length(alcon.inds)
+        alcon.μ[i] .= μ_initial
     end
 end
