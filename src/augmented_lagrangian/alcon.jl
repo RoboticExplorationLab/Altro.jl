@@ -266,6 +266,21 @@ function alhess!(alcon::ALConstraint{T}) where T
     end
 end
 
+"""
+    add_alcost_expansion!(alcon, E)
+
+Add the precomputed gradient and Hessian of the AL penalty cost to the 
+cost expansion stored in `E`. Assumes [`alcost(alcon)`](@ref), [`algrad!(alcon)`](@ref), 
+and [`alhess!(alcon)`](@ref) have already been called to evaluate these terms
+about the current trajectory.
+"""
+function add_alcost_expansion!(alcon::ALConstraint, E::CostExpansion2)
+    for (i,k) in enumerate(alcon.inds)
+        E[k].grad .+= alcon.grad[i]
+        E[k].hess .+= alcon.hess[i]
+    end
+end
+
 
 ##############################
 # Equality Constraints

@@ -52,7 +52,7 @@ function solve!(solver::iLQRSolver2)
         # benchmark the forward pass
         copyto!(solver.Z, solver.Z̄)
 
-        # Calculate the gradient at the new trajectory
+        # Calculate the gradient of the new trajectory
         dJ = J_prev - Jnew
         grad = gradient!(solver)
 

@@ -109,8 +109,8 @@ printlog(s2.logger)
 ## Try entire solve
 prob,opts = Problems.Pendulum()
 prob,opts = Problems.Quadrotor()
-prob,opts = Problems.Cartpole()
 prob,opts = Problems.DubinsCar(:parallel_park)
+prob,opts = Problems.Cartpole()
 s1 = Altro.iLQRSolver(prob, opts)
 s2 = Altro.iLQRSolver2(copy(prob), copy(opts))
 lg = s2.logger

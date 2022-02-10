@@ -33,6 +33,11 @@ function TO.cost!(obj::ALObjective, Z::AbstractTrajectory)
     TO.cost!(TO.get_J(obj), obj.constraints)
 end
 
+function TO.cost(obj::ALObjective, Z::AbstractTrajectory)
+    TO.cost!(obj, Z)
+    return sum(TO.get_J(obj))
+end
+
 function TO.cost_expansion!(E, obj::ALObjective, Z::Traj; 
         init::Bool=false, rezero::Bool=false)
     # Update constraint jacobians

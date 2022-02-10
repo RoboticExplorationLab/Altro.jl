@@ -46,7 +46,7 @@ function alcost(conset::ALConstraintSet2{T}) where T
 end
 
 for method in (:algrad!, :alhess!, :dualupdate!, :penaltyupdate!, :normviolation!, 
-        :max_penalty, :reset_duals!, :reset_penalties!)
+        :max_penalty, :reset_duals!, :reset_penalties!, :add_alcost_expansion!)
     @eval function $method(conset::ALConstraintSet2, args...)
         for alcon in conset.constraints
             $method(alcon, args...)
@@ -67,5 +67,3 @@ function max_penalty(conset::ALConstraintSet2)
     end
     return maximum(conset.μ_max)
 end
-
-
