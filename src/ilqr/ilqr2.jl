@@ -88,13 +88,17 @@ function iLQRSolver2(
     # logger = SolverLogging_v1.default_logger(opts.verbose >= 2)
     lg = SolverLogging.Logger()
     setentry(lg, "iter", Int, width=6)
+    setentry(lg, "AL iter", Int, width=8, level=2)
+    setentry(lg, "iLQR iter", Int, width=10, level=2)
     setentry(lg, "cost", fmt="%.3f")
+    setentry(lg, "||v||")
     setentry(lg, "expected", level=2)
     setentry(lg, "dJ", level=2)
     setentry(lg, "grad", level=2)
     setentry(lg, "z", level=3, fmt="%.2f")
     setentry(lg, "α", level=3)
     setentry(lg, "ρ", level=3)
+    setentry(lg, "μ_max", level=4)
     setentry(lg, "dJ_zero", Int, level=4)
     setentry(lg, "ls_iter", Int, width=8, level=5)
     setentry(lg, "info", String, width=40)
@@ -119,6 +123,7 @@ RD.control_dim(::iLQRSolver2{<:Any,<:Any,<:Any,<:Any,m}) where m = m
 @inline TO.get_model(solver::iLQRSolver2) = solver.model
 @inline get_initial_state(solver::iLQRSolver2) = solver.x0
 solvername(::Type{<:iLQRSolver2}) = :iLQR
+getlogger(solver::iLQRSolver2) = solver.logger
 
 log_level(::iLQRSolver2) = InnerLoop
 

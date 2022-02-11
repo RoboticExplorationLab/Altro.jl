@@ -18,11 +18,23 @@ function ALConstraintSet2{T}(cons::TO.ConstraintList) where T
     ALConstraintSet2{T}(constraints, c_max, μ_max)
 end
 
-# Indexing 
+# Indexing and Iteration
 @inline Base.length(conset::ALConstraintSet2) = length(conset.constraints)
 @inline Base.getindex(conset::ALConstraintSet2, i::Integer) = conset.constraints[i]
 Base.firstindex(::ALConstraintSet2) = 1
 Base.lastindex(conset::ALConstraintSet2) = length(conset.constraints)
+
+function Base.iterate(conset::ALConstraintSet2) 
+    isempty(conset.constraints) ? nothing : (conset.constraints[1], 1)
+end
+
+function Base.iterate(conset::ALConstraintSet2, state::Int) 
+    state >= length(conset) ? nothing : (conset.constraints[state+1], state+1)
+end
+
+Base.IteratorSize(::ALConstraintSet2) = Base.HasLength()
+Base.IteratorEltype(::ALConstraintSet2) = Base.HasEltype()
+Base.eltype(::ALConstraintSet2{T}) where T = ALConstraint{T}
 
 # Methods
 function evaluate_constraints!(conset::ALConstraintSet2, Z)
@@ -66,4 +78,12 @@ function max_penalty(conset::ALConstraintSet2)
         conset.μ_max[i] = max_penalty(conset.constraints[i])
     end
     return maximum(conset.μ_max)
+end
+
+function reset!(conset::ALConstraintSet2, opts::SolverOptions)
+    for con in conset.constraints
+        setparams!(con, opts)
+        reset_duals!(con)
+        reset_penalties!(con)
+    end
 end

@@ -43,7 +43,7 @@ function forwardpass!(solver::iLQRSolver2, J_prev)
     z = Inf
     expected = Inf
     
-    J_ = TO.get_J(solver.obj)
+    # J_ = TO.get_J(solver.obj)
     solver.stats.ls_failed = false
     max_iters = solver.opts.iterations_linesearch
     exit_linesearch = false
@@ -58,8 +58,8 @@ function forwardpass!(solver::iLQRSolver2, J_prev)
         end
 
         # Calculate the cost for the new trajectory
-        TO.cost!(solver.obj, Z̄)
-        J = sum(J_)
+        J = TO.cost(solver.obj, Z̄)
+        # J = sum(J_)
 
         expected = -α*(ΔV[1] + α*ΔV[2])
         # Finish if the expected decrease is super small
@@ -81,6 +81,17 @@ function forwardpass!(solver::iLQRSolver2, J_prev)
             z = -1.0
         end
 
+        # Log line search iterations 
+        if verbose >= 5
+            @log lg expected
+            @log lg z
+            @log lg α
+            @log lg "ls_iter" i
+            @log lg "cost" J
+            @log lg "dJ" J_prev - J
+            printlog(lg)
+        end
+
         # Check for acceptance criteria
         if (z_lb ≤ z ≤ z_ub)
             exit_linesearch = true
@@ -98,17 +109,10 @@ function forwardpass!(solver::iLQRSolver2, J_prev)
             @log lg "info" "Max linesearch iters" :append
             increaseregularization!(solver)
             solver.reg.ρ += solver.opts.bp_reg_fp
+            solver.stats.ls_failed = true
             exit_linesearch = true
         end
 
-        # Log line search iterations 
-        if verbose >= 5
-            @log lg expected
-            @log lg z
-            @log lg α
-            @log lg "ls_iter" i
-            printlog(lg)
-        end
 
         # Exit line search
         exit_linesearch && break

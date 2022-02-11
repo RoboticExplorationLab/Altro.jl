@@ -91,7 +91,7 @@ function gradient!(solver::iLQRSolver2, Z=solver.Z)
     return avggrad / length(solver.d)
 end
 
-function record_iteration!(solver::iLQRSolver2, J, dJ, grad)
+function record_iteration!(solver::iLQRSolver2{<:Any,O}, J, dJ, grad) where O
     lg = solver.logger
     record_iteration!(solver.stats, cost=J, dJ=dJ, gradient=grad)
     iter = solver.stats.iterations
@@ -106,19 +106,23 @@ function record_iteration!(solver::iLQRSolver2, J, dJ, grad)
     @log lg grad
     @log lg "dJ_zero" solver.stats.dJ_zero_counter
     @log lg "ρ" solver.reg.ρ
+    if O <: ALObjective2 
+        conset = solver.obj.conset
+        @log lg "||v||" max_violation(conset)
+    end
     return nothing
 end
 
-function addlogs(solver::iLQRSolver2)
-    lg = solver.logger
-    iter = -10
-    @log lg "cost" 10
-    @log lg iter 
-    @log lg "grad" -0.02
-    @log lg "α" 0.5
-    SolverLogging.resetcount!(lg)
-    printlog(lg)
-end
+# function addlogs(solver::iLQRSolver2)
+#     lg = solver.logger
+#     iter = -10
+#     @log lg "cost" 10
+#     @log lg iter 
+#     @log lg "grad" -0.02
+#     @log lg "α" 0.5
+#     SolverLogging.resetcount!(lg)
+#     printlog(lg)
+# end
 
 function evaluate_convergence(solver::iLQRSolver2)
     lg = solver.logger

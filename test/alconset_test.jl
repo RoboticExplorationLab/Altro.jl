@@ -55,3 +55,11 @@ Altro.alcost(conset)
 Altro.algrad!(conset)
 Altro.alhess!(conset)
 Altro.max_violation(conset[1])
+Altro.dualupdate!(conset)
+Altro.penaltyupdate!(conset)
+@test Altro.max_penalty(conset) == 10.0
+
+## Reset
+opts = SolverOptions(penalty_initial=0.1)
+Altro.reset!(conset, opts)
+@test Altro.max_penalty(conset) ≈ 0.1

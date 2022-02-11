@@ -143,6 +143,8 @@ struct ALConstraint{T, C<:TO.StageConstraint}
     end
 end
 
+setparams!(alcon::ALConstraint, opts::SolverOptions) = setparams!(alcon.opts, opts)
+
 """
     evaluate_constraint!(alcon, Z)
 
