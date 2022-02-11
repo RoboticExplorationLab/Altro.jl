@@ -123,7 +123,7 @@ function evaluate_convergence(solver::AugmentedLagrangianSolver)
         @logmsg OuterLoop "Constraint tolerance satisfied"
         return true
     end
-    if solver.stats.penalty_max[i] >= solver.opts.penalty_max
+    if solver.opts.kickout_max_penalty && solver.stats.penalty_max[i] >= solver.opts.penalty_max
         @logmsg OuterLoop "Reached max penalty"
         return true
     end
