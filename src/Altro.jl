@@ -107,6 +107,8 @@ include("direct/primals.jl")
 include("direct/pn.jl")
 include("direct/pn_methods.jl")
 include("altro/altro_solver.jl")
+include("altro/altro2.jl")
+include("altro/altro_solve.jl")
 
 include("direct/copy_blocks.jl")
 include("direct/direct_constraints.jl")

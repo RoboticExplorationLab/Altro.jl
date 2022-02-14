@@ -81,8 +81,6 @@ function TO.get_constraints(solver::ALTROSolver)
     end
 end
 
-
-
 # Solve Methods
 function solve!(solver::ALTROSolver)
     reset!(solver)
