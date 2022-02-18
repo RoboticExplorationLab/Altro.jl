@@ -1,5 +1,5 @@
 
-function DoubleIntegrator()
+function DoubleIntegrator(;N=21)
     opts = SolverOptions(
         penalty_scaling=1000.,
         penalty_initial=1.,
@@ -14,7 +14,6 @@ function DoubleIntegrator()
     tf = 2.0
 
     # Discretization info
-    N = 21
     dt = tf/(N-1)
 
     # Costs

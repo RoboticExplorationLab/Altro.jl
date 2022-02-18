@@ -10,10 +10,20 @@ const RD = RobotDynamics
 const TO = TrajectoryOptimization
 # ENV["JULIA_DEBUG"] = SolverLogging
 
-# prob,opts = Problems.Pendulum()
-prob,opts = Problems.Quadrotor()
-s1 = Altro.iLQRSolver(prob, opts)
-s2 = Altro.iLQRSolver2(copy(prob), copy(opts))
+use_alobj = true
+
+prob,opts = Problems.Pendulum()
+# prob,opts = Problems.Quadrotor()
+if use_alobj
+    al1 = Altro.AugmentedLagrangianSolver(prob, opts)
+    al2 = Altro.ALSolver(prob, opts)
+    s1 = Altro.get_ilqr(al1)
+    s2 = Altro.get_ilqr(al2)
+else
+    s1 = Altro.iLQRSolver(prob, opts)
+    s2 = Altro.iLQRSolver2(copy(prob), copy(opts))
+end
+
 # s1.opts.verbose = 2
 s2.opts.verbose = 4
 s1.opts.save_S = true
@@ -22,6 +32,7 @@ RD.dims(s2) == RD.dims(s1)
 Altro.initialize!(s1)
 Altro.initialize!(s2)
 @test SolverLogging.getlevel(s2.logger) == 4
+global_logger(ConsoleLogger())
 
 ##
 @test s1.Z ≈ s2.Z
@@ -40,6 +51,8 @@ Altro.error_expansion!(s2.model, s2.D, s2.G)
 ∇e1 = [[d.A d.B] for d in s1.D]
 ∇e2 = [d.∇e for d in s2.D]
 @test ∇e1 ≈ ∇e2
+
+@test cost(s1) ≈ cost(s2)
 
 TO.cost_expansion!(s1.quad_obj, s1.obj, s1.Z, init=true, rezero=true)
 Altro.cost_expansion!(s2.obj, s2.Efull, s2.Z)
@@ -76,10 +89,14 @@ s1.Z ≈ s2.Z
 # @test states(s1.Z̄) ≈ states(s2.Z̄)
 # @test controls(s1.Z̄) ≈ controls(s2.Z̄)
 
+setlevel!(lg, 5)
 Jprev1 = cost(s1)
 Jprev2 = cost(s2)
 @test Jprev1 ≈ Jprev2
 Jnew1 = Altro.forwardpass!(s1, DV1, Jprev1)
+s1.stats.ls_failed
+s2.opts.verbose = 5
+s2.opts.iterations_linesearch = 20
 Jnew2 = Altro.forwardpass!(s2, Jprev2)
 @test Jnew1 ≈ Jnew2
 

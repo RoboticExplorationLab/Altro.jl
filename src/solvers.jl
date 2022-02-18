@@ -36,14 +36,14 @@ abstract type AbstractSolver{T} end
 @inline TO.get_model(solver::AbstractSolver) = solver.model
 @inline TO.get_objective(solver::AbstractSolver) = solver.obj
 @inline TO.get_trajectory(solver::AbstractSolver) = solver.Z.Z_
-@inline get_cost_expansion(solver::AbstractSolver) = solver.E
-@inline get_cost_expansion_error(solver::AbstractSolver) = solver.E
-@inline get_error_state_jacobians(solver::AbstractSolver) = solver.G
-@inline get_initial_state(solver::AbstractSolver) = solver.x0
+# @inline get_cost_expansion(solver::AbstractSolver) = solver.E
+# @inline get_cost_expansion_error(solver::AbstractSolver) = solver.E
+# @inline get_error_state_jacobians(solver::AbstractSolver) = solver.G
+# @inline get_initial_state(solver::AbstractSolver) = solver.x0
 
-@inline get_solution(solver::AbstractSolver) = get_trajectory(solver)
-@inline get_primals(solver::AbstractSolver) = solver.Z̄
-@inline get_step(solver::AbstractSolver) = solver.δZ
+# @inline get_solution(solver::AbstractSolver) = get_trajectory(solver)
+# @inline get_primals(solver::AbstractSolver) = solver.Z̄
+# @inline get_step(solver::AbstractSolver) = solver.δZ
 @inline stats(solver::AbstractSolver) = solver.stats
 iterations(solver::AbstractSolver) = stats(solver).iterations
 @inline options(solver::AbstractSolver) = solver.opts

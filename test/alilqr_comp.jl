@@ -25,6 +25,9 @@ al2 = Altro.ALSolver(prob, copy(opts))
 @test max_violation(al1) ≈ TO.max_violation(al2)
 @test cost(al1) ≈ cost(al2)
 
+obj2 = get_objective(al2)
+obj2.obj[1].q
+
 # Check iLQR solves
 ilqr1 = Altro.get_ilqr(al1)
 ilqr2 = Altro.get_ilqr(al2)
@@ -106,11 +109,12 @@ end
 
 ## Try solving the entire problem
 prob, opts = Problems.Pendulum()
+prob, opts = Problems.DubinsCar(:turn90, N=11)
 
-al1 = Altro.AugmentedLagrangianSolver(prob, opts)
-al2 = Altro.ALSolver(prob, opts)
+s1 = Altro.iLQRSolver(prob, opts)
+s2 = Altro.iLQRSolver2(prob, opts)
 
 al1.opts.verbose = 0
 al2.opts.verbose = 0
-solve!(al1)
-solve!(al2)
+solve!(s1)
+solve!(s2)

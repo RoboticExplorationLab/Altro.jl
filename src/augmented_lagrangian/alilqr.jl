@@ -58,8 +58,8 @@ end
 solvername(::Type{<:ALSolver}) = :AugmentedLagrangian
 get_ilqr(solver::ALSolver) = solver.ilqr
 TO.get_constraints(solver::ALSolver) = solver.ilqr.obj.conset
-stats(solver) = solver.stats
-options(solver) = solver.options
+stats(solver::ALSolver) = solver.stats
+options(solver::ALSolver) = solver.opts
 
 # Methods
 function reset!(solver::ALSolver)

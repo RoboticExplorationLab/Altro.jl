@@ -49,13 +49,14 @@ function DubinsCar(scenario=:three_obstacles; N=101)
     elseif scenario==:turn90
         opts = SolverOptions(
             cost_tolerance_intermediate=1e-3,
-            active_set_tolerance=1e-4
+            active_set_tolerance_al=1e-4
         )
 
         # model
         model = RobotZoo.DubinsCar()
         n,m = size(model)
         tf = 3.
+        dt = tf / (N-1)
 
         # cost
         d = 1.5

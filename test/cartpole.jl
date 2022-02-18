@@ -11,7 +11,7 @@ const RD = RobotDynamics
 save_results = false 
 
 # TO.diffmethod(::RobotZoo.Cartpole) = RD.ForwardAD()
-@testset "Cartpole" begin
+# @testset "Cartpole" begin
 # load expected results
 res = load(joinpath(@__DIR__,"cartpole.jld2"))
 
@@ -23,9 +23,9 @@ U = [[u] for u in U]
 initial_controls!(prob, U)
 rollout!(prob)
 
-solver = ALTROSolver(prob, opts, save_S=true)
+solver2 = Altro.ALTROSolver2(prob, opts, save_S=true)
 n,m,N = RD.dims(solver)
-ilqr = Altro.get_ilqr(solver)
+ilqr = Altro.get_ilqr(solver2)
 Altro.initialize!(ilqr)
 X = states(ilqr)
 U = controls(ilqr)
@@ -33,44 +33,43 @@ U = controls(ilqr)
 @test U ≈ res["U"] atol=1e-6
 
 # State diff Jacobian
-TO.state_diff_jacobian!(ilqr.model, ilqr.G, ilqr.Z)
+Altro.errstate_jacobians!(ilqr.model, ilqr.G, ilqr.Z)
 G = ilqr.G
-@test G[1] == zeros(n,n)
-@test G[N] == zeros(n,n)
-@test G ≈ res["G"] atol=1e-6
+@test all(x->x == Matrix(I,n,n), G[1:N])
 
 # Dynamics Jacobians
-TO.dynamics_expansion!(RD.StaticReturn(), RD.ForwardAD(), ilqr.model, ilqr.D, ilqr.Z)
-TO.error_expansion!(ilqr.D, ilqr.model, ilqr.G)
-A = [Matrix(D.A_) for D in ilqr.D]
-B = [Matrix(D.B_) for D in ilqr.D]
+Altro.dynamics_expansion!(ilqr)
+Altro.error_expansion!(ilqr.model, ilqr.D, ilqr.G)
+A = [Matrix(D.A) for D in ilqr.D]
+B = [Matrix(D.B) for D in ilqr.D]
 @test A ≈ res["A"] atol=1e-6
 @test B ≈ res["B"] atol=1e-6
 
 # Unconstrained Cost Expansion
-TO.cost_expansion!(ilqr.quad_obj, ilqr.obj.obj, ilqr.Z, init=true, rezero=true)
-TO.error_expansion!(ilqr.E, ilqr.quad_obj, ilqr.model, ilqr.Z, ilqr.G)
-hess0 = [[E.Q E.H'; E.H E.R] for E in ilqr.E]
-grad0 = [Vector([E.q; E.r]) for E in ilqr.E]
+Altro.cost_expansion!(ilqr.obj.obj, ilqr.Efull, ilqr.Z)
+Altro.error_expansion!(ilqr.model, ilqr.Eerr, ilqr.Efull, ilqr.G, ilqr.Z)
+hess0 = [[E.xx E.ux'; E.ux E.uu] for E in ilqr.Efull]
+grad0 = [Vector([E.x; E.u]) for E in ilqr.Efull]
 @test hess0 ≈ res["hess0"] atol=1e-6
 @test grad0 ≈ res["grad0"] atol=1e-6
 
 # AL Cost Expansion
-TO.cost_expansion!(ilqr.quad_obj, ilqr.obj, ilqr.Z, init=true, rezero=true)
-TO.error_expansion!(ilqr.E, ilqr.quad_obj, ilqr.model, ilqr.Z, ilqr.G)
-hess = [Array(E.hess) for E in ilqr.E]
-grad = [Array(E.grad) for E in ilqr.E]
+cost(ilqr, ilqr.Z)
+Altro.cost_expansion!(ilqr.obj, ilqr.Efull, ilqr.Z)
+Altro.error_expansion!(ilqr.model, ilqr.Eerr, ilqr.Efull, ilqr.G, ilqr.Z)
+hess = [Array(E.hess) for E in ilqr.Efull]
+grad = [Array(E.grad) for E in ilqr.Efull]
 @test hess ≈ res["hess"] atol=1e-6
 @test grad ≈ res["grad"] atol=1e-6
 
 # Backward Pass
-ΔV = Altro.static_backwardpass!(ilqr)
+ΔV = Altro.backwardpass!(ilqr)
 K = Matrix.(ilqr.K)
 d = Vector.(ilqr.d)
-S = [Matrix(S.Q) for S in ilqr.S]
-s = [Vector(S.q) for S in ilqr.S]
-Qzz = [[E.Q E.H'; E.H E.R] for E in ilqr.Q]
-Qz = [Vector([E.q; E.r]) for E in ilqr.Q]
+S = [Matrix(S.xx) for S in ilqr.S]
+s = [Vector(S.x) for S in ilqr.S]
+Qzz = [[E.xx E.ux'; E.ux E.uu] for E in ilqr.Q]
+Qz = [Vector([E.x; E.u]) for E in ilqr.Q]
 @test K ≈ res["K"] atol=1e-6
 @test d ≈ res["d"] atol=1e-6
 @test S ≈ res["S"] atol=1e-6
@@ -78,7 +77,7 @@ Qz = [Vector([E.q; E.r]) for E in ilqr.Q]
 @test Qzz ≈ res["Qzz"] atol=1e-6
 @test Qz  ≈ res["Qz"] atol=1e-6
 
-## Forward Pass
+# Forward Pass
 J = cost(ilqr)
 TO.rollout!(ilqr, 1.0)
 @test cost(ilqr.obj, ilqr.Z̄) ≈ 42918.1164958687
@@ -105,69 +104,108 @@ x3 = RD.state(ilqr.Z̄[3])
 @test x3 ≈ res["x3"]
 
 
-J_new = Altro.forwardpass!(ilqr, ΔV, J)
+J_new = Altro.forwardpass!(ilqr, J)
 @test J_new ≈ 3968.9692481
 dJ = J - J_new
-Altro.copy_trajectories!(ilqr)
+copyto!(ilqr.Z, ilqr.Z̄)
 
-Altro.gradient_todorov!(ilqr)
-Altro.record_iteration!(ilqr, J, dJ)
+grad = Altro.gradient!(ilqr)
+Altro.record_iteration!(ilqr, J, dJ, grad)
 Altro.evaluate_convergence(ilqr)
 
 # Perform the second iteration
-J_new = Altro.step!(ilqr, J_new, false)
-Altro.copy_trajectories!(ilqr)
+J_new = let solver = ilqr, J_prev=J_new
+    Altro.errstate_jacobians!(solver.model, solver.G, solver.Z)
+    Altro.dynamics_expansion!(solver)
+    Altro.error_expansion!(solver.model, solver.D, solver.G)
+    Altro.cost_expansion!(solver.obj, solver.Efull, solver.Z)
+    Altro.error_expansion!(solver.model, solver.Eerr, solver.Efull, solver.G, solver.Z)
+    Altro.backwardpass!(solver)
+    Altro.forwardpass!(solver, J_prev)
+end
+copyto!(ilqr.Z, ilqr.Z̄)
 @test J_new ≈ 1643.4087998
 K2 = Matrix.(ilqr.K)
 d2 = Vector.(ilqr.d)
 @test K2 ≈ res["K2"]
 @test d2 ≈ res["d2"]
 
+##
 J_prev = J_new
-Altro.set_tolerances!(solver.solver_al, ilqr, 1)
+Altro.set_tolerances!(solver2.solver_al, 1)
+J = 0.0
 for i = 3:26
-    J = Altro.step!(ilqr, J_prev, false)
+    J = let solver = ilqr
+        J_prev = cost(solver)
+        Altro.errstate_jacobians!(solver.model, solver.G, solver.Z)
+        Altro.dynamics_expansion!(solver)
+        Altro.error_expansion!(solver.model, solver.D, solver.G)
+        Altro.cost_expansion!(solver.obj, solver.Efull, solver.Z)
+        Altro.error_expansion!(solver.model, solver.Eerr, solver.Efull, solver.G, solver.Z)
+        Altro.backwardpass!(solver)
+        Altro.forwardpass!(solver, J_prev)
+    end
     # println("iter = $i, J = $J")
     dJ = J_prev - J
     J_prev = J
-    Altro.copy_trajectories!(ilqr)
-    Altro.gradient_todorov!(ilqr)
-    Altro.record_iteration!(ilqr, J, dJ)
+    copyto!(ilqr.Z, ilqr.Z̄)
+    grad = Altro.gradient!(ilqr)
+    Altro.record_iteration!(ilqr, J, dJ, grad)
 end
 
 @test Altro.evaluate_convergence(ilqr)
 @test J ≈ 1.6782224809
 
 # AL update
-al = solver.solver_al
+al = solver2.solver_al
 c_max = max_violation(al)
 @test c_max ≈ 0.23915446 atol=1e-6
-Altro.record_iteration!(al, J, c_max)
+μ_max = Altro.max_penalty(get_constraints(al))
+Altro.record_iteration!(al, J, c_max, μ_max)
 @test Altro.evaluate_convergence(al) == false
 
-Altro.dual_update!(al)
-Altro.penalty_update!(al)
+Altro.dualupdate!(get_constraints(al))
+Altro.penaltyupdate!(get_constraints(al))
 J_new = cost(al)
 @test J_new ≈ 2.2301311286397847
 
-J = Altro.step!(ilqr, J_new, false)
-hess2 = [Array(E.hess) for E in ilqr.E]
-grad2 = [Array(E.grad) for E in ilqr.E]
+# J = Altro.step!(ilqr, J_new, false)
+J = let solver = ilqr
+    J_prev = cost(solver)
+    Altro.errstate_jacobians!(solver.model, solver.G, solver.Z)
+    Altro.dynamics_expansion!(solver)
+    Altro.error_expansion!(solver.model, solver.D, solver.G)
+    Altro.cost_expansion!(solver.obj, solver.Efull, solver.Z)
+    Altro.error_expansion!(solver.model, solver.Eerr, solver.Efull, solver.G, solver.Z)
+    Altro.backwardpass!(solver)
+    Altro.forwardpass!(solver, J_prev)
+end
+hess2 = [Array(E.hess) for E in ilqr.Eerr]
+grad2 = [Array(E.grad) for E in ilqr.Eerr]
 @test hess2 ≈ res["hess2"] atol=1e-6
 @test grad2 ≈ res["grad2"] atol=1e-6
 @test J ≈ 1.8604261241 atol=1e-6
-Altro.copy_trajectories!(ilqr)
-Altro.gradient_todorov!(ilqr)
-Altro.record_iteration!(ilqr, J, dJ)
+copyto!(ilqr.Z, ilqr.Z̄)
+grad = Altro.gradient!(ilqr)
+Altro.record_iteration!(ilqr, J, dJ, grad)
 
 for i = 2:3
-    J = Altro.step!(ilqr, J_prev, false)
+    J = let solver = ilqr
+        J_prev = cost(solver)
+        Altro.errstate_jacobians!(solver.model, solver.G, solver.Z)
+        Altro.dynamics_expansion!(solver)
+        Altro.error_expansion!(solver.model, solver.D, solver.G)
+        Altro.cost_expansion!(solver.obj, solver.Efull, solver.Z)
+        Altro.error_expansion!(solver.model, solver.Eerr, solver.Efull, solver.G, solver.Z)
+        Altro.backwardpass!(solver)
+        Altro.forwardpass!(solver, J_prev)
+    end
     # println("iter = $i, J = $J")
     dJ = J_prev - J
     J_prev = J
-    Altro.copy_trajectories!(ilqr)
-    Altro.gradient_todorov!(ilqr)
-    Altro.record_iteration!(ilqr, J, dJ)
+    copyto!(ilqr.Z, ilqr.Z̄)
+    grad = Altro.gradient!(ilqr)
+    Altro.record_iteration!(ilqr, J, dJ, grad)
 end
 @test Altro.evaluate_convergence(ilqr)
 @test max_violation(al) ≈ 0.01458607 atol=1e-6
@@ -289,4 +327,4 @@ res = Altro.multiplier_projection!(pn)
 @test pn.λ ≈ res_pn["Y"] atol=1e-6
 
 
-end
+# end

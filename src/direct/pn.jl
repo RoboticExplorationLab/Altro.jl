@@ -59,7 +59,8 @@ struct ProjectedNewtonSolver{Nx,Nu,Nxu,T} <: ConstrainedSolver{T}
 end
 
 function ProjectedNewtonSolver(prob::Problem, 
-        opts::SolverOptions=SolverOptions(), stats::SolverStats=SolverStats())
+        opts::SolverOptions=SolverOptions(), 
+        stats::SolverStats=SolverStats(parent=solvername(ProjectedNewtonSolver2)))
     Z = prob.Z  # grab trajectory before copy to keep associativity
     prob = copy(prob)  # don't modify original problem
 
