@@ -3,17 +3,22 @@ function solve!(pn::ProjectedNewtonSolver2)
     constraint_jacobians!(pn)
     cost_gradient!(pn)
     cost_hessian!(pn)
+    update_active_set!(pn)
+
+    projection_solve!(pn)
 end
 
 function projection_solve!(pn::ProjectedNewtonSolver2)
     ϵ_feas = pn.opts.constraint_tolerance
-    viol = norm(pn.d[solver.active], Inf)
+    viol = TO.max_violation(pn, nothing)
+    @show viol
     max_projection_iters = pn.opts.n_steps
     count = 0
     while count <= max_projection_iters && viol > ϵ_feas
         viol = _projection_solve!(pn)
         if (pn.opts.multiplier_projection)
             res = multiplier_projection!(pn)
+            @show res
         else
             res = Inf
         end
@@ -37,18 +42,19 @@ function _projection_solve!(pn::ProjectedNewtonSolver2)
     convergence_rate_threshold = pn.opts.r_threshold
 
     # Regularization
-    ρ_chol = solver.opts.ρ_chol
-    ρ_primal = solver.opts.ρ_primal
+    ρ_chol = pn.opts.ρ_chol
+    ρ_primal = pn.opts.ρ_primal
 
     # Assume constant, diagonal cost Hessian
     # TODO: change this!
-    H = solver.H
+    H = pn.H
 
     # Update everything
     evaluate_constraints!(pn)
     constraint_jacobians!(pn)
     cost_gradient!(pn)
     cost_hessian!(pn)
+    update_active_set!(pn)
 
     # Get active constraints
     D,d = active_constraints(pn)
@@ -87,7 +93,7 @@ function _projection_solve!(pn::ProjectedNewtonSolver2)
 end
 
 function _projection_linesearch!(pn::ProjectedNewtonSolver2, S, HinvD)
-    solve_tol = 1e-6
+    solve_tol = 1e-8
     refinement_iters = 25
     α = 1.0
     ϕ = 0.5
@@ -100,11 +106,14 @@ function _projection_linesearch!(pn::ProjectedNewtonSolver2, S, HinvD)
         # Solve Schur compliment
         δλ = reg_solve(S[1], d, S[2], solve_tol, refinement_iters)
         δZ = -HinvD*δλ
-        pn.Z̄data .+= α * δZ
+        pn.Z̄data .= pn.Zdata .+ α .* δZ
         
         evaluate_constraints!(pn, pn.Z̄)
-        viol = max_violation(pn, nothing)
-        if viol < viol0 || count > 10
+        viol = TO.max_violation(pn, nothing)
+        if viol < viol0
+            pn.Zdata .= pn.Z̄data
+            break
+        elseif count > 10
             break
         else
             count += 1
@@ -114,6 +123,20 @@ function _projection_linesearch!(pn::ProjectedNewtonSolver2, S, HinvD)
         # cost_gradient!(pn)
         # cost_hessian!(pn)
     end
-    pn.Zdata .= pn.Z̄data
     return viol
+end
+
+function multiplier_projection!(pn::ProjectedNewtonSolver2)
+    λ = pn.Ydata[pn.active]
+    D,d = active_constraints(pn)
+    g = pn.g
+    res0 = g + D'λ
+    A = D*D'
+    Areg = A + I*pn.opts.ρ_primal
+    b = D*res0
+    δλ = -reg_solve(A, b, Areg)
+    λ += δλ
+    res = g + D'λ  # dual feasibility
+    pn.Ydata[pn.active] .= λ
+    return norm(res)
 end

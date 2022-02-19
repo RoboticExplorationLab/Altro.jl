@@ -1,5 +1,3 @@
-const SparseView{T,I} = SubArray{T, 2, SparseMatrixCSC{T, I}, Tuple{UnitRange{I}, UnitRange{I}}, false}
-const VectorView{T,I} = SubArray{T, 1, Vector{T}, Tuple{UnitRange{I}}, true}
 
 """
 $(TYPEDEF)
@@ -15,6 +13,7 @@ struct ProjectedNewtonSolver2{L<:DiscreteDynamics,O<:AbstractObjective,Nx,Nu,T} 
     model::L
     obj::O
     x0::Vector{T}
+    conset::PNConstraintSet{T}
     opts::SolverOptions{T}
     stats::SolverStats{T}
 
@@ -53,8 +52,9 @@ end
 function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOptions{T}(), 
                                 stats::SolverStats=SolverStats(parent=solvername(ProjectedNewtonSolver2)); kwargs...) where T
     n,m,N = RD.dims(prob)
+    Nc = sum(num_constraints(prob.constraints))  # stage constraints
     Np = N*n + (N-1)*m  # number of primals
-    Nd = N*n            # number of duals (no constraints)
+    Nd = N*n + Nc       # number of duals (no constraints)
 
     set_options!(opts; kwargs...)
 
@@ -73,6 +73,8 @@ function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOpti
     d = view(b, Np .+ (1:Nd)) 
     active = trues(Nd)
 
+    conset = PNConstraintSet(prob.constraints, D, d, active)
+
     Z = Traj([KnotPoint{n,m}(view(Zdata, iz[k]), prob.Z[k].t, prob.Z[k].dt) for k = 1:N])
     Z[end].dt = 0
     Z̄ = Traj([KnotPoint{n,m}(view(Z̄data, iz[k]), prob.Z[k].t, prob.Z[k].dt) for k = 1:N])
@@ -82,11 +84,11 @@ function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOpti
     grad = [view(b,i) for i in iz]
 
     id = [Np + n + (k-1)*n .+ (1:n) for k = 1:N-1]
-    ∇f = [view(A, id[k], j ? iz[k] : ix[k+1]) for k = 1:N-1, j in (true, false)] 
+    ∇f = [view(D, conset.cinds[end][k+1], j ? iz[k] : ix[k+1]) for k = 1:N-1, j in (true, false)] 
     f = [zeros(T,n) for k = 1:N-1]
-    e = [view(b, id[k]) for k = 1:N-1]
+    e = [view(d, conset.cinds[end][k+1]) for k = 1:N-1]
 
-    ProjectedNewtonSolver2(prob.model, prob.obj, Vector(prob.x0), opts, stats, Zdata, Z̄data, Ydata,
+    ProjectedNewtonSolver2(prob.model, prob.obj, Vector(prob.x0), conset, opts, stats, Zdata, Z̄data, Ydata,
         A, b, H, g, D, d, active, Z, Z̄, hess, grad, ∇f, f, e, ix, iu, iz, id)
 
     # ProjectedNewtonSolver2(prob.model, prob.obj, prob.x0, opts, stats, Zdata, Ydata, H, g, 
@@ -147,6 +149,9 @@ function evaluate_constraints!(pn::ProjectedNewtonSolver2, Z::AbstractTrajectory
 
     # Dynamics 
     dynamics_error!(pn, Z)
+
+    # Stage constraints
+    evaluate_constraints!(pn.conset, Z)
 end
 
 function constraint_jacobians!(pn::ProjectedNewtonSolver2, Z::AbstractTrajectory=pn.Z)
@@ -159,20 +164,33 @@ function constraint_jacobians!(pn::ProjectedNewtonSolver2, Z::AbstractTrajectory
 
     # Dynamics
     dynamics_expansion!(pn, Z)
+
+    # Stage constraints
+    constraint_jacobians!(pn.conset, Z)
 end
 
-function max_violation(pn::ProjectedNewtonSolver2, Z=pn.Z)
+function TO.max_violation(pn::ProjectedNewtonSolver2, Z::Traj=pn.Z)
     evaluate_constraints!(pn, Z)
+    update_active_set!(pn)
     max_violation(pn, nothing)
 end
 
-function max_violation(pn::ProjectedNewtonSolver2, Z::Nothing)
-    norm(pn.d, Inf)  # TODO: update this for inequality constraints
+function TO.max_violation(pn::ProjectedNewtonSolver2, Z::Nothing)
+    c_max = zero(eltype(pn.d))
+    for i in eachindex(pn.d)
+        if pn.active[i]
+            c_max = max(c_max, abs(pn.d[i]))
+        end
+    end
+    return c_max
+    # norm(view(pn.d, pn.active), Inf)  # TODO: update this for inequality constraints
 end
 
 
 function update_active_set!(pn::ProjectedNewtonSolver2)
-    # TODO: implement this
+    for con in pn.conset
+        update_active_set!(con, pn.opts.active_set_tolerance_pn)
+    end
     return nothing
 end
 

@@ -25,7 +25,7 @@ const RD = RobotDynamics
 using TrajectoryOptimization:
     num_constraints, get_trajectory
 
-import TrajectoryOptimization: rollout!, get_constraints, get_model, get_objective
+import TrajectoryOptimization: rollout!, get_constraints, get_model, get_objective, max_violation
 import RobotDynamics: discrete_dynamics, dynamics, dynamics!, evaluate, evaluate!
 
 using TrajectoryOptimization:
@@ -70,6 +70,8 @@ export
     Problems
 
 const ColonSlice = Base.Slice{Base.OneTo{Int}}
+const SparseView{T,I} = SubArray{T, 2, SparseMatrixCSC{T, I}, Tuple{UnitRange{I}, UnitRange{I}}, false}
+const VectorView{T,I} = SubArray{T, 1, Vector{T}, Tuple{UnitRange{I}}, true}
 
 include("logging/SolverLogging.jl")
 using .SolverLogging_v1
@@ -106,6 +108,8 @@ include("augmented_lagrangian/al_solve.jl")
 include("direct/primals.jl")
 include("direct/pn.jl")
 include("direct/pn_methods.jl")
+include("direct/pncon.jl")
+include("direct/pnconset.jl")
 include("direct/pn_solver.jl")
 include("direct/pn_solve.jl")
 include("altro/altro_solver.jl")

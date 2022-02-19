@@ -112,7 +112,7 @@ solver = ALTROSolver(Problems.DubinsCar(:escape)..., infeasible=true, R_inf=0.1)
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time / 1e6 < 35  # was 25
 @test max_violation(solver) < 1e-5
-@test iterations(solver) == 14 # 13
+@test iterations(solver) == 13 # 13
 @test solver.stats.gradient[end] < 1e-3
 @test status(solver) == Altro.SOLVE_SUCCEEDED 
 

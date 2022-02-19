@@ -27,7 +27,7 @@ function solve!(solver::ALTROSolver2)
     # Solve with AL
     solve!(solver.solver_al)
 
-    if status(solver) <= SOLVE_SUCCEEDED || opts.force_pn
+    if status(solver) <= SOLVE_SUCCEEDED || opts.force_pn  # TODO: should this be status < SOLVE_SUCCEEDED?
         # Check convergence
         i = solver.solver_al.stats.iterations
         if i > 1
@@ -40,13 +40,15 @@ function solve!(solver::ALTROSolver2)
         if (opts.projected_newton && c_max > opts.constraint_tolerance && 
                 (status(solver) <= SOLVE_SUCCEEDED || status(solver) == MAX_ITERATIONS_OUTER)) ||
                 opts.force_pn
+            copyto!(get_trajectory(solver.solver_pn), get_trajectory(solver.solver_al))
             solve!(solver.solver_pn)
+            copyto!(get_trajectory(solver.solver_al), get_trajectory(solver.solver_pn))
         end
 
         # Back-up check
         if status(solver) <= SOLVE_SUCCEEDED 
             # TODO: improve this check
-            if TO.max_violation(solver) < solver.opts.constraint_tolerance
+            if TO.max_violation(solver.solver_al) < solver.opts.constraint_tolerance
                 solver.stats.status = SOLVE_SUCCEEDED
             end
         end

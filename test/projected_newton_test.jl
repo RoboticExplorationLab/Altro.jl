@@ -12,7 +12,7 @@ const RD = RobotDynamics
 
 # Generate problem
 N = 11
-prob, opts = Problems.DubinsCar(:turn90, N=N)
+prob, opts = Problems.DubinsCar(:parallel_park, N=N)
 
 # Create a trajectory with views into a single array
 n,m,N = RD.dims(prob)
@@ -28,18 +28,51 @@ RD.state(Z[2]) .= 1
 RD.control(Z[3]) .= 2.1
 @test Zdata[ix[2]] ≈ fill(1,n)
 @test Zdata[iu[3]] ≈ fill(2.1,m)
+Nc = sum(TO.num_constraints(prob))  # number of stage constraints
+Np = N*n + (N-1)*m  # number of primals
+Nd = N*n + Nc       # number of duals (no constraints)
+
+## Create PNConstraintSet
+D = spzeros(Nd, Np)
+d = zeros(Nd)
+a = trues(Nd)
+pnconset = Altro.PNConstraintSet(prob.constraints, D, d, a)
+alconset = Altro.ALConstraintSet2{Float64}(prob.constraints)
+@test length(pnconset) == length(alconset)
+
+Altro.evaluate_constraints!(pnconset, Z)
+Altro.evaluate_constraints!(alconset, Z)
+for i = 1:length(alconset)
+    @test pnconset[i].vals ≈ alconset[i].vals
+end
+
+Altro.constraint_jacobians!(pnconset, Z)
+Altro.constraint_jacobians!(alconset, Z)
+for i = 1:length(alconset) - 1
+    @test pnconset[i].jac ≈ alconset[i].jac
+end
+
 
 # Create a PN Solver
-ilqr = Altro.iLQRSolver2(prob)
+al = Altro.ALSolver(prob)
+ilqr = al.ilqr 
 pn = Altro.ProjectedNewtonSolver2(prob)
 Np = Altro.num_primals(pn)
+
+pnconset = pn.conset
+@test pnconset.cinds[1][1] == n .+ (1:2m)
+@test pnconset.cinds[end][1] == 1:n
+@test pnconset.cinds[end][2] == n + 2m .+ (1:n)
+@test pnconset.cinds[1][2] == n + 2m + n .+ (1:2m)
+@test pnconset.cinds[2][1] == n + 2m + n + 2m .+ (1:4)
+@test pnconset.cinds[end][3] == n + 2m + n + 2m + 4 .+ (1:n)
 
 
 # Cost expansion 
 copyto!(pn.Z, ilqr.Z)
 Altro.cost_gradient!(pn)
 Altro.cost_hessian!(pn)
-Altro.cost_expansion!(ilqr.obj, ilqr.Efull, ilqr.Z)
+Altro.cost_expansion!(ilqr.obj.obj, ilqr.Efull, ilqr.Z)
 for k = 1:N-1
     @test ilqr.Efull[k].hess ≈ pn.hess[k]
     @test ilqr.Efull[k].grad ≈ pn.grad[k]
@@ -66,20 +99,27 @@ end
 ##############################
 ## Comparison
 ##############################
-prob, opts = Problems.DubinsCar(:turn90, N=11)
+prob, opts = Problems.DubinsCar(:parallel_park, N=11)
 
-s1 = Altro.iLQRSolver(prob, copy(opts))
-s2 = Altro.iLQRSolver2(prob, copy(opts))
+# s1 = Altro.iLQRSolver(prob, copy(opts))
+# s2 = Altro.iLQRSolver2(prob, copy(opts))
+
+opts.trim_stats = false
+s1 = Altro.AugmentedLagrangianSolver(prob, copy(opts))
+s2 = Altro.ALSolver(prob, copy(opts))
 
 solve!(s1)
 solve!(s2)
 
-pn1 = Altro.ProjectedNewtonSolver(prob, opts)
-pn2 = Altro.ProjectedNewtonSolver2(prob, opts)
-copyto!(pn1.Z, s1.Z)
-copyto!(pn2.Z, s2.Z)
+
+pn1 = Altro.ProjectedNewtonSolver(prob, opts, s1.stats)
+pn2 = Altro.ProjectedNewtonSolver2(prob, opts, s2.stats)
+copyto!(pn1.Z, get_trajectory(s1))
+copyto!(pn2.Z, get_trajectory(s2))
 @test states(pn1.Z) ≈ states(pn2.Z)
 @test controls(pn1.Z) ≈ controls(pn2.Z)
+
+# Altro.solve!(pn2)
 
 @test cost(pn1) ≈ cost(pn2)
 let solver = pn1
@@ -103,9 +143,10 @@ end
 @test pn1.g ≈ pn2.g
 @test pn1.D ≈ pn2.D
 @test pn1.d ≈ pn2.d atol=1e-12
+@test pn1.active_set ≈ pn2.active
 
 D1,d1 = Altro.active_constraints(pn1)
-D2,d2 = Altro.active_constraints(pn1)
+D2,d2 = Altro.active_constraints(pn2)
 @test D1 ≈ D2
 @test d1 ≈ d2
 
@@ -122,7 +163,10 @@ Sreg2 = cholesky(S2 + ρ_chol*I, check=false)
 @test issuccess(Sreg1)
 @test issuccess(Sreg2)
 
+norm(d1, Inf)
+norm(d2, Inf)
 ##
+
 copyto!(pn1.P, pn1.Z)
 α = 1.0
 δλ1 = Altro.reg_solve(S1, d1, Sreg1, 1e-8, 25)
@@ -140,13 +184,103 @@ copyto!(pn1.Z̄, pn1.P̄)
 Altro.update_constraints!(pn1, pn1.Z̄)
 Altro.evaluate_constraints!(pn2, pn2.Z̄)
 Altro.max_violation(pn2, nothing)
+Altro.copy_constraints!(pn1)
 
-d1 = pn1.d[pn1.active_set]
-norm(d1, Inf)
-s2 = pn2.d[pn2.active]
-norm(d2, Inf)
 
-Altro._projection_linesearch!(pn1, (S1,Sreg1), HinvD1)
-Altro._projection_linesearch!(pn2, (S2,Sreg2), HinvD2)
+d1_ = pn1.d[pn1.active_set]
+norm(d1_, Inf)
+d2_ = pn2.d[pn2.active]
+norm(d2_, Inf)
+
+norm(pn1.g + D1'pn1.λ[pn1.active_set])
+
+let solver = pn1
+    Altro.update_constraints!(solver)
+    Altro.copy_constraints!(solver)
+    Altro.copy_multipliers!(solver)
+    Altro.constraint_jacobian!(solver)
+    Altro.copy_jacobians!(solver)
+    TO.cost_expansion!(solver)
+    Altro.update_active_set!(solver; tol=solver.opts.active_set_tolerance_pn)
+    Altro.copy_active_set!(solver)
+end
+let pn = pn2
+    Altro.evaluate_constraints!(pn)
+    Altro.constraint_jacobians!(pn)
+    Altro.cost_gradient!(pn)
+    Altro.cost_hessian!(pn)
+    Altro.update_active_set!(pn)
+end
+Altro.multiplier_projection!(pn1)
+Altro.multiplier_projection!(pn2)
+
 pn1.P
 pn2.Zdata
+
+
+
+##
+prob, opts = Problems.DubinsCar(:parallel_park, N=11)
+
+# opts.trim_stats = false
+# s1 = Altro.AugmentedLagrangianSolver(prob, copy(opts))
+# s2 = Altro.ALSolver(prob, copy(opts))
+
+s1 = Altro.ALTROSolver(prob, copy(opts))
+s2 = Altro.ALTROSolver2(prob, copy(opts))
+
+# s1.opts.projected_newton = false
+# s2.opts.projected_newton = false
+# s1.opts.constraint_tolerance = 1e-3
+# s2.opts.constraint_tolerance = 1e-3
+
+solve!(s1)
+solve!(s2)
+
+max_violation(s1)
+max_violation(s2)
+
+##
+pn1 = s1.solver_pn
+pn2 = s2.solver_pn
+copyto!(get_trajectory(s2.solver_pn), get_trajectory(s2.solver_al))
+
+@test states(pn1.Z) ≈ states(pn2.Z)
+@test controls(pn1.Z) ≈ controls(pn2.Z)
+
+# Altro.solve!(pn2)
+
+@test cost(pn1) ≈ cost(pn2)
+let solver = pn1
+    Altro.update_constraints!(solver)
+    Altro.copy_constraints!(solver)
+    Altro.copy_multipliers!(solver)
+    Altro.constraint_jacobian!(solver)
+    Altro.copy_jacobians!(solver)
+    TO.cost_expansion!(solver)
+    Altro.update_active_set!(solver; tol=solver.opts.active_set_tolerance_pn)
+    Altro.copy_active_set!(solver)
+end
+let pn = pn2
+    Altro.evaluate_constraints!(pn)
+    Altro.constraint_jacobians!(pn)
+    Altro.cost_gradient!(pn)
+    Altro.cost_hessian!(pn)
+    Altro.update_active_set!(pn)
+end
+@test pn1.H ≈ pn2.H
+@test pn1.g ≈ pn2.g
+@test pn1.D ≈ pn2.D
+@test pn1.d ≈ pn2.d atol=1e-12
+@test pn1.active_set ≈ pn2.active
+pn1.opts.active_set_tolerance_pn
+pn2.opts.active_set_tolerance_pn
+sum(pn1.active_set)
+sum(pn2.active)
+
+findall(pn1.active_set .!= pn2.active)
+tol = pn1.opts.active_set_tolerance_pn
+pn1.d[81] > -tol
+pn2.d[81]
+pn1.active_set[81]
+pn2.active[81]

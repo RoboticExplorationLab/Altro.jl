@@ -26,11 +26,11 @@ as additional keyword arguments and will be set in the solver.
 * `Base.size`: returns `(n,m,N)`
 * `TO.is_constrained`
 """
-struct ALTROSolver2{T,S} <: ConstrainedSolver{T}
+struct ALTROSolver2{T,S,P} <: ConstrainedSolver{T}
     opts::SolverOptions{T}
     stats::SolverStats{T}
     solver_al::ALSolver{T,S}
-    solver_pn::ProjectedNewtonSolver{Nx,Nu,Nxu,T} where {Nx,Nu,Nxu}
+    solver_pn::P
 end
 
 function ALTROSolver2(prob::Problem{T}, opts::SolverOptions=SolverOptions();
@@ -51,10 +51,10 @@ function ALTROSolver2(prob::Problem{T}, opts::SolverOptions=SolverOptions();
     set_options!(opts; kwarg_opts...)
     stats = SolverStats{T}(parent=solvername(ALTROSolver))
     solver_al = ALSolver(prob, opts, stats)
-    solver_pn = ProjectedNewtonSolver(prob, opts, stats)
+    solver_pn = ProjectedNewtonSolver2(prob, opts, stats)
     # link_constraints!(get_constraints(solver_pn), get_constraints(solver_al))
     S = typeof(solver_al.ilqr)
-    solver = ALTROSolver2{T,S}(opts, stats, solver_al, solver_pn)
+    solver = ALTROSolver2{T,S,typeof(solver_pn)}(opts, stats, solver_al, solver_pn)
     reset!(solver)
     # set_options!(solver; opts...)
     solver
@@ -76,3 +76,6 @@ is_constrained(solver::ALTROSolver2) = !isempty(get_constraints(solver.solver_al
 solvername(::Type{<:ALTROSolver2}) = :ALTRO
 
 # Methods
+function TO.max_violation(solver::ALTROSolver2)
+    return max_violation(solver.solver_al)
+end

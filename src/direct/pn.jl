@@ -68,7 +68,7 @@ function ProjectedNewtonSolver(prob::Problem,
     NN = n*N + m*(N-1)
 
     # Add dynamics constraints
-    TO.add_dynamics_constraints!(prob, 1, 
+    TO.add_dynamics_constraints!(prob, -1, 
         sig=opts.dynamics_funsig, diffmethod=opts.dynamics_diffmethod)
     conSet = prob.constraints
     NP = sum(num_constraints(conSet))

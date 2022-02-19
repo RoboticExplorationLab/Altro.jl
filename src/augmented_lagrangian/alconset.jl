@@ -66,7 +66,7 @@ for method in (:algrad!, :alhess!, :dualupdate!, :penaltyupdate!, :normviolation
     end
 end
 
-function max_violation(conset::ALConstraintSet2)
+function TO.max_violation(conset::ALConstraintSet2)
     for i = 1:length(conset) 
         conset.c_max[i] = max_violation(conset.constraints[i])
     end
