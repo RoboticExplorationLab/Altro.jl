@@ -61,6 +61,13 @@ function iLQRSolver2(
         RD.KnotPoint{Nx,Nu}(Vector(RD.getdata(z)), RD.getparams(z)...)
     end)
     Z̄ = copy(Z)
+
+    # Rollout out dynamics if initial state contains NaN values
+    if any(isnan, state(Z[1]))
+        RD.rollout!(opts.dynamics_funsig, prob.model, Z, prob.x0)
+    end
+    RD.setstate!(Z[1], prob.x0)  # set initial state
+
     dx = [zeros(T,e) for k = 1:N]
     du = [zeros(T,m) for k = 1:N-1]
 
