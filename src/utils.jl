@@ -28,11 +28,11 @@ end
 
 function benchmark_solve!(solver; samples=10, evals=10)
     Z0 = deepcopy(get_trajectory(solver))
-    if is_constrained(solver)
-        λ0 = deepcopy(get_duals(solver))
-    else
-        λ0 = nothing
-    end
+    # if is_constrained(solver)
+    #     λ0 = deepcopy(get_duals(solver))
+    # else
+    #     λ0 = nothing
+    # end
     v0 = solver.opts.verbose
     s0 = solver.opts.show_summary
     solver.opts.verbose = 0

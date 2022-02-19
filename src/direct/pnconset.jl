@@ -40,6 +40,7 @@ function PNConstraintSet(cons::TO.ConstraintList, D, d, a)
     constraints = map(1:ncon) do i
         PNConstraint(n, m, N, cons[i], cons.inds[i], D, d, a, cinds[i], sig=cons.sigs[i], diffmethod=cons.diffs[i])
     end
+    constraints = convert(Vector{PNConstraint{T}}, constraints)
     c_max = zeros(T, ncon)
     PNConstraintSet(constraints, cinds, c_max)
 end

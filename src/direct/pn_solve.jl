@@ -11,14 +11,12 @@ end
 function projection_solve!(pn::ProjectedNewtonSolver2)
     ϵ_feas = pn.opts.constraint_tolerance
     viol = TO.max_violation(pn, nothing)
-    @show viol
     max_projection_iters = pn.opts.n_steps
     count = 0
     while count <= max_projection_iters && viol > ϵ_feas
         viol = _projection_solve!(pn)
         if (pn.opts.multiplier_projection)
             res = multiplier_projection!(pn)
-            @show res
         else
             res = Inf
         end

@@ -5,6 +5,7 @@ using RobotZoo
 using RobotDynamics
 using FileIO
 using JLD2
+using LinearAlgebra
 const TO = TrajectoryOptimization
 const RD = RobotDynamics
 
@@ -24,7 +25,7 @@ initial_controls!(prob, U)
 rollout!(prob)
 
 solver2 = Altro.ALTROSolver2(prob, opts, save_S=true)
-n,m,N = RD.dims(solver)
+n,m,N = RD.dims(solver2)
 ilqr = Altro.get_ilqr(solver2)
 Altro.initialize!(ilqr)
 X = states(ilqr)
@@ -35,7 +36,7 @@ U = controls(ilqr)
 # State diff Jacobian
 Altro.errstate_jacobians!(ilqr.model, ilqr.G, ilqr.Z)
 G = ilqr.G
-@test all(x->x == Matrix(I,n,n), G[1:N])
+@test all(x->x ≈ Matrix(I,n,n), G[1:N])
 
 # Dynamics Jacobians
 Altro.dynamics_expansion!(ilqr)
@@ -220,35 +221,22 @@ end
 
 ## Projected Newton
 res_pn = load("/home/brian/Code/TrajOpt/cartpole_pn.jld2")
-solver = ALTROSolver(Problems.Cartpole()..., verbose=0)
+solver = Altro.ALTROSolver2(Problems.Cartpole()..., verbose=0)
 solver.opts.constraint_tolerance = solver.opts.projected_newton_tolerance
 solve!(solver.solver_al)
 @test iterations(solver) == 39
 pn = solver.solver_pn
-let solver = pn
-    Altro.update_constraints!(solver)
-    Altro.copy_constraints!(solver)
-    Altro.copy_multipliers!(solver)
-    Altro.constraint_jacobian!(solver)
-    Altro.copy_jacobians!(solver)
-    TO.cost_expansion!(solver)
-    Altro.update_active_set!(solver; tol=solver.opts.active_set_tolerance_pn)
-    Altro.copy_active_set!(solver)
+copyto!(get_trajectory(pn), get_trajectory(solver.solver_al))
+let pn = pn
+    Altro.evaluate_constraints!(pn)
+    Altro.constraint_jacobians!(pn)
+    Altro.cost_gradient!(pn)
+    Altro.cost_hessian!(pn)
+    Altro.update_active_set!(pn)
 end
 
 # Projection solve
 D,d = let solver = pn
-    # Update everything
-    Altro.update_constraints!(solver)
-    Altro.constraint_jacobian!(solver)
-    Altro.update_active_set!(solver; tol=solver.opts.active_set_tolerance_pn)
-    TO.cost_expansion!(solver)
-
-    # Copy results from constraint sets to sparse arrays
-    copyto!(solver.P, solver.Z)
-    Altro.copy_constraints!(solver)
-    Altro.copy_jacobians!(solver)
-    Altro.copy_active_set!(solver)
     Altro.active_constraints(solver)
 end
 max_violation(pn)
@@ -263,7 +251,7 @@ Sreg = cholesky(S + solver.opts.ρ_chol * I)
 
 # Line Search
 dY,dZ = let solver = pn
-    a = solver.active_set
+    a = solver.active
     d = solver.d[a]
     viol0 = norm(d,Inf)
 
@@ -273,54 +261,61 @@ dY,dZ = let solver = pn
 end
 
 let
-    pn.P̄.Z .= pn.P.Z + dZ
-    copyto!(pn.Z̄, pn.P̄)
-    Altro.update_constraints!(pn, pn.Z̄)
-    TO.max_violation!(get_constraints(pn))
-    Altro.copy_constraints!(pn)
-    d = pn.d[pn.active_set]
-    copyto!(pn.P.Z, pn.P̄.Z)
+    α = 1.0
+    pn.Z̄data .= pn.Zdata .+ α .* dZ
+    # pn.P̄.Z .= pn.P.Z + dZ
+    # copyto!(pn.Z̄, pn.P̄)
+    Altro.evaluate_constraints!(pn, pn.Z̄)
+    TO.max_violation(pn, nothing)
+    # Altro.copy_constraints!(pn)
+    d = pn.d[pn.active]
+    # copyto!(pn.P.Z, pn.P̄.Z)
+    pn.Zdata .= pn.Z̄data
 end
-norm(pn.d[pn.active_set], Inf)
+norm(pn.d[pn.active], Inf)
 
 ##
-vals = [conval.vals for conval in Altro.get_constraints(pn).convals]
-@test vals[1] ≈ res_pn["vals"][1] atol=1e-10
+vals = [conval.vals for conval in Altro.get_constraints(pn)]
+norm(res_pn["vals"][3] - vals[1])
+norm(res_pn["vals"][4] - vals[2])
+@test vals[1] ≈ res_pn["vals"][2] atol=1e-10
 @test vals[2][1:end-1] ≈ res_pn["vals"][2][1:end]
 @test vals[3] ≈ res_pn["vals"][3] atol=1e-10
 @test vals[4] ≈ res_pn["vals"][4] atol=1e-10
 
 ##
-pn.P.Z ≈ res_pn["Z1"]
+pn.Zdata ≈ res_pn["Z1"]
 pn.d ≈ res_pn["d1"]
-pn.active_set ≈ res_pn["a1"]
-pn.d[pn.active_set]
-res_pn["d1"][res_pn["a1"]]
+pn.active ≈ res_pn["a1"]
+# pn.d[pn.active]
+# res_pn["d1"][res_pn["a1"]]
 
 ## Next Line search
 let solver = pn, S=(S,Sreg)
-    Z̄ = solver.Z̄
-    P̄ = solver.P̄
-    P = solver.P
+    # Z̄ = solver.Z̄
+    # P̄ = solver.P̄
+    # P = solver.P
     α = 1.0
 
-    d = solver.d[solver.active_set]
+    d = solver.d[solver.active]
     δλ = Altro.reg_solve(S[1], d, S[2], 1e-8, 25)
-    @show norm(δλ)
     δZ = -HinvD*δλ
-    P̄.Z .= P.Z + α*δZ
+    pn.Z̄data .= pn.Zdata .+ α .* δZ
+    # P̄.Z .= P.Z + α*δZ
 
-    copyto!(Z̄, P̄)
-    Altro.update_constraints!(solver, Z̄)
-    TO.max_violation!(get_constraints(solver))
+    Altro.evaluate_constraints!(pn, pn.Z̄)
+    viol = TO.max_violation(pn, nothing)
+    # copyto!(Z̄, P̄)
+    # Altro.update_constraints!(solver, Z̄)
+    # TO.max_violation!(get_constraints(solver))
     # viol_ = maximum(conSet.c_max)
-    Altro.copy_constraints!(solver)
-    d = solver.d[solver.active_set]
-    viol = norm(d,Inf)
+    # Altro.copy_constraints!(solver)
+    # d = solver.d[solver.active_set]
+    # viol = norm(d,Inf)
 end
 
 # Save the results
-copyto!(pn.Z, pn.P)
+pn.Zdata .= pn.Z̄data
 
 # Multiplier projection
 res = Altro.multiplier_projection!(pn)

@@ -104,6 +104,7 @@ iterations(pn::ProjectedNewtonSolver2) = pn.stats.iterations_pn
 solvername(::Type{<:ProjectedNewtonSolver2}) = :ProjectedNewton
 num_primals(pn::ProjectedNewtonSolver2) = length(pn.Zdata)
 num_duals(pn::ProjectedNewtonSolver2) = length(pn.Ydata)
+TO.get_constraints(pn::ProjectedNewtonSolver2) = pn.conset
 
 function cost_hessian!(pn::ProjectedNewtonSolver2, Z::AbstractTrajectory=pn.Z)
     obj = pn.obj
