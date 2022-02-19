@@ -168,8 +168,8 @@ is_constrained(::Type{<:UnconstrainedSolver})::Bool = false
 is_constrained(solver::AbstractSolver) = is_constrained(typeof(solver)) && !isempty(get_constraints(solver))
 
 @inline get_duals(solver::ConstrainedSolver) = get_duals(get_constraints(solver))
-@inline set_duals!(solver::ConstrainedSolver, λ) = set_duals!(get_constraints(solver), λ)
-@inline set_duals!(solver::AbstractSolver, λ) = nothing 
+# @inline set_duals!(solver::ConstrainedSolver, λ) = set_duals!(get_constraints(solver), λ)
+# @inline set_duals!(solver::AbstractSolver, λ) = nothing 
 
 
 function TO.cost(solver::AbstractSolver, Z=get_trajectory(solver))
@@ -177,13 +177,13 @@ function TO.cost(solver::AbstractSolver, Z=get_trajectory(solver))
     TO.cost(obj, Z)
 end
 
-function TO.cost_expansion!(solver::AbstractSolver)
-    Z = get_trajectory(solver)
-    E, obj = get_cost_expansion(solver), get_objective(solver)
-    cost_expansion!(E, obj, Z)
-end
+# function TO.cost_expansion!(solver::AbstractSolver)
+#     Z = get_trajectory(solver)
+#     E, obj = get_cost_expansion(solver), get_objective(solver)
+#     cost_expansion!(E, obj, Z)
+# end
 
-TO.error_expansion!(solver::AbstractSolver) = error_expansion_uncon!(solver)
+# TO.error_expansion!(solver::AbstractSolver) = error_expansion_uncon!(solver)
 
 """ $(SIGNATURES)
 Calculate all the constraint values given the trajectory `Z`
@@ -208,37 +208,37 @@ function constraint_jacobian!(solver::ConstrainedSolver, Z=get_trajectory(solver
     return nothing
 end
 
-#--- Error Expansion ---#
-function error_expansion_uncon!(solver::AbstractSolver)
-    E  = get_cost_expansion_error(solver)
-    E0 = get_cost_expansion(solver)
-    G  = get_error_state_jacobians(solver)
-    error_expansion!(E, E0, get_model(solver), G)
-end
+# #--- Error Expansion ---#
+# function error_expansion_uncon!(solver::AbstractSolver)
+#     E  = get_cost_expansion_error(solver)
+#     E0 = get_cost_expansion(solver)
+#     G  = get_error_state_jacobians(solver)
+#     error_expansion!(E, E0, get_model(solver), G)
+# end
 
-function TO.error_expansion!(solver::ConstrainedSolver)
-    error_expansion_uncon!(solver)
-    conSet = get_constraints(solver)
-    G = get_error_state_jacobians(solver)
-    error_expansion!(conSet, get_model(solver), G)
-end
+# function TO.error_expansion!(solver::ConstrainedSolver)
+#     error_expansion_uncon!(solver)
+#     conSet = get_constraints(solver)
+#     G = get_error_state_jacobians(solver)
+#     error_expansion!(conSet, get_model(solver), G)
+# end
 
-#--- Gradient Norm ---#
-function norm_grad(solver::UnconstrainedSolver, recalculate::Bool=true)
-    if recalculate
-        cost_expansion!(solver)
-    end
-    norm_grad(get_cost_expansion(solver))
-end
+# #--- Gradient Norm ---#
+# function norm_grad(solver::UnconstrainedSolver, recalculate::Bool=true)
+#     if recalculate
+#         cost_expansion!(solver)
+#     end
+#     norm_grad(get_cost_expansion(solver))
+# end
 
-function norm_grad(solver::ConstrainedSolver, recalculate::Bool=true)
-    conSet = get_constraints(solver)
-    if recalculate
-        cost_expansion!(solver)
-        jacobian
-    end
-    norm_grad(get_cost_expansion(solver))
-end
+# function norm_grad(solver::ConstrainedSolver, recalculate::Bool=true)
+#     conSet = get_constraints(solver)
+#     if recalculate
+#         cost_expansion!(solver)
+#         jacobian
+#     end
+#     norm_grad(get_cost_expansion(solver))
+# end
 
 #--- Rollout ---#
 function rollout!(solver::AbstractSolver)
@@ -270,20 +270,20 @@ end
 
 
 # Line Search and Merit Functions
-"""
-    get_primals(solver)
-    get_primals(solver, α::Real)
+# """
+#     get_primals(solver)
+#     get_primals(solver, α::Real)
 
-Get the primal variables used during the line search. When called without an `α` it should
-return the container where the temporary primal variables are stored. When called with a
-step length `α` it returns `z + α⋅dz` where `z = get_solution(solver)` and `dz = get_step(solver)`.
-"""
-function get_primals(solver::AbstractSolver, α)
-    z = get_solution(solver)
-    z̄ = get_primals(solver)
-    dz = get_step(solver)
-    z̄ .= z .+ α*dz
-end
+# Get the primal variables used during the line search. When called without an `α` it should
+# return the container where the temporary primal variables are stored. When called with a
+# step length `α` it returns `z + α⋅dz` where `z = get_solution(solver)` and `dz = get_step(solver)`.
+# """
+# function get_primals(solver::AbstractSolver, α)
+#     z = get_solution(solver)
+#     z̄ = get_primals(solver)
+#     dz = get_step(solver)
+#     z̄ .= z .+ α*dz
+# end
 
 # Constrained solver
 TO.num_constraints(solver::AbstractSolver) = num_constraints(get_constraints(solver))
@@ -296,76 +296,76 @@ function TO.max_violation(solver::ConstrainedSolver, Z::Traj=get_trajectory(solv
     TO.max_violation(conSet)
 end
 
-function TO.norm_violation(solver::ConstrainedSolver, Z::Traj=get_trajectory(solver); recalculate=true, p=2)
-    conSet = get_constraints(solver)
-    if recalculate
-        RD.evaluate!(conSet, Z)
-    end
-    TO.norm_violation(conSet, p)
-end
+# function TO.norm_violation(solver::ConstrainedSolver, Z::Traj=get_trajectory(solver); recalculate=true, p=2)
+#     conSet = get_constraints(solver)
+#     if recalculate
+#         RD.evaluate!(conSet, Z)
+#     end
+#     TO.norm_violation(conSet, p)
+# end
 
 @inline TO.findmax_violation(solver::ConstrainedSolver) =
     TO.findmax_violation(get_constraints(solver))
 
-function second_order_correction!(solver::ConstrainedSolver)
-    conSet = get_constraints(solver)
-	Z = get_primals(solver)     # get the current value of z + α⋅δz
-	RD.evaluate!(conSet, Z)        # update constraints at new step
-	throw(ErrorException("second order correction not implemented yet..."))
-end
+# function second_order_correction!(solver::ConstrainedSolver)
+#     conSet = get_constraints(solver)
+# 	Z = get_primals(solver)     # get the current value of z + α⋅δz
+# 	RD.evaluate!(conSet, Z)        # update constraints at new step
+# 	throw(ErrorException("second order correction not implemented yet..."))
+# end
 
-"""
-	cost_dgrad(solver, Z, dZ; recalculate)
+# """
+# 	cost_dgrad(solver, Z, dZ; recalculate)
 
-Return the scalar directional gradient of the cost evaluated at `Z` in the direction of `dZ`,
-where `Z` and `dZ` are the types returned by `get_primals(solver)` and `get_step(solver)`,
-and must be able to be converted to a vector of `KnotPoint`s via `Traj()`.
-"""
-function cost_dgrad(solver::AbstractSolver, Z=get_primals(solver), dZ=get_step(solver);
-		recalculate=true)
-	E = get_cost_expansion(solver)
-	if recalculate
-		obj = get_objective(solver)
-		cost_gradient!(E, obj, Traj(Z))
-	end
-	TO.dgrad(E, Traj(dZ))
-end
+# Return the scalar directional gradient of the cost evaluated at `Z` in the direction of `dZ`,
+# where `Z` and `dZ` are the types returned by `get_primals(solver)` and `get_step(solver)`,
+# and must be able to be converted to a vector of `KnotPoint`s via `Traj()`.
+# """
+# function cost_dgrad(solver::AbstractSolver, Z=get_primals(solver), dZ=get_step(solver);
+# 		recalculate=true)
+# 	E = get_cost_expansion(solver)
+# 	if recalculate
+# 		obj = get_objective(solver)
+# 		cost_gradient!(E, obj, Traj(Z))
+# 	end
+# 	TO.dgrad(E, Traj(dZ))
+# end
 
-"""
-	norm_dgrad(solver, Z, dZ; recalculate, p)
+# """
+# 	norm_dgrad(solver, Z, dZ; recalculate, p)
 
-Calculate the directional derivative of `norm(c(Z), p)` in the direction of `dZ`, where
-`c(Z)` is the vector of constraints evaluated at `Z`.
-`Z` and `dZ` are the types returned by `get_primals(solver)` and `get_step(solver)`,
-and must be able to be converted to a vector of `KnotPoint`s via `Traj()`.
-"""
-function norm_dgrad(solver::AbstractSolver, Z=get_primals(solver), dZ=get_step(solver);
-		recalculate=true, p=1)
-    conSet = get_constraints(solver)
-	if recalculate
-		Z_ = Traj(Z)
-		RD.evaluate!(conSet, Z_)
-		RD.jacobian!(conSet, Z_)
-	end
-    Dc = TO.norm_dgrad(conSet, Traj(dZ), 1)
-end
+# Calculate the directional derivative of `norm(c(Z), p)` in the direction of `dZ`, where
+# `c(Z)` is the vector of constraints evaluated at `Z`.
+# `Z` and `dZ` are the types returned by `get_primals(solver)` and `get_step(solver)`,
+# and must be able to be converted to a vector of `KnotPoint`s via `Traj()`.
+# """
+# function norm_dgrad(solver::AbstractSolver, Z=get_primals(solver), dZ=get_step(solver);
+# 		recalculate=true, p=1)
+#     conSet = get_constraints(solver)
+# 	if recalculate
+# 		Z_ = Traj(Z)
+# 		RD.evaluate!(conSet, Z_)
+# 		RD.jacobian!(conSet, Z_)
+# 	end
+#     Dc = TO.norm_dgrad(conSet, Traj(dZ), 1)
+# end
 
 
-"""
-	dhess(solver, Z, dZ; recalculate)
+# """
+# 	dhess(solver, Z, dZ; recalculate)
 
-Calculate the scalar 0.5*dZ'G*dZ where G is the hessian of cost, evaluating the cost hessian
-at `Z`.
-"""
-function cost_dhess(solver::AbstractSolver, Z=TO.get_primals(solver),
-		dZ=TO.get_step(solver); recalculate=true)
-	E = get_cost_expansion(solver)
-	if recalculate
-		obj = get_objective(solver)
-		cost_hessian!(E, obj, Traj(Z))
-	end
-	TO.dhess(solver.E, Traj(dZ))
-end
+# Calculate the scalar 0.5*dZ'G*dZ where G is the hessian of cost, evaluating the cost hessian
+# at `Z`.
+# """
+# function cost_dhess(solver::AbstractSolver, Z=TO.get_primals(solver),
+# 		dZ=TO.get_step(solver); recalculate=true)
+# 	E = get_cost_expansion(solver)
+# 	if recalculate
+# 		obj = get_objective(solver)
+# 		cost_hessian!(E, obj, Traj(Z))
+# 	end
+# 	TO.dhess(solver.E, Traj(dZ))
+# end
 
 # Logging
 log_level(solver::AbstractSolver) = OuterLoop
