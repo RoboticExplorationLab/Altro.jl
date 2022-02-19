@@ -188,7 +188,7 @@ function update_active_set!(conval::ALConVal, ::Val{tol}) where tol
 	λ = conval.λ
 	if TO.sense(conval.con) == TO.Inequality()
 		for i in eachindex(a)
-			a[i] = @. (conval.vals[i] >= -tol) | (λ[i] > zero(tol))
+			a[i] = @. (conval.vals[i] >= -tol) #| (λ[i] > zero(tol))
 		end
 	end
 end
