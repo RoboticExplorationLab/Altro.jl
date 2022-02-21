@@ -45,11 +45,11 @@ opts = SolverOptions(
     penalty_scaling=10.,
     penalty_initial=1.0
 )
-altro = ALTROSolver(prob, opts)
+altro = ALTROSolver2(prob, opts)
 solve!(altro)
 
 # Get some info on the solve
-max_violation(altro)  # 5.89e-7
+max_violation(altro)  # 6.046e-9
 cost(altro)           # 1.539
 iterations(altro)     # 44
 

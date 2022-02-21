@@ -31,7 +31,7 @@ function rollout!(solver::iLQRSolver{T,Q,n}, α) where {T,Q,n}
             solver.stats.status = STATE_LIMIT
             return false
         end
-        max_u = norm(control(Z̄[k+1]),Inf)
+        max_u = norm(control(Z̄[k]),Inf)
         if max_u > solver.opts.max_control_value || isnan(max_u)
             solver.stats.status = CONTROL_LIMIT 
             return false

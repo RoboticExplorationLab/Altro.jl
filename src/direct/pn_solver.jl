@@ -18,9 +18,10 @@ struct ProjectedNewtonSolver2{L<:DiscreteDynamics,O<:AbstractObjective,Nx,Nu,T} 
     stats::SolverStats{T}
 
     # Data
-    Zdata::Vector{T}  # storage for primal variables
-    Z̄data::Vector{T}
-    Ydata::Vector{T}  # storage for dual variables
+    _data::Vector{T}  # storage for primal and dual variables
+    Zdata::VectorView{T,Int}  
+    Z̄data::VectorView{T,Int}
+    Ydata::VectorView{T,Int}  
     A::SparseMatrixCSC{T,Int}  # KKT matrix
     b::Vector{T}               # KKT vector
     H::SparseView{T,Int}
@@ -60,11 +61,12 @@ function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOpti
 
     ix = [(1:n) .+ (k-1)*(n+m) for k = 1:N]
     iu = [n .+ (1:m) .+ (k-1)*(n+m) for k = 1:N-1]
-    iz = push!([(1:n+m) .+ (k-1)*(n+m) for k = 1:N-1], ix[end])
+    iz = [(1:n+m) .+ (k-1)*(n+m) for k = 1:N]
 
-    Zdata = zeros(T, Np)
-    Z̄data = zeros(T, Np)
-    Ydata = zeros(T, Nd)
+    _data = zeros(2Np + Nd + 2m)  # leave extra room for terminal control
+    Zdata = view(_data, 1:Np)
+    Z̄data = view(_data, Np + m .+ (1:Np)) 
+    Ydata = view(_data, 2Np + 2m .+ (1:Nd)) 
     A = spzeros(T, Np + Nd, Np + Nd)
     b = zeros(T, Np + Nd)
     H = view(A, 1:Np, 1:Np) 
@@ -75,9 +77,9 @@ function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOpti
 
     conset = PNConstraintSet(prob.constraints, D, d, active)
 
-    Z = Traj([KnotPoint{n,m}(view(Zdata, iz[k]), prob.Z[k].t, prob.Z[k].dt) for k = 1:N])
+    Z = Traj([KnotPoint{n,m}(view(_data, iz[k]), prob.Z[k].t, prob.Z[k].dt) for k = 1:N])
     Z[end].dt = 0
-    Z̄ = Traj([KnotPoint{n,m}(view(Z̄data, iz[k]), prob.Z[k].t, prob.Z[k].dt) for k = 1:N])
+    Z̄ = Traj([KnotPoint{n,m}(view(_data, Np + m .+ iz[k]), prob.Z[k].t, prob.Z[k].dt) for k = 1:N])
     Z̄[end].dt = 0
 
     hess = [view(A,i,i) for i in iz]
@@ -88,7 +90,7 @@ function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOpti
     f = [zeros(T,n) for k = 1:N-1]
     e = [view(d, conset.cinds[end][k+1]) for k = 1:N-1]
 
-    ProjectedNewtonSolver2(prob.model, prob.obj, Vector(prob.x0), conset, opts, stats, Zdata, Z̄data, Ydata,
+    ProjectedNewtonSolver2(prob.model, prob.obj, Vector(prob.x0), conset, opts, stats, _data, Zdata, Z̄data, Ydata,
         A, b, H, g, D, d, active, Z, Z̄, hess, grad, ∇f, f, e, ix, iu, iz, id)
 
     # ProjectedNewtonSolver2(prob.model, prob.obj, prob.x0, opts, stats, Zdata, Ydata, H, g, 

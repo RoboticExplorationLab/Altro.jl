@@ -14,7 +14,8 @@ function projection_solve!(pn::ProjectedNewtonSolver2)
     max_projection_iters = pn.opts.n_steps
     count = 0
     while count <= max_projection_iters && viol > ϵ_feas
-        viol = _projection_solve!(pn)
+        _projection_solve!(pn)
+        viol = max_violation(pn)  # calculate again, updating the active set
         if (pn.opts.multiplier_projection)
             res = multiplier_projection!(pn)
         else

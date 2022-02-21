@@ -21,11 +21,15 @@ function initialize!(solver::iLQRSolver2)
     SolverLogging.setlevel!(solver.logger, solver.opts.verbose)
 
     # Initial rollout
-    # Use a closed-loop rollout, using feedback gains only
-    # If the solver was just initialized, this is equivalent to a forward simulation
-    # without feedback since the gains are all zero
-    rollout!(solver, 0.0)
-
+    if solver.opts.closed_loop_initial_rollout
+        # Use a closed-loop rollout, using feedback gains only
+        # If the solver was just initialized, this is equivalent to a forward simulation
+        # without feedback since the gains are all zero
+        rollout!(solver, 0.0)
+    else
+        RD.rollout!(solver.opts.dynamics_funsig, solver.model, solver.Z, solver.x0)
+    end
+    return nothing
 end
 
 function solve!(solver::iLQRSolver2)
@@ -106,7 +110,7 @@ function record_iteration!(solver::iLQRSolver2{<:Any,O}, J, dJ, grad) where O
     @log lg grad
     @log lg "dJ_zero" solver.stats.dJ_zero_counter
     @log lg "ρ" solver.reg.ρ
-    if O <: ALObjective2 
+    if O <: ALObjective2
         conset = solver.obj.conset
         @log lg "||v||" max_violation(conset)
     end

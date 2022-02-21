@@ -56,7 +56,7 @@ function algrad(con, λ, μ, ∇c, z)
     p = length(λ)
     ∇proj = zeros(eltype(z), p,p)
     TO.∇projection!(cone, ∇proj, λbar)
-    -∇c'∇proj'Iμ*λp
+    -∇c'Iμ*∇proj'*(Iμ\λp)
 end
 
 ##
@@ -84,8 +84,8 @@ confun_so(x) = [x; 3]
     (con_in, inds_in, confun_in),
     (con_so, inds_so, confun_so),
 ]
-# con, inds, confun = 
-#     (con_in, inds_in, confun_in)
+con, inds, confun = 
+    (con_so, inds_so, confun_so)
 alcon = Altro.ALConstraint{T}(n, m, con, inds)
 
 # Test that it got filled in correctly
@@ -142,11 +142,20 @@ end
 alcon.opts.use_conic_cost = false 
 cone = TO.sense(con)
 
+Altro.evaluate_constraint!(alcon, Z)
 for i = 1:P
+    Altro.alcost(alcon, i)
     Altro.algrad!(cone, alcon, i)
-    grad = ForwardDiff.gradient(x->alcost(cone, alcon.con, λ[i], μ[i], x), Z[inds[i]])
+    z = Z[inds[i]]
+    _z = RD.StaticKnotPoint{n,m}(MVector{n+m}(z.z), z.t, z.dt)
+    grad = ForwardDiff.gradient(
+        x->alcost(cone, alcon.con, SVector{p}(λ[i]), SVector{p}(μ[i]), x), 
+        _z
+    )
     @test grad ≈ alcon.grad[i]
-    @test alcon.grad[i] ≈ algrad(cone, alcon.con, λ[i], μ[i], alcon.jac[i], Z[inds[i]])
+    @test alcon.grad[i] ≈ algrad(
+        cone, alcon.con, SVector{p}(λ[i]), SVector{p}(μ[i]), alcon.jac[i], _z
+    )
 end
 
 for i = 1:P
@@ -154,7 +163,12 @@ for i = 1:P
     Altro.alhess!(cone, alcon, i)
     hess = zeros(n+m, n+m)
     # Get Gauss-Newton approximation
-    ForwardDiff.jacobian!(hess, x->algrad(cone, alcon.con, λ[i], μ[i], alcon.jac[i], x), Z[inds[i]])
+    z = Z[inds[i]]
+    _z = RD.StaticKnotPoint{n,m}(MVector{n+m}(z.z), z.t, z.dt)
+    ForwardDiff.jacobian!(
+        hess, x->algrad(cone, alcon.con, SVector{p}(λ[i]), SVector{p}(μ[i]), alcon.jac[i], x), 
+        _z
+    )
     @test hess ≈ alcon.hess[i]
 end
 
@@ -162,22 +176,32 @@ end
 Altro.evaluate_constraint!(alcon, Z)
 alcon.opts.use_conic_cost = true
 for i = 1:P
-    @test Altro.alcost(alcon, i) ≈ alcost(alcon.con, λ[i], μ[i], Z[inds[i]]) 
+    z = Z[inds[i]]
+    _z = RD.StaticKnotPoint{n,m}(MVector{n+m}(z.z), z.t, z.dt)
+    @test Altro.alcost(alcon, i) ≈ alcost(alcon.con, SVector{p}(λ[i]), SVector{p}(μ[i]), _z)
 end
 
 Altro.algrad!(alcon, 1)
 for i = 1:P
-    grad = ForwardDiff.gradient(x->alcost(alcon.con, λ[i], μ[i], x), Z[inds[i]])
+    z = Z[inds[i]]
+    _z = RD.StaticKnotPoint{n,m}(MVector{n+m}(z.z), z.t, z.dt)
+    grad = ForwardDiff.gradient(
+        x->alcost(alcon.con, SVector{p}(λ[i]), SVector{p}(μ[i]), x), _z
+    )
     Altro.algrad!(alcon, i)
     @test alcon.grad[i] ≈ grad
-    grad = algrad(alcon.con, λ[i], μ[i], alcon.jac[i], Z[inds[i]])
+    grad = algrad(alcon.con, SVector{p}(λ[i]), SVector{p}(μ[i]), alcon.jac[i], _z)
     @test alcon.grad[i] ≈ grad
 end
 
 let i = P
+    z = Z[inds[i]]
+    _z = RD.StaticKnotPoint{n,m}(MVector{n+m}(z.z), z.t, z.dt)
     Altro.alhess!(alcon, i)
     hess = zeros(n+m, n+m)
-    ForwardDiff.jacobian!(hess, x->algrad(alcon.con, λ[i], μ[i], alcon.jac[i], x), Z[inds[i]])
+    ForwardDiff.jacobian!(hess, x->algrad(alcon.con, SVector{p}(λ[i]), SVector{p}(μ[i]), 
+        alcon.jac[i], x), _z
+    )
     @test alcon.hess[i] ≈ hess
 end
 

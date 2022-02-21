@@ -51,6 +51,7 @@ end
     max_control_value::T = 1.0e8
     static_bp::Bool = true
 	save_S::Bool = false
+    closed_loop_initial_rollout::Bool = false
 
     # Backward pass regularization
     bp_reg::Bool = false

@@ -43,65 +43,62 @@ add_constraint!(cons, cir, 1:N)
 add_constraint!(cons, goal, N)
 add_constraint!(cons, lin, 2:N-1)
 add_constraint!(cons, bnd, 1:N-1)
-add_constraint!(cons, dyn, 1:N-1)
+# add_constraint!(cons, dyn, 1:N-1)
 
 ##--- Create an ALConstraintSet
-conset = Altro.ALConstraintSet(cons, model)
+conset = Altro.ALConstraintSet2{Float64}(cons)
 Altro.reset!(conset, SolverOptions())
-@test all(conset.convals .=== conset.errvals)
 
-cval = conset.convals[1]
-@test cval isa Altro.ALConVal{typeof(cir)}
+cval = conset[1]
+@test cval isa Altro.ALConstraint{Float64, typeof(cir)}
 @test cval.inds == cons.inds[1]
 @test size(cval.jac[1]) == (RD.output_dim(cir), n+m)
-@test size(cval.jac) == (N,1)
+@test size(cval.jac) == (N,)
 cval.jac[1] .= 1
 @test cval.jac[1] == ones(RD.output_dim(cir), n+m)
-@test cval.iserr == false
 
-cval = conset.convals[3]
-@test cval isa Altro.ALConVal{typeof(lin)}
+cval = conset[3]
+@test cval isa Altro.ALConstraint{Float64,typeof(lin)}
 @test cval.inds == cons.inds[3]
 @test size(cval.jac[1]) == (RD.output_dim(lin), n+m)
-@test size(cval.jac) == (N-2,1)
+@test size(cval.jac) == (N-2,)
 cval.jac[2] .= 1
 cval.jac[2][:,n+1:end] .= 2
 @test cval.jac[2] ≈ [ones(RD.output_dim(lin), n) 2*ones(RD.output_dim(lin),m)]
-@test cval.iserr == false
 
-cval = conset.convals[end]
-@test cval isa Altro.ALConVal{typeof(dyn)}
-@test cval.inds == cons.inds[end]
-@test size(cval.jac[1]) == (n, n+m)
-@test size(cval.jac) == (N,2)
-@test cval.iserr == false
-@test cval.jac[3,2] == zeros(n,n+m)
+# cval = conset.convals[end]
+# @test cval isa Altro.ALConVal{typeof(dyn)}
+# @test cval.inds == cons.inds[end]
+# @test size(cval.jac[1]) == (n, n+m)
+# @test size(cval.jac) == (N,2)
+# @test cval.iserr == false
+# @test cval.jac[3,2] == zeros(n,n+m)
 
 # Test iteration
-@test all([con for con in conset] .=== [con for con in cons])
+@test all([con.con for con in conset] .=== [con for con in cons])
 @test length(conset) == length(cons)
 
 ##--- Test evaluation
 Z = Traj([rand(n) for k = 1:N], [rand(m) for k = 1:N-1], fill(dt,N)) 
-RD.evaluate!(conset, Z)
-@test conset.errvals[end].vals[1] ≈ RD.discrete_dynamics(dmodel, Z[1]) - RD.state(Z[2])
-@test conset.errvals[3].vals[2] ≈ RD.evaluate(lin, Z[3])
-@test conset.errvals[2].vals[1] ≈ RD.evaluate(goal, Z[end])
+Altro.evaluate_constraints!(conset, Z)
+# @test conset[end].vals[1] ≈ RD.discrete_dynamics(dmodel, Z[1]) - RD.state(Z[2])
+@test conset[3].vals[2] ≈ RD.evaluate(lin, Z[3])
+@test conset[2].vals[1] ≈ RD.evaluate(goal, Z[end])
 
-RD.jacobian!(conset, Z)
+Altro.constraint_jacobians!(conset, Z)
 ∇c = TO.gen_jacobian(dyn)
 xn = zeros(n)
 RD.jacobian!(RD.StaticReturn(), RD.ForwardAD(), dmodel, ∇c, xn, Z[1])
-@test conset.errvals[end].jac[1] ≈ ∇c
-@test conset.errvals[end].jac[1,2] ≈ [-I(n) zeros(n,m)]
-@test conset.errvals[2].jac[1] ≈ [I(n) zeros(n,m)]
+# @test conset[end].jac[1] ≈ ∇c
+# @test conset[end].jac[1,2] ≈ [-I(n) zeros(n,m)]
+@test conset[2].jac[1] ≈ [I(n) zeros(n,m)]
 ∇c = TO.gen_jacobian(lin)
 c = zeros(RD.output_dim(lin))
 RD.jacobian!(lin, ∇c, c, Z[5])
-@test conset.errvals[3].jac[5] ≈ ∇c ≈ A
+@test conset[3].jac[5] ≈ ∇c ≈ A
 
 ##--- Stats functions
-vals = [conval.vals for conval in conset.convals]
+vals = [conval.vals for conval in conset]
 viols = map(enumerate(vals)) do (i,val)
     pos(x) = x > 0 ? x : zero(x)
     if TO.sense(cons[i]) == Inequality()
@@ -118,129 +115,46 @@ c_max = map(enumerate(vals)) do (i,val)
     end
 end
 @test maximum(c_max) ≈ max_violation(conset)
-maximum(c_max)
 @test maximum(maximum.([maximum.(viol) for viol in viols])) ≈ max_violation(conset)
+max_violation(conset)
 
 p = 2
-@test norm([norm(norm.(val,p),p) for val in viols],p) ≈ TO.norm_violation(conset, p)
+@test norm([norm(norm.(val,p),p) for val in viols],p) ≈ Altro.normviolation!(conset, p)
 p = 1
-@test norm([norm(norm.(val,p),p) for val in viols],p) ≈ TO.norm_violation(conset, p)
+@test norm([norm(norm.(val,p),p) for val in viols],p) ≈ Altro.normviolation!(conset, p)
 p = Inf
-@test norm([norm(norm.(val,p),p) for val in viols],p) ≈ TO.norm_violation(conset, p)
-@test !(TO.norm_violation(conset, Inf) ≈ TO.norm_violation(conset, 2))
-@test_throws ArgumentError TO.norm_violation(conset, 3)
+@test norm([norm(norm.(val,p),p) for val in viols],p) ≈ Altro.normviolation!(conset, p)
+@test !(Altro.normviolation!(conset, Inf) ≈ Altro.normviolation!(conset, 2))
 
 # TODO: test penalty reset
 @test Altro.max_penalty(conset) ≈ 1.0
-conset.convals[3].μ[6] = @SVector fill(30, RD.output_dim(cons[3]))
+conset[3].μ[6] = @SVector fill(30, RD.output_dim(cons[3]))
 @test Altro.max_penalty(conset) == 30
 Altro.reset_penalties!(conset)
 @test Altro.max_penalty(conset) ≈ 1.0
-conset.convals[1].params.μ0 = 10
+conset[1].opts.penalty_initial = 10
 Altro.reset_penalties!(conset)
 @test Altro.max_penalty(conset) ≈ 10
 
-RD.evaluate!(conset, Z)
-conset.convals[2].vals[1][2] = 2*max_violation(conset)
-@test TO.findmax_violation(conset) == "GoalConstraint at time step 11 at index 2"
-conset.convals[4].vals[2][3] = 2*max_violation(conset)
-@test TO.findmax_violation(conset) == "BoundConstraint at time step 2 at x max 3"
+Altro.evaluate_constraints!(conset, Z)
+conset[2].vals[1][2] = 2*max_violation(conset)
+@test Altro.findmax_violation(conset) == "GoalConstraint at time step 11 at index 2"
+conset[4].vals[2][3] = 2*max_violation(conset)
+@test Altro.findmax_violation(conset) == "BoundConstraint at time step 2 at x max 3"
 
 #--- AL Updates
 Altro.reset_duals!(conset)
-Altro.dual_update!(conset)
-@test conset.convals[2].λ[1] ≈ conset.convals[2].vals[1]
-@test conset.convals[1].λ[3] ≈ clamp.(10*conset.convals[1].vals[3], 0, Inf)
-λ0 = copy(conset.convals[1].λ[3])
+Altro.dualupdate!(conset)
+@test conset[2].λ[1] ≈ conset[2].vals[1]
+@test conset[1].λ[3] ≈ clamp.(10*conset[1].vals[3], 0, Inf)
+λ0 = copy(conset[1].λ[3])
 
-Altro.dual_update!(conset)
-@test conset.convals[1].λ[3] ≈ clamp.(λ0 .+ 10*conset.convals[1].vals[3], 0, Inf)
+Altro.dualupdate!(conset)
+@test conset[1].λ[3] ≈ clamp.(λ0 .+ 10*conset[1].vals[3], 0, Inf)
 Altro.reset_duals!(conset)
-@test conset.convals[1].λ[3] == zeros(RD.output_dim(cons[1]))
+@test conset[1].λ[3] == zeros(RD.output_dim(cons[1]))
 
 Altro.reset_penalties!(conset)
-Altro.penalty_update!(conset)
+Altro.penaltyupdate!(conset)
 @test Altro.max_penalty(conset) ≈ 100
-@test conset.convals[2].μ[1] ≈ fill(10, RD.output_dim(cons[2]))
-
-#--- Active Set
-Altro.dual_update!(conset)
-Altro.update_active_set!(conset)
-@test conset.convals[2].active[1] == ones(n)
-@test conset.convals[end].active == [ones(n) for k = 1:N]
-for i = 1:length(conset.convals[1].active)
-    for j = 1:RD.output_dim(cons[1])
-        if conset.convals[1].active[i][j]
-            @test (conset.convals[1].vals[i][j] > 0) | (conset.convals[1].λ[i][j] > 0)
-        else
-            @test (conset.convals[1].vals[i][j] <= 0) & (conset.convals[1].λ[i][j] <= 0)
-        end
-    end
-end
-
-#--- Cost
-J = zeros(N)
-TO.cost!(J, conset.convals[2]) #, conset.λ[2], conset.μ[2], conset.active[2])
-@test J[1:N-1] == zeros(N-1)
-@test J[N] ≈ (conset.convals[2].λ[1] + 0.5* conset.convals[2].μ[1] .* conset.convals[2].vals[1])' *
-    conset.convals[2].vals[1]
-TO.cost!(J, conset.convals[3])#, conset.λ[3], conset.μ[3], conset.active[3])
-@test J[2] ≈ (conset.convals[3].λ[1] + 0.5* conset.convals[3].μ[1] .* conset.convals[3].active[1] .* conset.convals[3].vals[1])' *
-    conset.convals[3].vals[1]
-@test J[1] ≈ 0
-
-E = TO.CostExpansion(n,m,N)
-TO.cost_expansion!(E, conset.convals[1])
-cx = view(conset.convals[1].jac[1], :, 1:n)
-Iμ = Diagonal(conset.convals[1].active[1] .* conset.convals[1].μ[1])
-g = Iμ * conset.convals[1].vals[1] .+ conset.convals[1].λ[1]
-E[1].Q
-@test E[1].Q ≈ cx'Iμ*cx + I(n)
-@test E[1].q ≈ cx'g
-
-E = TO.CostExpansion(n,m,N)
-i = 3
-k = 4
-TO.cost_expansion!(E, conset.convals[i])#, conset.λ[i], conset.μ[i], conset.active[i])
-cx = conset.convals[i].jac[k]
-Iμ = Diagonal(conset.convals[i].active[k] .* conset.convals[i].μ[k])
-H = cx'Iμ*cx + I
-g = cx'*(Iμ * conset.convals[i].vals[k] .+ conset.convals[i].λ[k])
-@test E[k+1].Q ≈ H[1:n,1:n]
-@test E[k+1].H ≈ H[1:n, n+1:end]'
-@test E[k+1].R ≈ H[n+1:end, n+1:end]
-@test E[k+1].q ≈ g[1:n]
-@test E[k+1].r ≈ g[n+1:end]
-
-#--- Link constraints
-cons2 = ConstraintList(n,m,N)
-add_constraint!(cons2, cir, 1:N)
-add_constraint!(cons2, goal, N)
-add_constraint!(cons2, lin, 2:N-1)
-add_constraint!(cons2, dyn, 1:N-1)
-conset2 = Altro.ALConstraintSet(cons2, model)
-
-max_violation(conset2) ≈ 0
-@test TO.findmax_violation(conset2) == "No constraints violated"
-
-@test conset.convals[1].con === conset2.convals[1].con
-@test conset.convals[1].vals !== conset2.convals[1].vals
-@test conset.convals[1].jac !== conset2.convals[1].jac
-
-@test conset.convals[3].con === conset2.convals[3].con
-@test conset.convals[3].vals !== conset2.convals[3].vals
-@test conset.convals[3].jac !== conset2.convals[3].jac
-
-@test conset.convals[end].con === conset2.convals[end].con
-@test conset.convals[end].vals !== conset2.convals[end].vals
-@test conset.convals[end].jac !== conset2.convals[end].jac
-
-Altro.link_constraints!(conset2, conset)
-@test conset.convals[1].vals === conset2.convals[1].vals
-@test conset.convals[1].jac === conset2.convals[1].jac
-@test conset.convals[3].vals === conset2.convals[3].vals
-@test conset.convals[3].jac === conset2.convals[3].jac
-@test conset.convals[end].vals === conset2.convals[end].vals
-@test conset.convals[end].jac === conset2.convals[end].jac
-@test length(conset) == 5
-@test length(conset2) == 4
+@test conset[2].μ[1] ≈ fill(10, RD.output_dim(cons[2]))

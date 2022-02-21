@@ -9,8 +9,10 @@ function rollout!(solver::iLQRSolver2, α)
     sig = solver.opts.dynamics_funsig
     for k = 1:N-1
         RD.state_diff!(solver.model, δx[k], state(Z̄[k]), state(Z[k]))
-        δu[k] .= d[k] .* α .+ control(Z[k])
+        δu[k] .= d[k] .* α 
         mul!(δu[k], K[k], δx[k], 1.0, 1.0)
+        
+        δu[k] .+= control(Z[k])
         RD.setcontrol!(Z̄[k], δu[k])
         RD.propagate_dynamics!(sig, solver.model, Z̄[k+1], Z̄[k])
 
@@ -19,7 +21,7 @@ function rollout!(solver::iLQRSolver2, α)
             solver.stats.status = STATE_LIMIT
             return false
         end
-        max_u = norm(control(Z̄[k+1]),Inf)
+        max_u = norm(control(Z̄[k]),Inf)
         if max_u > solver.opts.max_control_value || isnan(max_u)
             solver.stats.status = CONTROL_LIMIT 
             return false

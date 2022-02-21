@@ -86,19 +86,21 @@ struct ALConstraint{T, C<:TO.StageConstraint}
     con::C
     sig::FunctionSignature
     diffmethod::DiffMethod
-    inds::Vector{Int}             # knot point indices for constraint
-    vals::Vector{Vector{T}}       # constraint values
-    jac::Vector{Matrix{T}}        # constraint Jacobian
-    λ::Vector{Vector{T}}          # dual variables
-    μ::Vector{Vector{T}}          # penalties 
-    μinv::Vector{Vector{T}}       # inverted penalties 
-    λbar::Vector{Vector{T}}       # approximate dual variable 
-    λproj::Vector{Vector{T}}      # projected dual variables
-    λscaled::Vector{Vector{T}}    # scaled projected dual variables
-    viol::Vector{Vector{T}}       # constraint violations
+    inds::Vector{Int}              # knot point indices for constraint
+    vals::Vector{Vector{T}}        # constraint values
+    jac::Vector{Matrix{T}}         # constraint Jacobian
+    jac_scaled::Vector{Matrix{T}}  # penalty-scaled constraint Jacobian
+    λ::Vector{Vector{T}}           # dual variables
+    μ::Vector{Vector{T}}           # penalties 
+    μinv::Vector{Vector{T}}        # inverted penalties 
+    λbar::Vector{Vector{T}}        # approximate dual variable 
+    λproj::Vector{Vector{T}}       # projected dual variables
+    λscaled::Vector{Vector{T}}     # scaled projected dual variables
+    viol::Vector{Vector{T}}        # constraint violations
     c_max::Vector{T}
 
     ∇proj::Vector{Matrix{T}}   # Jacobian of projection
+    ∇proj_scaled::Vector{Matrix{T}}
     ∇²proj::Vector{Matrix{T}}  # Second-order derivative of projection
     grad::Vector{Vector{T}}    # gradient of Augmented Lagrangian
     hess::Vector{Matrix{T}}    # Hessian of Augmented Lagrangian
@@ -119,6 +121,7 @@ struct ALConstraint{T, C<:TO.StageConstraint}
 
         vals = [zeros(T, p) for i = 1:P]
         jac = [zeros(T, p, nm) for i = 1:P]
+        jac_scaled = [zeros(T, p, nm) for i = 1:P]
         λ = [zeros(T, p) for i = 1:P]
         μ = [fill(opts.penalty_initial, p) for i = 1:P]
         μinv = [inv.(μi) for μi in μ]
@@ -129,6 +132,7 @@ struct ALConstraint{T, C<:TO.StageConstraint}
         c_max = zeros(T, P)
 
         ∇proj = [zeros(T, p, p) for i = 1:P]
+        ∇proj_scaled = [zeros(T, p, p) for i = 1:P]
         ∇²proj = [zeros(T, p, p) for i = 1:P]
         
         grad = [zeros(T, nm) for i = 1:P]
@@ -137,8 +141,8 @@ struct ALConstraint{T, C<:TO.StageConstraint}
         tmp_jac = zeros(T, p, n+m)
 
         new{T, typeof(con)}(
-            n, m, con, sig, diffmethod, inds, vals, jac, λ, μ, μinv, λbar, 
-            λproj, λscaled, viol, c_max, ∇proj, ∇²proj, grad, hess, tmp_jac, opts
+            n, m, con, sig, diffmethod, inds, vals, jac, jac_scaled, λ, μ, μinv, λbar, 
+            λproj, λscaled, viol, c_max, ∇proj, ∇proj_scaled, ∇²proj, grad, hess, tmp_jac, opts
         )
     end
 end
@@ -380,6 +384,7 @@ function alcost(alcon::ALConstraint, i::Integer)
     TO.projection!(dualcone, λp, λbar)
 
     # Scaled dual
+    μinv .= inv.(μ)
     λs .= μinv .* λp
 
     # Cost
@@ -392,14 +397,22 @@ function algrad!(alcon::ALConstraint, i::Integer)
 
     # Assume λbar and λp have already been calculated
     λbar, λp, λs = alcon.λbar[i], alcon.λproj[i], alcon.λscaled[i]
-    μ, c, ∇c = alcon.μ[i], alcon.vals[i], alcon.jac[i]
+    μ, c, ∇c, Iμ∇c = alcon.μ[i], alcon.vals[i], alcon.jac[i], alcon.jac_scaled[i]
     ∇proj = alcon.∇proj[i]
     grad = alcon.grad[i]
     tmp = alcon.tmp_jac
 
+    # Scale the Jacobian
+    p,nm = size(∇c)
+    for i = 1:p
+        for j = 1:nm
+            Iμ∇c[i,j] = ∇c[i,j] * μ[i]
+        end
+    end
+
     # grad = -∇c'∇proj'Iμ*λp
     TO.∇projection!(dualcone, ∇proj, λbar)
-    mul!(tmp, ∇proj, ∇c)  # derivative of λp wrt x
+    mul!(tmp, ∇proj, Iμ∇c)  # derivative of λp wrt x
     tmp .*= -1
     mul!(grad, tmp', λs)
     return nothing
@@ -409,8 +422,9 @@ function alhess!(alcon::ALConstraint, i::Integer)
     dualcone = TO.dualcone(TO.sense(alcon.con))
 
     λbar, λs = alcon.λbar[i], alcon.λscaled[i]
-    μ, c, ∇c = alcon.μ[i], alcon.vals[i], alcon.jac[i]
+    μ, c, ∇c = alcon.μ[i], alcon.vals[i], alcon.jac_scaled[i]
     ∇proj, ∇²proj = alcon.∇proj[i], alcon.∇²proj[i]
+    Iμ∇proj = alcon.∇proj_scaled[i]
     hess = alcon.hess[i]
     tmp = alcon.tmp_jac
 
@@ -418,14 +432,26 @@ function alhess!(alcon::ALConstraint, i::Integer)
     # TODO: reuse this from before
     mul!(tmp, ∇proj, ∇c)  # derivative of λp wrt x
     tmp .*= -1
+    
+    # Scale projection Jacobian
+    p = length(λbar)
+    μinv = alcon.μinv[i]
+    for i = 1:p, j = 1:p
+        Iμ∇proj[i,j] = ∇proj[i,j] * μinv[i]
+    end
 
     # Calculate second-order projection term
     TO.∇²projection!(dualcone, ∇²proj, λbar, λs)
+    mul!(∇²proj, ∇proj', Iμ∇proj, 1.0, 1.0)
 
-    # hess = ∇c'∇proj'Iμ*∇proj*∇c + ∇c'∇²proj(Iμ*λp)*∇c
-    mul!(hess, tmp', tmp)
+    # hess = ∇c'Iμ*(∇²proj(λs) + ∇proj'Iμ\∇proj)*Iμ*∇c
     mul!(tmp, ∇²proj, ∇c)
-    mul!(alcon.hess[i], ∇c', tmp, 1.0, 1.0)
+    mul!(hess, ∇c', tmp)
+    # hess .= ∇c'*(∇²proj)*∇c
+    # tmp_scaled = Iμ\tmp
+    # mul!(hess, tmp', tmp_scaled)
+    # mul!(tmp, ∇²proj, ∇c)
+    # mul!(alcon.hess[i], ∇c', tmp, 1.0, 1.0)
     return nothing
 end
 

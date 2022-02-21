@@ -12,7 +12,7 @@ const RD = RobotDynamics
 save_results = false 
 
 # TO.diffmethod(::RobotZoo.Cartpole) = RD.ForwardAD()
-# @testset "Cartpole" begin
+@testset "Cartpole" begin
 # load expected results
 res = load(joinpath(@__DIR__,"cartpole.jld2"))
 
@@ -220,7 +220,8 @@ if save_results
 end
 
 ## Projected Newton
-res_pn = load("/home/brian/Code/TrajOpt/cartpole_pn.jld2")
+resfile_pn = joinpath(@__DIR__, "cartpole_pn.jld2")
+res_pn = load(resfile_pn)
 solver = Altro.ALTROSolver2(Problems.Cartpole()..., verbose=0)
 solver.opts.constraint_tolerance = solver.opts.projected_newton_tolerance
 solve!(solver.solver_al)
@@ -239,11 +240,14 @@ end
 D,d = let solver = pn
     Altro.active_constraints(solver)
 end
-max_violation(pn)
-norm(d,Inf)
+D0 = copy(D)
+d0 = copy(d)
+viol0 = norm(d,Inf)
+@test max_violation(pn) ≈ norm(d,Inf)
+@test viol0 ≈ res_pn["viol0"]
+@test D0 ≈ res_pn["D0"]
+@test d0 ≈ res_pn["d0"]
 
-
-#
 H = pn.H
 HinvD = Diagonal(H)\D'
 S = Symmetric(D*HinvD)
@@ -259,67 +263,61 @@ dY,dZ = let solver = pn
     δZ = -HinvD*δλ
     δλ, δZ
 end
+dY1,dZ1 = copy(dY), copy(dZ)
+@test dY1 ≈ res_pn["dY1"]
+@test dZ1 ≈ res_pn["dZ1"]
 
 let
     α = 1.0
     pn.Z̄data .= pn.Zdata .+ α .* dZ
-    # pn.P̄.Z .= pn.P.Z + dZ
-    # copyto!(pn.Z̄, pn.P̄)
     Altro.evaluate_constraints!(pn, pn.Z̄)
     TO.max_violation(pn, nothing)
-    # Altro.copy_constraints!(pn)
     d = pn.d[pn.active]
-    # copyto!(pn.P.Z, pn.P̄.Z)
     pn.Zdata .= pn.Z̄data
 end
-norm(pn.d[pn.active], Inf)
-
-##
-vals = [conval.vals for conval in Altro.get_constraints(pn)]
-norm(res_pn["vals"][3] - vals[1])
-norm(res_pn["vals"][4] - vals[2])
-@test vals[1] ≈ res_pn["vals"][2] atol=1e-10
-@test vals[2][1:end-1] ≈ res_pn["vals"][2][1:end]
-@test vals[3] ≈ res_pn["vals"][3] atol=1e-10
-@test vals[4] ≈ res_pn["vals"][4] atol=1e-10
-
-##
-pn.Zdata ≈ res_pn["Z1"]
-pn.d ≈ res_pn["d1"]
-pn.active ≈ res_pn["a1"]
-# pn.d[pn.active]
-# res_pn["d1"][res_pn["a1"]]
+Z1 = copy(pn.Zdata)
+viol1 = max_violation(pn, nothing)
+@test norm(pn.d[pn.active], Inf) ≈ viol1 
+@test viol1 < 1e-5
+@test Z1 ≈ res_pn["Z1"]
+@test viol1 ≈ res_pn["viol1"]
 
 ## Next Line search
 let solver = pn, S=(S,Sreg)
-    # Z̄ = solver.Z̄
-    # P̄ = solver.P̄
-    # P = solver.P
     α = 1.0
 
     d = solver.d[solver.active]
     δλ = Altro.reg_solve(S[1], d, S[2], 1e-8, 25)
     δZ = -HinvD*δλ
     pn.Z̄data .= pn.Zdata .+ α .* δZ
-    # P̄.Z .= P.Z + α*δZ
 
     Altro.evaluate_constraints!(pn, pn.Z̄)
     viol = TO.max_violation(pn, nothing)
-    # copyto!(Z̄, P̄)
-    # Altro.update_constraints!(solver, Z̄)
-    # TO.max_violation!(get_constraints(solver))
-    # viol_ = maximum(conSet.c_max)
-    # Altro.copy_constraints!(solver)
-    # d = solver.d[solver.active_set]
-    # viol = norm(d,Inf)
+end
+Z2 = copy(pn.Zdata)
+viol2 = TO.max_violation(pn, nothing)
+@test viol2 < 1e-8
+@test Z2 ≈ res_pn["Z2"]
+@test viol2 ≈ res_pn["viol2"]
+
+let pn = pn
+    Altro.evaluate_constraints!(pn)
+    Altro.constraint_jacobians!(pn)
+    Altro.cost_gradient!(pn)
+    Altro.cost_hessian!(pn)
+    Altro.update_active_set!(pn)
+end
+res0 = pn.g + pn.D'pn.Ydata
+norm(res0)
+
+Altro.multiplier_projection!(pn)
+res = pn.g + pn.D'pn.Ydata
+@test norm(res) < norm(res0)   # TODO: shouldn't this be machine precision?
+Y = copy(pn.Ydata)
+@test Y ≈ res_pn["Y"]
+
+if save_results
+    @save resfile_pn viol0 viol1 viol2 dY1 dZ1 Z1 Z2 D0 d0 Y
 end
 
-# Save the results
-pn.Zdata .= pn.Z̄data
-
-# Multiplier projection
-res = Altro.multiplier_projection!(pn)
-@test pn.λ ≈ res_pn["Y"] atol=1e-6
-
-
-# end
+end

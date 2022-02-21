@@ -1,5 +1,5 @@
 
-@testset "iLQR Solver" begin
+# @testset "iLQR Solver" begin
 solver = Altro.iLQRSolver(Problems.Cartpole()...)
 
 @test (@ballocated Altro.initialize!($solver) evals=1 samples=1) == 0
@@ -28,4 +28,4 @@ J = cost(solver)
 @test (@ballocated Altro.forwardpass!($solver, $ΔV, $J) evals=1 samples=1) == 0
 
 @test (@ballocated Altro.step!($solver, $J) evals=1 samples=1) == 0
-end
+# end

@@ -10,7 +10,8 @@ using SolverLogging
 const RD = RobotDynamics
 const TO = TrajectoryOptimization
 
-prob, opts = Problems.Pendulum()
+# prob, opts = Problems.Pendulum()
+prob, opts = Problems.YakProblems()
 
 al1 = Altro.AugmentedLagrangianSolver(prob, copy(opts))
 al2 = Altro.ALSolver(prob, copy(opts))

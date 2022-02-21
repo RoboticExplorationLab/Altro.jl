@@ -21,26 +21,32 @@ Random.seed!(1)
 #     include("large_init.jl")
 # end
 
+if TEST_TIME
+    @testset "Benchmark Suite" begin
+        include("benchmark_problems.jl")
+    end
+end
+
 @testset "Benchmark Problems" begin
-    # if !haskey(ENV, "CI")
-    #     include("benchmark_problems.jl")
-    # end
     include("nl_cartpole.jl")
     include("cartpole.jl")
     include("quadrotor.jl")
     include("escape_solve.jl")
+    include("rocket_test.jl")
     include(joinpath(@__DIR__,"..","examples","quickstart.jl"))
 end
 
 @testset "Solvers" begin
-    include("ilqr_test.jl")
+    # include("ilqr_test.jl")
     include("constructors.jl")
     include("augmented_lagrangian_tests.jl")
+    include("alcon_test.jl")
+    include("alconset_test.jl")
     include("solve_tests.jl")
     include("socp_test.jl")
 end
 
 @testset "Solver Options" begin
-    include("solver_opts.jl")
-    include("solver_stats.jl")
+    include("solver_opts_test.jl")
+    include("solver_stats_test.jl")
 end

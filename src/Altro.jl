@@ -53,6 +53,7 @@ using RobotDynamics:
 # types
 export
     ALTROSolver,
+    ALTROSolver2,
     # iLQRSolver,
     # AugmentedLagrangianSolver,
     SolverStats,

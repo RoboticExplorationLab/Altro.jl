@@ -38,10 +38,17 @@ struct DynamicsExpansion2{T}
     end
 end
 
-@inline function RD.jacobian!(sig::FunctionSignature, diff::DiffMethod, model::DiscreteDynamics,
-    D::DynamicsExpansion2, z::KnotPoint
+@inline function RD.jacobian!(sig::InPlace, diff::DiffMethod, model::DiscreteDynamics,
+    D::DynamicsExpansion2, z::KnotPoint{n,m}
 )
     RD.jacobian!(sig, diff, model, D.∇f, D.f, z)
+end
+
+@inline function RD.jacobian!(sig::StaticReturn, diff::DiffMethod, model::DiscreteDynamics,
+    D::DynamicsExpansion2, z::KnotPoint{n,m}
+) where {n,m}
+    _z = SVector{n+m}(RD.getdata(z))
+    RD.jacobian!(sig, diff, model, D.∇f, D.f, RD.StaticKnotPoint(z, _z))
 end
 
 """

@@ -20,6 +20,12 @@ function solve!(solver::ALSolver)
     reset!(solver)
 
     conset = get_constraints(solver)
+    if !is_constrained(solver)
+        ilqr = get_ilqr(solver)
+        solve!(ilqr)
+        terminate!(solver)
+        return solver
+    end
 
     # Terminal tolerances
     cost_tol = solver.opts.cost_tolerance

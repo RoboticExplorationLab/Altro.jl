@@ -8,6 +8,7 @@ const TO = TrajectoryOptimization
 if !isdefined(Main,:TEST_TIME)
     TEST_TIME = true 
 end
+TEST_TIME = false
 v = true
 ci = haskey(ENV, "CI")
 
@@ -162,6 +163,3 @@ if !ci
     @test solver.stats.gradient[end] < 2e-3  # 1e-3
     @test status(solver) == Altro.SOLVE_SUCCEEDED 
 end
-solver = ALTROSolver2(Problems.YakProblems(costfun=:QuatLQR, termcon=:quatvec)...)
-control_dim(solver)
-get_model(solver)
