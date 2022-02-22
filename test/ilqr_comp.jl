@@ -21,7 +21,7 @@ prob,opts = Problems.Pendulum()
 
 if use_alobj
     al1 = Altro.AugmentedLagrangianSolver(prob, opts)
-    al2 = Altro.ALSolver(prob, opts, use_static=Val(true))
+    al2 = Altro.ALSolver(prob, opts, use_static=Val(false))
     s1 = Altro.get_ilqr(al1)
     s2 = Altro.get_ilqr(al2)
 else
@@ -85,6 +85,7 @@ for k = 1:prob.N
 end
 @btime TO.cost_expansion!($s1.quad_obj, $s1.obj, $s1.Z, init=true, rezero=true)
 @btime Altro.cost_expansion!($s2.obj, $s2.Efull, $s2.Z)  # faster
+@btime Altro.cost_expansion!($s2.obj.obj, $s2.Efull, $s2.Z)  # faster
 
 TO.error_expansion!(s1.E, s1.quad_obj, s1.model, s1.Z, s1.G)
 Altro.error_expansion!(s2.model, s2.Eerr, s2.Efull, s2.G, s2.Z)

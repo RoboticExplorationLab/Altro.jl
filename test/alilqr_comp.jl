@@ -156,12 +156,12 @@ solve!(s2)
 
 ## Solve whole problem
 prob, opts = Problems.Pendulum()
-prob, opts = Problems.Cartpole()
+# prob, opts = Problems.Cartpole()
 prob, opts = Problems.Quadrotor()
 
 al1 = Altro.AugmentedLagrangianSolver(prob, copy(opts))
-al2 = Altro.ALSolver(prob, copy(opts), use_static=Val(true), show_summary=false, verbose=0)
-@btime Altro.max_penalty($conset2)
+al2 = Altro.ALSolver(prob, copy(opts), use_static=Val(false), show_summary=false, verbose=0)
+ilqr2 = al2.ilqr
 
 b1 = benchmark_solve!(al1)
 b2 = benchmark_solve!(al2)
