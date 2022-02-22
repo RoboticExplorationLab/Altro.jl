@@ -13,7 +13,7 @@ const TO = TrajectoryOptimization
 # ENV["JULIA_DEBUG"] = SolverLogging
 Altro.USE_OCTAVIAN
 
-use_alobj = false 
+use_alobj = true 
 
 prob,opts = Problems.Pendulum()
 # prob,opts = Problems.Quadrotor()
@@ -21,7 +21,7 @@ prob,opts = Problems.Pendulum()
 
 if use_alobj
     al1 = Altro.AugmentedLagrangianSolver(prob, opts)
-    al2 = Altro.ALSolver(prob, opts)
+    al2 = Altro.ALSolver(prob, opts, use_static=Val(true))
     s1 = Altro.get_ilqr(al1)
     s2 = Altro.get_ilqr(al2)
 else
@@ -184,9 +184,6 @@ b2.allocs
 lg = s2.logger
 s1.opts.verbose = 0
 s2.opts.verbose = 0
-s2.x0
-Altro.rollout!(s2,0)
-states(s2)
 solve!(s1)
 solve!(s2)
 cost(s1) ≈ cost(s2)

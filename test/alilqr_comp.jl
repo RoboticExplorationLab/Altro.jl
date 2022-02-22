@@ -19,7 +19,11 @@ al1 = Altro.AugmentedLagrangianSolver(prob, copy(opts))
 al2 = Altro.ALSolver(prob, copy(opts), use_static=Val(true))
 conset2 = get_constraints(al2)
 ilqr2 = Altro.get_ilqr(al2)
+
 conset2[1].E === ilqr2.Efull
+conset2[1].opts.solveropts === al2.opts
+conset2[1].cost === get_objective(al2).cost
+conset2[1].opts.penalty_initial
 
 @test states(al1) ≈ states(al2)
 @test controls(al1) ≈ controls(al2)
@@ -28,6 +32,12 @@ conset2[1].E === ilqr2.Efull
 @test cost(get_objective(al1).obj, prob.Z) ≈ cost(get_objective(al2).obj, prob.Z)
 
 # Check constrained cost
+cost(al1) - cost(get_objective(al1).obj, prob.Z)
+cost(al2) - cost(get_objective(al2).obj, prob.Z)
+conset2[1].opts
+opts.penalty_initial
+cost(al2)
+cost(al1)
 @test max_violation(al1) ≈ TO.max_violation(al2)
 @test cost(al1) ≈ cost(al2)
 
@@ -145,16 +155,17 @@ solve!(s2)
 
 
 ## Solve whole problem
-# prob, opts = Problems.Pendulum()
-# prob, opts = Problems.Cartpole()
+prob, opts = Problems.Pendulum()
+prob, opts = Problems.Cartpole()
+prob, opts = Problems.Quadrotor()
 
 al1 = Altro.AugmentedLagrangianSolver(prob, copy(opts))
-al2 = Altro.ALSolver(prob, copy(opts), use_static=Val(true))
-solve!(al1)
-solve!(al2)
+al2 = Altro.ALSolver(prob, copy(opts), use_static=Val(true), show_summary=false, verbose=0)
+@btime Altro.max_penalty($conset2)
 
 b1 = benchmark_solve!(al1)
 b2 = benchmark_solve!(al2)
+b2.allocs
 iterations(al1)
 iterations(al2)
 cost(al1) - cost(al2)
