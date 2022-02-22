@@ -58,6 +58,14 @@ Calculate the error state Jacobians for the trajectory `Z`, storing the
     result in `G`.
 """
 function errstate_jacobians!(model::DiscreteDynamics, G, Z)
+    errstate_jacobians!(RD.statevectortype(model), model, G, Z)
+end
+
+function errstate_jacobians!(::RD.EuclideanState, model::DiscreteDynamics, G, Z)
+    return nothing
+end
+
+function errstate_jacobians!(::RD.StateVectorType, model::DiscreteDynamics, G, Z)
 	for k in eachindex(Z)
 		G[k] .= 0
 		RD.state_diff_jacobian!(RD.statevectortype(model), model, G[k], Z[k])

@@ -26,7 +26,8 @@ const RD = RobotDynamics
 using TrajectoryOptimization:
     num_constraints, get_trajectory
 
-import TrajectoryOptimization: rollout!, get_constraints, get_model, get_objective, max_violation
+import TrajectoryOptimization: rollout!, get_constraints, get_model, get_objective, 
+    max_violation, evaluate_constraints!, constraint_jacobians!
 import RobotDynamics: discrete_dynamics, dynamics, dynamics!, evaluate, evaluate!
 
 using TrajectoryOptimization:

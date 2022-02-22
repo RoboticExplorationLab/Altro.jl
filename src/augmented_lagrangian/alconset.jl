@@ -2,20 +2,35 @@ struct ALConstraintSet2{T}
     constraints::Vector{ALConstraint{T}}
     c_max::Vector{T}
     μ_max::Vector{T}
+    Z::Vector{AbstractTrajectory}
 end
 
-function ALConstraintSet2{T}(cons::TO.ConstraintList) where T
+function ALConstraintSet2{T}() where T
+    constraints = ALConstraint{T}[]
+    c_max = T[]
+    μ_max = T[]
+    Z = AbstractTrajectory[]
+
+    ALConstraintSet2{T}(constraints, c_max, μ_max, Z)
+end
+
+function initialize!(conset::ALConstraintSet2{T}, cons::TO.ConstraintList, 
+                     Z::AbstractTrajectory, E=CostExpansion2{T}(RD.dims(Z)...)) where T
     n,m = cons.n, cons.m
+    @assert RD.state_dim(Z) == n
+    @assert RD.control_dim(Z) == m
+    @assert length(Z) == length(cons.p)
     ncon = length(cons)
-    constraints = map(1:ncon) do i
-        ALConstraint{T}(n, m, cons[i], cons.inds[i], sig=cons.sigs[i], diffmethod=cons.diffs[i])
+    for i = 1:ncon
+        alcon = ALConstraint{T}(Z, cons[i], cons.inds[i], E, sig=cons.sigs[i], 
+                                diffmethod=cons.diffs[i])
+        push!(conset.constraints, alcon)
     end
-    constraints = convert(Vector{ALConstraint{T}}, constraints)
-
-    c_max = zeros(ncon)
-    μ_max = zeros(ncon)
-
-    ALConstraintSet2{T}(constraints, c_max, μ_max)
+    resize!(conset.c_max, ncon)
+    resize!(conset.μ_max, ncon)
+    conset.c_max .= 0
+    conset.μ_max .= 0
+    push!(conset.Z, Z)
 end
 
 # Indexing and Iteration
@@ -37,15 +52,21 @@ Base.IteratorEltype(::ALConstraintSet2) = Base.HasEltype()
 Base.eltype(::ALConstraintSet2{T}) where T = ALConstraint{T}
 
 # Methods
-function evaluate_constraints!(conset::ALConstraintSet2, Z)
-    for i = 1:length(conset) 
-        evaluate_constraint!(conset.constraints[i], Z)
+for method in (:evaluate_constraints!, :constraint_jacobians!) 
+    @eval function $method(conset::ALConstraintSet2)
+        for alcon in conset.constraints
+            $method(alcon)
+        end
     end
-end
-
-function constraint_jacobians!(conset::ALConstraintSet2, Z)
-    for alcon in conset.constraints
-        constraint_jacobian!(alcon, Z)
+    @eval function $method(conset::ALConstraintSet2, Z::AbstractTrajectory)
+        # Hack to avoid an allocation from using a function barrier w/ more than 1 arg
+        # Store a pointer to the trajectory in each conval
+        # Only update the trajectory if it's different than the current one
+        if Z !== conset.Z[1]
+            settraj!(conset, Z)  # this allocates
+        end
+        $method(conset)  # this does not, but something like  
+                         # `evaluate_constraints!(conset, Z)` does
     end
 end
 
@@ -63,6 +84,13 @@ for method in (:algrad!, :alhess!, :dualupdate!, :penaltyupdate!,
         for alcon in conset.constraints
             $method(alcon, args...)
         end
+    end
+end
+
+function settraj!(conset::ALConstraintSet2, Z::AbstractTrajectory)
+    conset.Z[1] = Z
+    for alcon in conset.constraints
+        settraj!(alcon, Z)
     end
 end
 

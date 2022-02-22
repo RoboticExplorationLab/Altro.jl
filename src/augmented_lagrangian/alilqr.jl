@@ -37,12 +37,15 @@ function ALSolver(
     set_options!(opts; kwarg_opts...)
 
     # Build Augmented Lagrangian Objective
-    alobj = ALObjective2{T}(prob.obj, prob.constraints)
+    alobj = ALObjective2{T}(prob.obj)
     prob_al = Problem(prob.model, alobj, ConstraintList(dims(prob)...),
         prob.x0, prob.xf, prob.Z, prob.N, prob.t0, prob.tf)
+
     
     # Instantiate the iLQR solver
     ilqr = iLQRSolver2(prob_al, opts, stats, use_static=use_static)
+    initialize!(alobj.conset, prob.constraints, ilqr.Z, ilqr.Efull)
+    # settraj!(alobj.conset, get_trajectory(ilqr))
 
     # Build the solver
     solver = ALSolver(opts, stats, ilqr)

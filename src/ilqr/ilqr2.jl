@@ -134,9 +134,10 @@ RD.control_dim(::iLQRSolver2{<:Any,<:Any,<:Any,<:Any,m}) where m = m
 solvername(::Type{<:iLQRSolver2}) = :iLQR
 getlogger(solver::iLQRSolver2) = solver.logger
 
-vectype(::iLQRSolver2{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,V}) where V = V
-isstaticsolver(solver::iLQRSolver2) = vectype(solver) <: SVector
-dynamics_signature(solver::iLQRSolver2) = isstaticsolver(solver) ? RD.StaticReturn() : RD.InPlace()
+RD.vectype(::iLQRSolver2{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,V}) where V = V
+usestatic(obj) = RD.vectype(obj) <: SVector
+dynamics_signature(obj) = usestatic(obj) ? RD.StaticReturn() : RD.InPlace()
+function_signature(obj) = usestatic(obj) ? RD.StaticReturn() : RD.InPlace()
 
 log_level(::iLQRSolver2) = InnerLoop
 

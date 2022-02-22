@@ -15,8 +15,8 @@ Altro.USE_OCTAVIAN
 
 use_alobj = false 
 
-# prob,opts = Problems.Pendulum()
-prob,opts = Problems.Quadrotor()
+prob,opts = Problems.Pendulum()
+# prob,opts = Problems.Quadrotor()
 # prob,opts = Problems.YakProblems(costfun=:QuatLQR, termcon=:quatvec)
 
 if use_alobj
@@ -28,7 +28,7 @@ else
     s1 = Altro.iLQRSolver(prob, opts)
     s2 = Altro.iLQRSolver2(copy(prob), copy(opts), use_static=Val(true))
 end
-Altro.isstaticsolver(s2)
+Altro.usestatic(s2)
 
 # s1.opts.verbose = 2
 s2.opts.verbose = 4
@@ -112,6 +112,7 @@ for k = 1:prob.N-1
 end
 
 @btime Altro.backwardpass!($s1)
+@btime Altro.static_backwardpass!($s1)
 @btime Altro.backwardpass!($s2)  # faster
 
 ##
@@ -138,7 +139,6 @@ s2.opts.verbose = 0
 setlevel!(s2.logger, 0)
 @btime Altro.forwardpass!($s1, $DV1, $Jprev1)
 @btime Altro.forwardpass!($s2, $Jprev2)  # slightly slower
-@ballocated Altro.forwardpass!($s2, $Jprev2) samples=1 evals=1
 
 Altro.copy_trajectories!(s1)
 copyto!(s2.Z, s2.Z̄)
@@ -171,12 +171,16 @@ printlog(s2.logger)
 
 ## Try entire solve
 prob,opts = Problems.Pendulum()
-prob,opts = Problems.Quadrotor()
+# prob,opts = Problems.Quadrotor()
 prob,opts = Problems.DubinsCar(:parallel_park)
-prob,opts = Problems.Cartpole()
-prob,opts = Problems.YakProblems()
+# prob,opts = Problems.Cartpole()
+# prob,opts = Problems.YakProblems()
 s1 = Altro.iLQRSolver(prob, opts)
-s2 = Altro.iLQRSolver2(copy(prob), copy(opts))
+s2 = Altro.iLQRSolver2(copy(prob), copy(opts), show_summary=false, verbose=0, use_static=Val(true))
+b2 = benchmark_solve!(s2)
+b2.allocs
+
+@btime solve!($s2) samples=1 evals=1
 lg = s2.logger
 s1.opts.verbose = 0
 s2.opts.verbose = 0

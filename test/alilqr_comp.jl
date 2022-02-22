@@ -7,6 +7,7 @@ using RobotDynamics
 using LinearAlgebra
 using RobotZoo
 using SolverLogging
+using BenchmarkTools
 const RD = RobotDynamics
 const TO = TrajectoryOptimization
 
@@ -16,6 +17,9 @@ prob, opts = Problems.Quadrotor()
 
 al1 = Altro.AugmentedLagrangianSolver(prob, copy(opts))
 al2 = Altro.ALSolver(prob, copy(opts), use_static=Val(true))
+conset2 = get_constraints(al2)
+ilqr2 = Altro.get_ilqr(al2)
+conset2[1].E === ilqr2.Efull
 
 @test states(al1) ≈ states(al2)
 @test controls(al1) ≈ controls(al2)
@@ -37,8 +41,10 @@ ilqr2 = Altro.get_ilqr(al2)
 
 conset1 = get_constraints(al1)
 conset2 = get_constraints(al2)
+length(conset2)
 Z1 = get_trajectory(al1)
 Z2 = get_trajectory(al2)
+@test conset2[1].Z[1] === ilqr2.Z
 
 # Check constraint values
 # These have already been evaluated by the cost
@@ -47,12 +53,13 @@ for i = 1:length(conset2)
 end
 
 RD.evaluate!(conset1, ilqr1.Z)
-Altro.evaluate_constraints!(conset2, ilqr2.Z)
+Altro.evaluate_constraints!(conset2)
+Altro.evaluate_constraints!(conset2, Z2)
 
 @btime RD.evaluate!($conset1, $ilqr1.Z)
-@btime Altro.evaluate_constraints!($conset2, $ilqr2.Z)
-@btime Altro.evaluate_constraint!($(conset2[1]), $ilqr2.Z)
-@btime Altro.algrad!($conset2)
+@btime Altro.evaluate_constraints!($conset2, $Z2)  # slightly slower
+# @btime Altro.evaluate_constraints!($conset2)
+
 
 # Test unconstrained cost expansion
 TO.cost_expansion!(ilqr1.quad_obj, ilqr1.obj.obj, ilqr1.Z, init=true, rezero=true)
@@ -61,10 +68,17 @@ for k = 1:prob.N
     @test ilqr1.quad_obj[k].hess ≈ ilqr2.Efull[k].hess
     @test ilqr1.quad_obj[k].grad ≈ ilqr2.Efull[k].grad
 end
+@btime TO.cost_expansion!($ilqr1.quad_obj, $ilqr1.obj.obj, $ilqr1.Z, init=true, rezero=true)
+@btime Altro.cost_expansion!($ilqr2.obj.obj, $ilqr2.Efull, $ilqr2.Z)
 
 # Test full cost expansion
 TO.cost_expansion!(ilqr1.quad_obj, ilqr1.obj, ilqr1.Z, init=true, rezero=true)
 Altro.cost_expansion!(ilqr2.obj, ilqr2.Efull, ilqr2.Z)
+@btime TO.cost_expansion!($ilqr1.quad_obj, $ilqr1.obj, $ilqr1.Z, init=true, rezero=true)
+@btime Altro.cost_expansion!($ilqr2.obj, $ilqr2.Efull, $ilqr2.Z)  # slower
+
+@btime RD.jacobian!($conset1, $Z1, true)
+@btime Altro.constraint_jacobians!($conset2)  # about the same
 
 # Check constraint Jacobians and AL penalty cost expansion
 for i = 1:length(conset2)
@@ -128,3 +142,19 @@ al1.opts.verbose = 0
 al2.opts.verbose = 0
 solve!(s1)
 solve!(s2)
+
+
+## Solve whole problem
+# prob, opts = Problems.Pendulum()
+# prob, opts = Problems.Cartpole()
+
+al1 = Altro.AugmentedLagrangianSolver(prob, copy(opts))
+al2 = Altro.ALSolver(prob, copy(opts), use_static=Val(true))
+solve!(al1)
+solve!(al2)
+
+b1 = benchmark_solve!(al1)
+b2 = benchmark_solve!(al2)
+iterations(al1)
+iterations(al2)
+cost(al1) - cost(al2)

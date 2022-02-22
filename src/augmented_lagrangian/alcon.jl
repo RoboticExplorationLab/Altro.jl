@@ -80,7 +80,7 @@ The following methods can be used with an `ALConstraint` object:
 - [`reset_penalties!(alcon)`](@ref)
 """
 
-struct ALConstraint{T, C<:TO.StageConstraint}
+struct ALConstraint{T, C<:TO.StageConstraint, R<:Traj}
     n::Int  # state dimension
     m::Int  # control dimension
     con::C
@@ -105,16 +105,21 @@ struct ALConstraint{T, C<:TO.StageConstraint}
     grad::Vector{Vector{T}}    # gradient of Augmented Lagrangian
     hess::Vector{Matrix{T}}    # Hessian of Augmented Lagrangian
     tmp_jac::Matrix{T}
+    
+    Z::Vector{R}
+    E::CostExpansion2{T}
 
     opts::ConstraintOptions{T}
-    function ALConstraint{T}(n::Int, m::Int, con::TO.StageConstraint, 
-                             inds::AbstractVector{<:Integer}; 
+    function ALConstraint{T}(Z::R, con::TO.StageConstraint, 
+                             inds::AbstractVector{<:Integer}, 
+                             E=CostExpansion2{T}(RD.dims(Z)...); 
 			                 sig::FunctionSignature=StaticReturn(), 
                              diffmethod::DiffMethod=UserDefined(),
                              kwargs...
-    ) where T
+    ) where {T,R<:AbstractTrajectory}
         opts = ConstraintOptions{T}(;kwargs...)
 
+        n,m = RD.dims(Z)
         p = RD.output_dim(con)
         P = length(inds)
         nm = n + m
@@ -140,25 +145,35 @@ struct ALConstraint{T, C<:TO.StageConstraint}
 
         tmp_jac = zeros(T, p, n+m)
 
-        new{T, typeof(con)}(
+        new{T, typeof(con), R}(
             n, m, con, sig, diffmethod, inds, vals, jac, jac_scaled, λ, μ, μinv, λbar, 
-            λproj, λscaled, viol, c_max, ∇proj, ∇proj_scaled, ∇²proj, grad, hess, tmp_jac, opts
+            λproj, λscaled, viol, c_max, ∇proj, ∇proj_scaled, ∇²proj, grad, hess, tmp_jac, 
+            [Z], E, opts
         )
     end
 end
 
+settraj!(alcon::ALConstraint, Z::AbstractTrajectory) = alcon.Z[1] = Z
 setparams!(alcon::ALConstraint, opts::SolverOptions) = setparams!(alcon.opts, opts)
+RD.vectype(alcon::ALConstraint) = RD.vectype(eltype(alcon.Z[1]))
 
 """
     evaluate_constraint!(alcon, Z)
 
 Evaluate the constraint at all time steps, storing the result in the [`ALConstraint`](@ref).
 """
-function evaluate_constraint!(alcon::ALConstraint, Z::AbstractTrajectory)
-    for (i,k) in enumerate(alcon.inds)
-        TO.evaluate_constraint!(alcon.sig, alcon.con, alcon.vals[i], Z[k])
-    end
+function TO.evaluate_constraints!(alcon::ALConstraint)
+    # Z = alcon.Z[1]
+    TO.evaluate_constraints!(alcon.sig, alcon.con, alcon.vals, alcon.Z[1], alcon.inds)
+    # for (i,k) in enumerate(alcon.inds)
+    #     TO.evaluate_constraint!(alcon.sig, alcon.con, alcon.vals[i], Z[k])
+    # end
 end
+# function TO.evaluate_constraints!(alcon::ALConstraint, Z::AbstractTrajectory)
+#     for (i,k) in enumerate(alcon.inds)
+#         TO.evaluate_constraint!(alcon.sig, alcon.con, alcon.vals[i], Z[k])
+#     end
+# end
 
 """
     constraint_jacobian!(alcon, Z)
@@ -166,6 +181,19 @@ end
 Evaluate the constraint Jacobian at all time steps, storing the result in the 
 [`ALConstraint`](@ref).
 """
+function TO.constraint_jacobians!(alcon::ALConstraint)
+    Z = alcon.Z[1]
+    # TO.constraint_jacobians!(
+    #     alcon.sig, alcon.diffmethod, alcon.con, alcon.jac, alcon.vals, Z, alcon.inds
+    # )
+    # sig = alcon.sig
+    sig = function_signature(alcon)
+    diff = alcon.diffmethod
+    for (i,k) in enumerate(alcon.inds)
+        RD.jacobian!(sig, diff, alcon.con, alcon.jac[i], alcon.vals[i], Z[k])
+    end
+end
+
 function constraint_jacobian!(alcon::ALConstraint, Z::AbstractTrajectory)
     for (i,k) in enumerate(alcon.inds)
         RD.jacobian!(alcon.sig, alcon.diffmethod, alcon.con, alcon.jac[i], alcon.vals[i], Z[k])
@@ -280,7 +308,8 @@ cost expansion stored in `E`. Assumes [`alcost(alcon)`](@ref), [`algrad!(alcon)`
 and [`alhess!(alcon)`](@ref) have already been called to evaluate these terms
 about the current trajectory.
 """
-function add_alcost_expansion!(alcon::ALConstraint, E::CostExpansion2)
+function add_alcost_expansion!(alcon::ALConstraint)
+    E = alcon.E  # this is aliased to the one in the iLQR solver
     for (i,k) in enumerate(alcon.inds)
         E[k].grad .+= alcon.grad[i]
         E[k].hess .+= alcon.hess[i]

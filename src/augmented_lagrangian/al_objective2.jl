@@ -1,8 +1,8 @@
 struct ALObjective2{T,O<:AbstractObjective} <: TO.AbstractObjective
     obj::O
     conset::ALConstraintSet2{T}
-    function ALObjective2{T}(obj::AbstractObjective, cons::ConstraintList) where T
-        new{T,typeof(obj)}(obj, ALConstraintSet2{T}(cons))
+    function ALObjective2{T}(obj::AbstractObjective) where T
+        new{T,typeof(obj)}(obj, ALConstraintSet2{T}())
     end
 end
 
@@ -11,6 +11,7 @@ function TO.cost(alobj::ALObjective2, Z::AbstractTrajectory)
     J = TO.cost(alobj.obj, Z)
 
     # Calculate constraints
+    # TODO: update trajectory if Z is not the cached one
     evaluate_constraints!(alobj.conset, Z)
 
     # Calculate AL penalty
@@ -31,7 +32,10 @@ function cost_expansion!(alobj::ALObjective2, E::CostExpansion2, Z)
     alhess!(alobj.conset)
 
     # Add to existing expansion
-    add_alcost_expansion!(alobj.conset, E)
+    # each ALConstraint has local alias to ilqr.Efull
+    # this is a hack to avoid an allocation for each constraint
+    # due to type instability
+    add_alcost_expansion!(alobj.conset)
 
     return nothing
 end
