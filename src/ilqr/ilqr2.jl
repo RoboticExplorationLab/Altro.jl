@@ -3,7 +3,7 @@ mutable struct DynamicRegularization{T}
     dρ::T
 end
 
-struct iLQRSolver2{L,O,Nx,Ne,Nu,T} <: UnconstrainedSolver{T}
+struct iLQRSolver2{L,O,Nx,Ne,Nu,T,V} <: UnconstrainedSolver{T}
     model::L
     obj::O
 
@@ -14,8 +14,8 @@ struct iLQRSolver2{L,O,Nx,Ne,Nu,T} <: UnconstrainedSolver{T}
     opts::SolverOptions{T}
     stats::SolverStats{T}
 
-    Z::Traj{Nx,Nu,T,KnotPoint{Nx,Nu,Vector{T},T}}
-    Z̄::Traj{Nx,Nu,T,KnotPoint{Nx,Nu,Vector{T},T}}
+    Z::Traj{Nx,Nu,T,KnotPoint{Nx,Nu,V,T}}
+    Z̄::Traj{Nx,Nu,T,KnotPoint{Nx,Nu,V,T}}
     dx::Vector{Vector{T}}
     du::Vector{Vector{T}}
 
@@ -47,18 +47,20 @@ function iLQRSolver2(
         prob::Problem{T}, 
         opts::SolverOptions=SolverOptions{T}(), 
         stats::SolverStats=SolverStats{T}(parent=solvername(iLQRSolver));
+        use_static::Val{USE_STATIC}=Val(false), 
         kwarg_opts...
-    ) where {T}
+    ) where {T, USE_STATIC}
     set_options!(opts; kwarg_opts...)
 
     n,m,N = dims(prob)
     e = RD.errstate_dim(prob.model)
 
     x0 = copy(prob.x0)
+    V = USE_STATIC ? SVector{n+m,T} : Vector{T}
     Z = Traj(map(prob.Z) do z
         Nx = state_dim(z)
         Nu = control_dim(z)
-        RD.KnotPoint{Nx,Nu}(Vector(RD.getdata(z)), RD.getparams(z)...)
+        RD.KnotPoint{Nx,Nu}(V(RD.getdata(z)), RD.getparams(z)...)
     end)
     Z̄ = copy(Z)
 
@@ -112,9 +114,9 @@ function iLQRSolver2(
 
 	L = typeof(prob.model)
 	O = typeof(prob.obj)
-    solver = iLQRSolver2{L,O,n,e,m,T}(
-        prob.model, prob.obj, x0, prob.tf, N,opts, stats,Z, Z̄, dx, du, gains, K, d, D, G, 
-        Efull, Eerr, Q, S, ΔV, Qtmp, Quu_reg, Qux_reg, reg, grad, xdot, 
+    solver = iLQRSolver2{L,O,n,e,m,T,V}(
+        prob.model, prob.obj, x0, prob.tf, N, opts, stats, Z, Z̄, dx, du,
+        gains, K, d, D, G, Efull, Eerr, Q, S, ΔV, Qtmp, Quu_reg, Qux_reg, reg, grad, xdot, 
         lg,
     )
     reset!(solver)
@@ -132,6 +134,10 @@ RD.control_dim(::iLQRSolver2{<:Any,<:Any,<:Any,<:Any,m}) where m = m
 solvername(::Type{<:iLQRSolver2}) = :iLQR
 getlogger(solver::iLQRSolver2) = solver.logger
 
+vectype(::iLQRSolver2{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,V}) where V = V
+isstaticsolver(solver::iLQRSolver2) = vectype(solver) <: SVector
+dynamics_signature(solver::iLQRSolver2) = isstaticsolver(solver) ? RD.StaticReturn() : RD.InPlace()
+
 log_level(::iLQRSolver2) = InnerLoop
 
 function reset!(solver::iLQRSolver2)
@@ -142,7 +148,6 @@ function reset!(solver::iLQRSolver2)
 end
 
 function dynamics_expansion!(solver::iLQRSolver2)
-    sig = solver.opts.dynamics_funsig
     diff = solver.opts.dynamics_diffmethod
     D = solver.D
     Z = solver.Z
@@ -150,7 +155,7 @@ function dynamics_expansion!(solver::iLQRSolver2)
 
     # Dynamics Jacobians
     for k in eachindex(D)
-        RobotDynamics.jacobian!(sig, diff, model, D[k], Z[k])
+        RobotDynamics.jacobian!(dynamics_signature(solver), diff, model, D[k], Z[k])
     end
 
     # Calculate the expansion on the error state

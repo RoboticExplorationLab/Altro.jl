@@ -27,7 +27,7 @@ function initialize!(solver::iLQRSolver2)
         # without feedback since the gains are all zero
         rollout!(solver, 0.0)
     else
-        RD.rollout!(solver.opts.dynamics_funsig, solver.model, solver.Z, solver.x0)
+        RD.rollout!(dynamics_signature(solver), solver.model, solver.Z, solver.x0)
     end
     return nothing
 end

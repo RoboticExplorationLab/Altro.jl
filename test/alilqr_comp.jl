@@ -11,10 +11,11 @@ const RD = RobotDynamics
 const TO = TrajectoryOptimization
 
 # prob, opts = Problems.Pendulum()
-prob, opts = Problems.YakProblems()
+prob, opts = Problems.Quadrotor()
+# prob, opts = Problems.YakProblems()
 
 al1 = Altro.AugmentedLagrangianSolver(prob, copy(opts))
-al2 = Altro.ALSolver(prob, copy(opts))
+al2 = Altro.ALSolver(prob, copy(opts), use_static=Val(true))
 
 @test states(al1) ≈ states(al2)
 @test controls(al1) ≈ controls(al2)
@@ -44,6 +45,14 @@ Z2 = get_trajectory(al2)
 for i = 1:length(conset2) 
     @test conset1.convals[i].vals ≈ conset2[i].vals
 end
+
+RD.evaluate!(conset1, ilqr1.Z)
+Altro.evaluate_constraints!(conset2, ilqr2.Z)
+
+@btime RD.evaluate!($conset1, $ilqr1.Z)
+@btime Altro.evaluate_constraints!($conset2, $ilqr2.Z)
+@btime Altro.evaluate_constraint!($(conset2[1]), $ilqr2.Z)
+@btime Altro.algrad!($conset2)
 
 # Test unconstrained cost expansion
 TO.cost_expansion!(ilqr1.quad_obj, ilqr1.obj.obj, ilqr1.Z, init=true, rezero=true)

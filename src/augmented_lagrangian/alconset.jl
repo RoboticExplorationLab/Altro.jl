@@ -38,8 +38,8 @@ Base.eltype(::ALConstraintSet2{T}) where T = ALConstraint{T}
 
 # Methods
 function evaluate_constraints!(conset::ALConstraintSet2, Z)
-    for alcon in conset.constraints
-        evaluate_constraint!(alcon, Z)
+    for i = 1:length(conset) 
+        evaluate_constraint!(conset.constraints[i], Z)
     end
 end
 

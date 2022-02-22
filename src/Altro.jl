@@ -18,6 +18,7 @@ using Statistics
 using TimerOutputs
 using ForwardDiff
 using FiniteDiff
+import Octavian
 
 const TO = TrajectoryOptimization
 const RD = RobotDynamics
@@ -74,10 +75,18 @@ const ColonSlice = Base.Slice{Base.OneTo{Int}}
 const SparseView{T,I} = SubArray{T, 2, SparseMatrixCSC{T, I}, Tuple{UnitRange{I}, UnitRange{I}}, false}
 const VectorView{T,I} = SubArray{T, 1, Vector{T}, Tuple{UnitRange{I}}, true}
 
+# Select the matix multiplication kernel
+const USE_OCTAVIAN = parse(Bool, get(ENV, "ALTRO_USE_OCTAVIAN", "false"))
+@static if USE_OCTAVIAN
+    const matmul! = Octavian.matmul!
+else
+    const matmul! = mul!
+end
+
 include("logging/SolverLogging.jl")
 using .SolverLogging_v1
 
-include("linalg.jl")
+# include("linalg.jl")
 include("utils.jl")
 include("infeasible_model.jl")
 include("solvers.jl")

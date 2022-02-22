@@ -31,6 +31,7 @@ function ALSolver(
         prob::Problem{T}, 
         opts::SolverOptions=SolverOptions(), 
         stats::SolverStats=SolverStats(parent=solvername(AugmentedLagrangianSolver));
+        use_static=Val(false), 
         kwarg_opts...
     ) where {T}
     set_options!(opts; kwarg_opts...)
@@ -41,7 +42,7 @@ function ALSolver(
         prob.x0, prob.xf, prob.Z, prob.N, prob.t0, prob.tf)
     
     # Instantiate the iLQR solver
-    ilqr = iLQRSolver2(prob_al, opts, stats)
+    ilqr = iLQRSolver2(prob_al, opts, stats, use_static=use_static)
 
     # Build the solver
     solver = ALSolver(opts, stats, ilqr)

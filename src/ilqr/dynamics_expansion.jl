@@ -40,7 +40,7 @@ end
 
 @inline function RD.jacobian!(sig::InPlace, diff::DiffMethod, model::DiscreteDynamics,
     D::DynamicsExpansion2, z::KnotPoint{n,m}
-)
+) where {n,m}
     RD.jacobian!(sig, diff, model, D.∇f, D.f, z)
 end
 
