@@ -29,6 +29,12 @@ function initialize!(solver::iLQRSolver2)
     else
         RD.rollout!(dynamics_signature(solver), solver.model, solver.Z, solver.x0)
     end
+
+    # Copy the trajectory to Zbar
+    # We'll try to always evaluate our constraint information on the Zbar trajectory
+    # since the constraints cache the trajectory and incur an allocation when the 
+    # cache entry changed
+    copyto!(solver.Z̄, solver.Z)
     return nothing
 end
 
@@ -37,15 +43,14 @@ function solve!(solver::iLQRSolver2)
     lg = solver.logger
     for iter = 1:solver.opts.iterations
         # Calculate the cost
-        J_prev = TO.cost(solver)
+        J_prev = TO.cost(solver, solver.Z̄)
 
         # Calculate expansions
         # TODO: do this in parallel
-        errstate_jacobians!(solver.model, solver.G, solver.Z)
-        dynamics_expansion!(solver)
-        error_expansion!(solver.model, solver.D, solver.G)
-        cost_expansion!(solver.obj, solver.Efull, solver.Z)
-        error_expansion!(solver.model, solver.Eerr, solver.Efull, solver.G, solver.Z)
+        errstate_jacobians!(solver.model, solver.G, solver.Z̄)
+        dynamics_expansion!(solver, solver.Z̄)
+        cost_expansion!(solver.obj, solver.Efull, solver.Z̄)
+        error_expansion!(solver.model, solver.Eerr, solver.Efull, solver.G, solver.Z̄)
 
         # Get next iterate
         backwardpass!(solver)

@@ -148,10 +148,9 @@ function reset!(solver::iLQRSolver2)
     return solver 
 end
 
-function dynamics_expansion!(solver::iLQRSolver2)
+function dynamics_expansion!(solver::iLQRSolver2, Z=solver.Z)
     diff = solver.opts.dynamics_diffmethod
     D = solver.D
-    Z = solver.Z
     model = solver.model
 
     # Dynamics Jacobians
