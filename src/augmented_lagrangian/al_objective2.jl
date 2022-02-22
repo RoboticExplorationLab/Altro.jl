@@ -1,8 +1,9 @@
 struct ALObjective2{T,O<:AbstractObjective} <: TO.AbstractObjective
     obj::O
     conset::ALConstraintSet2{T}
+    alcost::Vector{T}
     function ALObjective2{T}(obj::AbstractObjective) where T
-        new{T,typeof(obj)}(obj, ALConstraintSet2{T}())
+        new{T,typeof(obj)}(obj, ALConstraintSet2{T}(), zeros(T, length(obj)))
     end
 end
 
@@ -15,7 +16,9 @@ function TO.cost(alobj::ALObjective2, Z::AbstractTrajectory)
     evaluate_constraints!(alobj.conset, Z)
 
     # Calculate AL penalty
-    J += alcost(alobj.conset)    
+    alobj.alcost .= 0
+    alcost(alobj.conset)    
+    J += sum(alobj.alcost)
 
     return J
 end

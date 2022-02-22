@@ -44,7 +44,7 @@ function ALSolver(
     
     # Instantiate the iLQR solver
     ilqr = iLQRSolver2(prob_al, opts, stats, use_static=use_static)
-    initialize!(alobj.conset, prob.constraints, ilqr.Z, ilqr.Efull)
+    initialize!(alobj.conset, prob.constraints, ilqr.Z, ilqr.opts, alobj.alcost, ilqr.Efull)
     # settraj!(alobj.conset, get_trajectory(ilqr))
 
     # Build the solver
@@ -67,8 +67,14 @@ options(solver::ALSolver) = solver.opts
 
 # Methods
 function reset!(solver::ALSolver)
-    reset_solver!(solver)
+    # reset_solver!(solver)
+    opts = options(solver)::SolverOptions
+    reset!(stats(solver), opts.iterations, solvername(solver))
     reset!(solver.ilqr)
+
+    # Reset constraints
+    conset = get_constraints(solver)
+    reset!(conset)
 end
 
 function TO.max_violation(solver::ALSolver)

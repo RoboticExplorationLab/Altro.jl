@@ -15,18 +15,18 @@ function ALConstraintSet2{T}() where T
 end
 
 function initialize!(conset::ALConstraintSet2{T}, cons::TO.ConstraintList, 
-                     Z::AbstractTrajectory, E=CostExpansion2{T}(RD.dims(Z)...)) where T
+                     Z::AbstractTrajectory, opts, costs, E=CostExpansion2{T}(RD.dims(Z)...)) where T
     n,m = cons.n, cons.m
     @assert RD.state_dim(Z) == n
     @assert RD.control_dim(Z) == m
     @assert length(Z) == length(cons.p)
     ncon = length(cons)
     for i = 1:ncon
-        alcon = ALConstraint{T}(Z, cons[i], cons.inds[i], E, sig=cons.sigs[i], 
-                                diffmethod=cons.diffs[i])
+        alcon = ALConstraint{T}(Z, cons[i], cons.inds[i], costs, E, sig=cons.sigs[i], 
+                                diffmethod=cons.diffs[i], solveropts=opts)
         push!(conset.constraints, alcon)
     end
-    resize!(conset.c_max, ncon)
+    resize!(conset.c_max, length(Z))
     resize!(conset.μ_max, ncon)
     conset.c_max .= 0
     conset.μ_max .= 0
@@ -71,11 +71,9 @@ for method in (:evaluate_constraints!, :constraint_jacobians!)
 end
 
 function alcost(conset::ALConstraintSet2{T}) where T
-    J = zero(T)
     for alcon in conset.constraints
-        J += alcost(alcon)
+        alcost(alcon)
     end
-    return J
 end
 
 for method in (:algrad!, :alhess!, :dualupdate!, :penaltyupdate!, 
@@ -97,11 +95,19 @@ end
 function normviolation!(conset::ALConstraintSet2, p=2)
     isempty(conset) && return 0.0
     for i = 1:length(conset) 
-        conset.c_max[i] = normviolation!(conset.constraints[i], p)
+        normviolation!(conset.constraints[i], p, conset.c_max)
     end
     return norm(conset.c_max, p)
 end
-max_violation(conset::ALConstraintSet2) = normviolation!(conset, Inf)
+
+# Need to duplicate due to allocation
+function max_violation(conset::ALConstraintSet2)
+    isempty(conset) && return 0.0
+    for i = 1:length(conset) 
+        normviolation!(conset.constraints[i], Inf, conset.c_max)
+    end
+    return norm(conset.c_max, Inf)
+end
 
 function max_penalty(conset::ALConstraintSet2)
     for i = 1:length(conset) 
@@ -110,9 +116,9 @@ function max_penalty(conset::ALConstraintSet2)
     return maximum(conset.μ_max)
 end
 
-function reset!(conset::ALConstraintSet2, opts::SolverOptions)
+function reset!(conset::ALConstraintSet2)
     for con in conset.constraints
-        setparams!(con, opts)
+        resetparams!(con)
         reset_duals!(con)
         reset_penalties!(con)
     end

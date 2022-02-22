@@ -7,6 +7,7 @@ const ALCONSTRAINT_PARAMS = Set((
 ))
 
 Base.@kwdef mutable struct ConstraintOptions{T}
+    solveropts::SolverOptions{T} = SolverOptions{T}() 
     use_conic_cost::Bool = false
     penalty_initial::T = 1.0
     penalty_scaling::T = 10.0 
@@ -27,11 +28,15 @@ function setparams!(conopts::ConstraintOptions; kwargs...)
     end
 end
 
-function setparams!(conopts::ConstraintOptions, opts::SolverOptions)
-    for param in ALCONSTRAINT_PARAMS
-        if conopts.usedefault[param]
-            setfield!(conopts, param, getfield(opts, param))
-        end
+@generated function reset!(conopts::ConstraintOptions)
+    # Use generated expression to avoid allocations since the the fields have different types
+    optchecks = map(collect(ALCONSTRAINT_PARAMS)) do rawparam
+        param = Expr(:quote,rawparam)
+        :(conopts.usedefault[$param] && setfield!(conopts, $param, getfield(opts, $param)))
+    end
+    quote
+        opts = conopts.solveropts
+        $(Expr(:block, optchecks...))
     end
 end
 
@@ -102,6 +107,7 @@ struct ALConstraint{T, C<:TO.StageConstraint, R<:Traj}
     ∇proj::Vector{Matrix{T}}   # Jacobian of projection
     ∇proj_scaled::Vector{Matrix{T}}
     ∇²proj::Vector{Matrix{T}}  # Second-order derivative of projection
+    cost::Vector{T}            # (N,) vector of costs (aliased to the one in ALObjective2)
     grad::Vector{Vector{T}}    # gradient of Augmented Lagrangian
     hess::Vector{Matrix{T}}    # Hessian of Augmented Lagrangian
     tmp_jac::Matrix{T}
@@ -112,6 +118,7 @@ struct ALConstraint{T, C<:TO.StageConstraint, R<:Traj}
     opts::ConstraintOptions{T}
     function ALConstraint{T}(Z::R, con::TO.StageConstraint, 
                              inds::AbstractVector{<:Integer}, 
+                             costs::Vector{T},
                              E=CostExpansion2{T}(RD.dims(Z)...); 
 			                 sig::FunctionSignature=StaticReturn(), 
                              diffmethod::DiffMethod=UserDefined(),
@@ -147,14 +154,15 @@ struct ALConstraint{T, C<:TO.StageConstraint, R<:Traj}
 
         new{T, typeof(con), R}(
             n, m, con, sig, diffmethod, inds, vals, jac, jac_scaled, λ, μ, μinv, λbar, 
-            λproj, λscaled, viol, c_max, ∇proj, ∇proj_scaled, ∇²proj, grad, hess, tmp_jac, 
+            λproj, λscaled, viol, c_max, ∇proj, ∇proj_scaled, ∇²proj, costs, grad, hess, tmp_jac, 
             [Z], E, opts
         )
     end
 end
 
 settraj!(alcon::ALConstraint, Z::AbstractTrajectory) = alcon.Z[1] = Z
-setparams!(alcon::ALConstraint, opts::SolverOptions) = setparams!(alcon.opts, opts)
+setparams!(alcon::ALConstraint) = setparams!(alcon.opts)
+resetparams!(alcon::ALConstraint) = reset!(alcon.opts)
 RD.vectype(alcon::ALConstraint) = RD.vectype(eltype(alcon.Z[1]))
 
 """
@@ -216,19 +224,21 @@ cone for the constraint.
 Assumes that the constraints have already been evaluated via [`evaluate_constraint!`](@ref).
 """
 function alcost(alcon::ALConstraint{T}) where T
-    J = zero(T)
     use_conic = alcon.opts.use_conic_cost
     cone = TO.sense(alcon.con)
-    for i in eachindex(alcon.inds)
+    for (i,k) in enumerate(alcon.inds)
         if use_conic
             # Use generic conic cost
-            J += alcost(alcon, i)
+            J = alcost(alcon, i)
         else
             # Special-case on the cone
-            J += alcost(cone, alcon, i)
+            J = alcost(cone, alcon, i)
         end
+        # Add to the vector of AL penalty costs stored in the ALObjective2
+        # Hack to avoid allocation
+        alcon.cost[k] += J
     end
-    return J
+    return nothing
 end
 
 """
@@ -323,7 +333,7 @@ end
 function alcost(::TO.Equality, alcon::ALConstraint, i::Integer)
     λ, μ, c = alcon.λ[i], alcon.μ[i], alcon.vals[i]
     Iμ = Diagonal(μ)
-    return λ'c + 0.5 * c'Iμ*c
+    return λ'c + 0.5 * dot(c,Iμ,c)
 end
 
 function algrad!(::TO.Equality, alcon::ALConstraint, i::Integer)
@@ -358,7 +368,7 @@ function alcost(::TO.Inequality, alcon::ALConstraint, i::Integer)
         a[i] = isactive * μ[i] 
     end
     Iμ = Diagonal(a)
-    return λ'c + 0.5 * c'Iμ*c
+    return λ'c + 0.5 * dot(c,Iμ,c)
 end
 
 function algrad!(::TO.Inequality, alcon::ALConstraint, i::Integer)
@@ -570,16 +580,18 @@ defined to be
 ```
 These values for each time step are stored in `alcon.viol`.
 """
-function normviolation!(alcon::ALConstraint, p=2)
+function normviolation!(alcon::ALConstraint, p=2, c_max=alcon.c_max)
     cone = TO.sense(alcon.con)
-    for i = 1:length(alcon.inds)
+    for (i,k) in enumerate(alcon.inds)
         TO.projection!(cone, alcon.viol[i], alcon.vals[i]) 
         alcon.viol[i] .-= alcon.vals[i]
-        alcon.c_max[i] = norm(alcon.viol[i], p)
+        c_max[k] = norm(alcon.viol[i], p)
     end
-    return norm(alcon.c_max, p)
+    # return norm(alcon.c_max, p)
+    return nothing
 end
-max_violation(alcon::ALConstraint) = normviolation!(alcon, Inf)
+max_violation!(alcon::ALConstraint, c_max=alcon.c_max) = normviolation!(alcon, Inf, c_max)
+
 
 """
     max_penalty(alcon)

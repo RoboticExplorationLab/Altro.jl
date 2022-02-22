@@ -31,6 +31,7 @@ function solve!(solver::ALSolver)
     cost_tol = solver.opts.cost_tolerance
     grad_tol = solver.opts.gradient_tolerance
 
+    Z̄ = solver.ilqr.Z̄
     for al_iter = 1:solver.opts.iterations_outer
         # Set potentially looser tolerances for inner iLQR solve 
         set_tolerances!(solver, al_iter, cost_tol, grad_tol)
@@ -42,8 +43,7 @@ function solve!(solver::ALSolver)
         status(solver) > SOLVE_SUCCEEDED && break
 
         # Evaluate the constraints and the cost for the current trajectory 
-        Z = get_trajectory(solver)
-        J = TO.cost(solver, Z)  # NOTE: this evaluates the constraints
+        J = TO.cost(solver, Z̄)  # NOTE: this evaluates the constraints
         c_max = max_violation(conset)
         μ_max = max_penalty(conset)
         record_iteration!(solver, J, c_max, μ_max)
