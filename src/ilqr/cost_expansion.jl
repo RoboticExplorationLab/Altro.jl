@@ -152,9 +152,9 @@ function _error_expansion!(model::DiscreteDynamics, E, cost, G, tmp, z)
     E.uu .= cost.uu
     E.u .= cost.u
     RD.∇²differential!(model, E.xx, state(z), cost.x)
-    mul!(E.ux, cost.ux, G)
-    mul!(E.x, G', cost.x)
-    mul!(tmp, cost.xx, G)
-    mul!(E.xx, G', tmp, 1.0, 1.0)
+    matmul!(E.ux, cost.ux, G)
+    matmul!(E.x, G', cost.x)
+    matmul!(tmp, cost.xx, G)
+    matmul!(E.xx, G', tmp, 1.0, 1.0)
     return nothing
 end

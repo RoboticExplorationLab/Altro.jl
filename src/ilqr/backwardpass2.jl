@@ -34,7 +34,7 @@ function backwardpass!(solver::iLQRSolver2)
         B = D[k].fu
 
         # Action-value expansion
-        mul!(Q[k].x, A', S[k+1].x)
+        matmul!(Q[k].x, A', S[k+1].x)
         Q[k].x .+= E[k].x
 
         matmul!(Q[k].u, B', S[k+1].x)

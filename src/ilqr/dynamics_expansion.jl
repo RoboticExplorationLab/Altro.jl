@@ -108,7 +108,7 @@ function _error_expansion!(::RD.RotationState, D::Vector{<:DynamicsExpansion2},
 end
 
 function _error_expansion!(D, G1, G2)
-    mul!(D.tmp, D.A, G1)  # D.tmp = A * G1
-    mul!(D.fx, G2', D.tmp)   # D.fx = G2'A*G1
-    mul!(D.fu, G2', D.B)
+    matmul!(D.tmp, D.A, G1)  # D.tmp = A * G1
+    matmul!(D.fx, G2', D.tmp)   # D.fx = G2'A*G1
+    matmul!(D.fu, G2', D.B)
 end

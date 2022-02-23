@@ -10,7 +10,7 @@ function rollout!(solver::iLQRSolver2, α)
     for k = 1:N-1
         RD.state_diff!(solver.model, δx[k], state(Z̄[k]), state(Z[k]))
         δu[k] .= d[k] .* α 
-        mul!(δu[k], K[k], δx[k], 1.0, 1.0)
+        matmul!(δu[k], K[k], δx[k], 1.0, 1.0)
         
         δu[k] .+= control(Z[k])
         RD.setcontrol!(Z̄[k], δu[k])
