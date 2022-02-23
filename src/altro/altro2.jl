@@ -79,3 +79,15 @@ solvername(::Type{<:ALTROSolver2}) = :ALTRO
 function TO.max_violation(solver::ALTROSolver2)
     return max_violation(solver.solver_al)
 end
+
+function reset!(solver::ALTROSolver2)
+    # reset_solver!(solver)
+    opts = options(solver)::SolverOptions
+    reset!(stats(solver), opts.iterations, solvername(solver))
+    reset!(solver.solver_al)
+    # reset!(solver.solver_pn)
+
+    # Reset constraints
+    conset = get_constraints(solver)
+    reset!(conset)
+end

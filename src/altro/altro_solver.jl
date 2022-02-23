@@ -38,6 +38,7 @@ end
 function ALTROSolver(prob::Problem{T}, opts::SolverOptions=SolverOptions();
         infeasible::Bool=false,
         R_inf::Real=1.0,
+        use_static=Val(false), 
         solver_uncon=iLQRSolver,
         kwarg_opts...
     ) where {Q,T}
@@ -53,7 +54,9 @@ function ALTROSolver(prob::Problem{T}, opts::SolverOptions=SolverOptions();
     end
     set_options!(opts; kwarg_opts...)
     stats = SolverStats{T}(parent=solvername(ALTROSolver))
-    solver_al = AugmentedLagrangianSolver(prob, opts, stats; solver_uncon=solver_uncon)
+    solver_al = AugmentedLagrangianSolver(
+        prob, opts, stats; solver_uncon=solver_uncon, use_static=use_static
+    )
     solver_pn = ProjectedNewtonSolver(prob, opts, stats)
     link_constraints!(get_constraints(solver_pn), get_constraints(solver_al))
     S = typeof(solver_al.solver_uncon)

@@ -78,7 +78,7 @@ function iLQRSolver2(
     d = [view(gain,:,e+1) for gain in gains]
 
     D = [DynamicsExpansion2{T}(n,e,m) for k = 1:N-1]
-    G = [zeros(T,n,e) for k = 1:N+1]
+    G = [Matrix(one(T)*I,n,e) for k = 1:N+1]
 
     Eerr = CostExpansion2{T}(e,m,N)
     Efull = FullStateExpansion(Eerr, prob.model)
