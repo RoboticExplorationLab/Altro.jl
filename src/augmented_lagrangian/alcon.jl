@@ -37,6 +37,7 @@ end
     quote
         opts = conopts.solveropts
         $(Expr(:block, optchecks...))
+        return nothing
     end
 end
 
@@ -129,11 +130,12 @@ struct ALConstraint{T, C<:TO.StageConstraint, R<:Traj}
         n,m = RD.dims(Z)
         p = RD.output_dim(con)
         P = length(inds)
+        w = RD.input_dim(con)
         nm = n + m
 
         vals = [zeros(T, p) for i = 1:P]
-        jac = [zeros(T, p, nm) for i = 1:P]
-        jac_scaled = [zeros(T, p, nm) for i = 1:P]
+        jac = [zeros(T, p, w) for i = 1:P]
+        jac_scaled = [zeros(T, p, w) for i = 1:P]
         λ = [zeros(T, p) for i = 1:P]
         μ = [fill(opts.penalty_initial, p) for i = 1:P]
         μinv = [inv.(μi) for μi in μ]
@@ -141,7 +143,7 @@ struct ALConstraint{T, C<:TO.StageConstraint, R<:Traj}
         λproj = [zeros(T, p) for i = 1:P]
         λscaled = [zeros(T, p) for i = 1:P]
         viol = [zeros(T, p) for i = 1:P]
-        c_max = zeros(T, P)
+        c_max = zeros(T, length(Z))
 
         ∇proj = [zeros(T, p, p) for i = 1:P]
         ∇proj_scaled = [zeros(T, p, p) for i = 1:P]
@@ -150,7 +152,7 @@ struct ALConstraint{T, C<:TO.StageConstraint, R<:Traj}
         grad = [zeros(T, nm) for i = 1:P]
         hess = [zeros(T, nm, nm) for i = 1:P]
 
-        tmp_jac = zeros(T, p, n+m)
+        tmp_jac = zeros(T, p, w)
 
         new{T, typeof(con), R}(
             n, m, con, sig, diffmethod, inds, vals, jac, jac_scaled, λ, μ, μinv, λbar, 
@@ -161,9 +163,48 @@ struct ALConstraint{T, C<:TO.StageConstraint, R<:Traj}
 end
 
 settraj!(alcon::ALConstraint, Z::AbstractTrajectory) = alcon.Z[1] = Z
-setparams!(alcon::ALConstraint) = setparams!(alcon.opts)
+setparams!(alcon::ALConstraint; kwargs...) = setparams!(alcon.opts; kwargs...)
 resetparams!(alcon::ALConstraint) = reset!(alcon.opts)
 RD.vectype(alcon::ALConstraint) = RD.vectype(eltype(alcon.Z[1]))
+
+"""
+    getinputinds(alcon)
+
+Get the indices of the input to the constraint, determined by the output of 
+`RobotDynamics.functioninputs`. Returns `1:n+m` for generic stage constraints,
+`1:n` for state constraints, and `n+1:n+m` for control constraints.
+"""
+function getinputinds(alcon::ALConstraint)
+    n,m = alcon.n, alcon.m
+    inputtype = RD.functioninputs(alcon.con)
+    if inputtype == RD.StateOnly() 
+        inds = 1:n
+    elseif inputtype == RD.ControlOnly()
+        inds = n .+ (1:m)
+    else
+        inds = 1:n+m
+    end
+end
+
+"""
+    getgrad(alcon, i)
+
+Get the view of the entire cost gradient corresponding to the inputs for the constraint.
+"""
+function getgrad(alcon::ALConstraint, i::Integer)
+    inds = getinputinds(alcon)
+    return view(alcon.grad[i], inds)
+end
+
+"""
+    gethess(alcon, i)
+
+Get the view of the entire cost Hessian corresponding to the inputs for the constraint.
+"""
+function gethess(alcon::ALConstraint, i::Integer)
+    inds = getinputinds(alcon)
+    return view(alcon.hess[i], inds, inds)
+end
 
 """
     evaluate_constraint!(alcon, Z)
@@ -171,40 +212,21 @@ RD.vectype(alcon::ALConstraint) = RD.vectype(eltype(alcon.Z[1]))
 Evaluate the constraint at all time steps, storing the result in the [`ALConstraint`](@ref).
 """
 function TO.evaluate_constraints!(alcon::ALConstraint)
-    # Z = alcon.Z[1]
     TO.evaluate_constraints!(alcon.sig, alcon.con, alcon.vals, alcon.Z[1], alcon.inds)
-    # for (i,k) in enumerate(alcon.inds)
-    #     TO.evaluate_constraint!(alcon.sig, alcon.con, alcon.vals[i], Z[k])
-    # end
 end
-# function TO.evaluate_constraints!(alcon::ALConstraint, Z::AbstractTrajectory)
-#     for (i,k) in enumerate(alcon.inds)
-#         TO.evaluate_constraint!(alcon.sig, alcon.con, alcon.vals[i], Z[k])
-#     end
-# end
 
 """
-    constraint_jacobian!(alcon, Z)
+    constraint_jacobians!(alcon, Z)
 
 Evaluate the constraint Jacobian at all time steps, storing the result in the 
 [`ALConstraint`](@ref).
 """
 function TO.constraint_jacobians!(alcon::ALConstraint)
     Z = alcon.Z[1]
-    # TO.constraint_jacobians!(
-    #     alcon.sig, alcon.diffmethod, alcon.con, alcon.jac, alcon.vals, Z, alcon.inds
-    # )
-    # sig = alcon.sig
     sig = function_signature(alcon)
     diff = alcon.diffmethod
     for (i,k) in enumerate(alcon.inds)
         RD.jacobian!(sig, diff, alcon.con, alcon.jac[i], alcon.vals[i], Z[k])
-    end
-end
-
-function constraint_jacobian!(alcon::ALConstraint, Z::AbstractTrajectory)
-    for (i,k) in enumerate(alcon.inds)
-        RD.jacobian!(alcon.sig, alcon.diffmethod, alcon.con, alcon.jac[i], alcon.vals[i], Z[k])
     end
 end
 
@@ -340,20 +362,22 @@ function algrad!(::TO.Equality, alcon::ALConstraint, i::Integer)
     λbar = alcon.λbar[i]
     λ, μ, c = alcon.λ[i], alcon.μ[i], alcon.vals[i]
     ∇c = alcon.jac[i]
-    grad = alcon.grad[i]
+    grad = getgrad(alcon, i)
+    # grad = alcon.grad[i]
 
     λbar .= λ .+ μ .* c
-    mul!(grad, ∇c', λbar)
+    matmul!(grad, ∇c', λbar)
     return nothing
 end
 
 function alhess!(::TO.Equality, alcon::ALConstraint, i::Integer)
     ∇c = alcon.jac[i] 
-    hess = alcon.hess[i]
+    hess = gethess(alcon, i)
+    # hess = alcon.hess[i]
     tmp = alcon.tmp_jac
     Iμ = Diagonal(alcon.μ[i])
-    mul!(tmp, Iμ, ∇c)
-    mul!(hess, ∇c', tmp)
+    matmul!(tmp, Iμ, ∇c)
+    matmul!(hess, ∇c', tmp)
     return nothing
 end
 
@@ -374,14 +398,15 @@ end
 function algrad!(::TO.Inequality, alcon::ALConstraint, i::Integer)
     ∇c, λbar = alcon.jac[i], alcon.λbar[i]
     λ, μ, c = alcon.λ[i], alcon.μ[i], alcon.vals[i]
-    grad = alcon.grad[i]
+    grad = getgrad(alcon, i)
+    # grad = alcon.grad[i]
     a = alcon.λbar[i]
     for i = 1:length(a)
         isactive = (c[i] >= 0) | (λ[i] > 0)
         a[i] = isactive * μ[i] 
     end
     λbar .= λ .+ a .* c
-    mul!(grad, ∇c', λbar)
+    matmul!(grad, ∇c', λbar)
     return nothing
 end
 
@@ -389,16 +414,21 @@ function alhess!(::TO.Inequality, alcon::ALConstraint, i::Integer)
     ∇c = alcon.jac[i] 
     c = alcon.vals[i]
     λ, μ = alcon.λ[i], alcon.μ[i]
-    hess = alcon.hess[i]
+    hess = gethess(alcon, i)
+    # hess = alcon.hess[i]
     tmp = alcon.tmp_jac
     a = alcon.λbar[i]
     for i = 1:length(a)
         isactive = (c[i] >= 0) | (λ[i] > 0)
         a[i] = isactive * μ[i] 
     end
-    Iμ = Diagonal(a)
-    mul!(tmp, Iμ, ∇c)
-    mul!(hess, ∇c', tmp)
+    # Iμ = Diagonal(a)
+    for i = 1:size(∇c,1), j = 1:size(∇c,2)
+        tmp[i,j] = a[i] * ∇c[i,j] 
+    end
+
+    # matmul!(tmp, Iμ, ∇c)
+    matmul!(hess, ∇c', tmp)
     return nothing
 end
 
@@ -438,7 +468,8 @@ function algrad!(alcon::ALConstraint, i::Integer)
     λbar, λp, λs = alcon.λbar[i], alcon.λproj[i], alcon.λscaled[i]
     μ, c, ∇c, Iμ∇c = alcon.μ[i], alcon.vals[i], alcon.jac[i], alcon.jac_scaled[i]
     ∇proj = alcon.∇proj[i]
-    grad = alcon.grad[i]
+    grad = getgrad(alcon, i)
+    # grad = alcon.grad[i]
     tmp = alcon.tmp_jac
 
     # Scale the Jacobian
@@ -451,9 +482,9 @@ function algrad!(alcon::ALConstraint, i::Integer)
 
     # grad = -∇c'∇proj'Iμ*λp
     TO.∇projection!(dualcone, ∇proj, λbar)
-    mul!(tmp, ∇proj, Iμ∇c)  # derivative of λp wrt x
+    matmul!(tmp, ∇proj, Iμ∇c)  # derivative of λp wrt x
     tmp .*= -1
-    mul!(grad, tmp', λs)
+    matmul!(grad, tmp', λs)
     return nothing
 end
 
@@ -464,12 +495,13 @@ function alhess!(alcon::ALConstraint, i::Integer)
     μ, c, ∇c = alcon.μ[i], alcon.vals[i], alcon.jac_scaled[i]
     ∇proj, ∇²proj = alcon.∇proj[i], alcon.∇²proj[i]
     Iμ∇proj = alcon.∇proj_scaled[i]
-    hess = alcon.hess[i]
+    hess = gethess(alcon, i)
+    # hess = alcon.hess[i]
     tmp = alcon.tmp_jac
 
     # Assume 𝝯proj is already computed
     # TODO: reuse this from before
-    mul!(tmp, ∇proj, ∇c)  # derivative of λp wrt x
+    matmul!(tmp, ∇proj, ∇c)  # derivative of λp wrt x
     tmp .*= -1
     
     # Scale projection Jacobian
@@ -481,11 +513,11 @@ function alhess!(alcon::ALConstraint, i::Integer)
 
     # Calculate second-order projection term
     TO.∇²projection!(dualcone, ∇²proj, λbar, λs)
-    mul!(∇²proj, ∇proj', Iμ∇proj, 1.0, 1.0)
+    matmul!(∇²proj, ∇proj', Iμ∇proj, 1.0, 1.0)
 
     # hess = ∇c'Iμ*(∇²proj(λs) + ∇proj'Iμ\∇proj)*Iμ*∇c
-    mul!(tmp, ∇²proj, ∇c)
-    mul!(hess, ∇c', tmp)
+    matmul!(tmp, ∇²proj, ∇c)
+    matmul!(hess, ∇c', tmp)
     # hess .= ∇c'*(∇²proj)*∇c
     # tmp_scaled = Iμ\tmp
     # mul!(hess, tmp', tmp_scaled)
@@ -582,16 +614,21 @@ These values for each time step are stored in `alcon.viol`.
 """
 function normviolation!(alcon::ALConstraint, p=2, c_max=alcon.c_max)
     cone = TO.sense(alcon.con)
+    c_max === alcon.c_max && (c_max .= 0)
     for (i,k) in enumerate(alcon.inds)
         TO.projection!(cone, alcon.viol[i], alcon.vals[i]) 
         alcon.viol[i] .-= alcon.vals[i]
-        c_max[k] = norm(alcon.viol[i], p)
+        v = norm(alcon.viol[i], p)
+        if isinf(p) 
+            c_max[k] = max(c_max[k], v)
+        else
+            c_max[k] = norm(SA[c_max[k], v], p)
+        end
     end
     # return norm(alcon.c_max, p)
     return nothing
 end
 max_violation!(alcon::ALConstraint, c_max=alcon.c_max) = normviolation!(alcon, Inf, c_max)
-
 
 """
     max_penalty(alcon)
