@@ -50,6 +50,10 @@ function solve!(solver::ALSolver)
 
         # Check if it's converged
         isconverged = evaluate_convergence(solver)
+        if solver.opts.verbose < ILQR_LOGLEVEL 
+            lg = getlogger(solver.ilqr)
+            printlog(lg)
+        end
         if isconverged
             break
         end
@@ -74,7 +78,7 @@ function record_iteration!(solver::ALSolver, J, c_max, μ_max)
     record_iteration!(stats, c_max=c_max, penalty_max=μ_max, is_outer=true)
     lg = getlogger(solver)
     @log lg "iter" stats.iterations
-    @log lg "AL iter" stats.iterations_outer
+    @log lg "AL-iter" stats.iterations_outer
     @log lg "cost" J
     @log lg "||v||" c_max
     @log lg μ_max

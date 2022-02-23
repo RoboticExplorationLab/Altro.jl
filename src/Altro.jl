@@ -23,6 +23,9 @@ import Octavian
 const TO = TrajectoryOptimization
 const RD = RobotDynamics
 
+const ILQR_LOGLEVEL = 3  # verbosity level at which iLQR iterations are printed
+const LS_LOGLEVEL = 6    # verbosity level for line search iterations
+
 using TrajectoryOptimization:
     num_constraints, get_trajectory
 
@@ -89,6 +92,7 @@ using .SolverLogging_v1
 
 # include("linalg.jl")
 include("utils.jl")
+include("logger_setup.jl")
 include("infeasible_model.jl")
 include("solvers.jl")
 include("solver_opts.jl")

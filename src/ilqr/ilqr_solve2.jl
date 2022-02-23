@@ -41,9 +41,28 @@ end
 function solve!(solver::iLQRSolver2)
     initialize!(solver)
     lg = solver.logger
+
     for iter = 1:solver.opts.iterations
+        # Clear info field
+        @log lg "info" ""
+
         # Calculate the cost
         J_prev = TO.cost(solver, solver.Z̄)
+
+        # Log initial values
+        if solver.stats.iterations == 0
+            SolverLogging.resetcount!(lg)
+            @log lg "iter" 0
+            @log lg "iLQR-iter" 0 
+            @log lg "AL-iter" 0
+            @log lg "cost" J_prev
+            @log lg "ρ" solver.reg.ρ
+            if is_constrained(solver)
+                v = max_violation(solver)
+                @log lg "||v||" v
+            end
+            SolverLogging.printlog(lg)
+        end
 
         # Calculate expansions
         # TODO: do this in parallel

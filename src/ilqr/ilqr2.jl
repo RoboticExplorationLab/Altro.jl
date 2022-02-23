@@ -95,22 +95,7 @@ function iLQRSolver2(
     xdot = zeros(T,n)
 
     # logger = SolverLogging_v1.default_logger(opts.verbose >= 2)
-    lg = SolverLogging.Logger()
-    setentry(lg, "iter", Int, width=6)
-    setentry(lg, "AL iter", Int, width=8, level=2)
-    setentry(lg, "iLQR iter", Int, width=10, level=2)
-    setentry(lg, "cost", fmt="%.3f")
-    setentry(lg, "||v||")
-    setentry(lg, "expected", level=2)
-    setentry(lg, "dJ", level=2)
-    setentry(lg, "grad", level=2)
-    setentry(lg, "z", level=3, fmt="%.2f")
-    setentry(lg, "α", level=3)
-    setentry(lg, "ρ", level=3)
-    setentry(lg, "μ_max", level=4)
-    setentry(lg, "dJ_zero", Int, level=4)
-    setentry(lg, "ls_iter", Int, width=8, level=5)
-    setentry(lg, "info", String, width=40)
+    lg = altro_logger()
 
 	L = typeof(prob.model)
 	O = typeof(prob.obj)
@@ -134,6 +119,7 @@ RD.control_dim(::iLQRSolver2{<:Any,<:Any,<:Any,<:Any,m}) where m = m
 solvername(::Type{<:iLQRSolver2}) = :iLQR
 getlogger(solver::iLQRSolver2) = solver.logger
 
+numerictype(solver::iLQRSolver2{<:Any,<:Any,<:Any,<:Any,<:Any,T}) where T = T
 RD.vectype(::iLQRSolver2{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,V}) where V = V
 usestatic(obj) = RD.vectype(obj) <: SVector
 dynamics_signature(obj) = usestatic(obj) ? RD.StaticReturn() : RD.InPlace()
@@ -141,8 +127,24 @@ function_signature(obj) = usestatic(obj) ? RD.StaticReturn() : RD.InPlace()
 
 log_level(::iLQRSolver2) = InnerLoop
 
+function TO.get_constraints(solver::iLQRSolver2)
+    if is_constrained(solver)
+        return solver.obj.conset
+    else
+        return nothing
+    end
+end
+function max_violation(solver::iLQRSolver2)
+    if is_constrained(solver) 
+        conset = get_constraints(solver)
+        return max_violation(conset)
+    else
+        return zero(numerictype(solver)) 
+    end
+end
+
 function reset!(solver::iLQRSolver2)
-    reset_solver!(solver)
+    reset!(stats(solver), solver.opts.iterations, solvername(solver))
     solver.reg.ρ = solver.opts.bp_reg_initial
     solver.reg.dρ = 0.0
     return solver 

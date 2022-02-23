@@ -65,6 +65,9 @@ TO.get_constraints(solver::ALSolver) = solver.ilqr.obj.conset
 stats(solver::ALSolver) = solver.stats
 options(solver::ALSolver) = solver.opts
 
+# Allow iLQR to act like a constrained solver if it has an ALObjective
+is_constrained(::iLQRSolver2{<:Any,<:ALObjective2}) = true
+
 # Methods
 function reset!(solver::ALSolver)
     # reset_solver!(solver)

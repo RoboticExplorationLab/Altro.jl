@@ -1,0 +1,20 @@
+function altro_logger()
+    lg = SolverLogging.Logger()
+    setentry(lg, "AL-iter", Int, width=8, fmt="%4d")
+    setentry(lg, "iter", Int, width=6, level=2)
+    setentry(lg, "iLQR-iter", Int, width=10, level=ILQR_LOGLEVEL)
+    setentry(lg, "cost", fmt="%.3f")
+    setentry(lg, "||v||")
+    setentry(lg, "expected", level=ILQR_LOGLEVEL+1)
+    setentry(lg, "dJ", level=ILQR_LOGLEVEL)
+    setentry(lg, "grad", level=2)
+    setentry(lg, "z", level=ILQR_LOGLEVEL+1, fmt="%.2f")
+    setentry(lg, "α", level=ILQR_LOGLEVEL)
+    setentry(lg, "ρ", level=ILQR_LOGLEVEL+1)
+    setentry(lg, "μ_max", level=2)
+    setentry(lg, "dJ_zero", Int, level=ILQRLOG_LEVEL+2)
+    setentry(lg, "ls_iter", Int, width=8, level=5)
+    setentry(lg, "info", String, width=40)
+    lg.opts.freq = 10
+    return lg
+end
