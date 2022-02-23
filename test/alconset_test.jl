@@ -32,10 +32,15 @@ add_constraint!(cons, con_eq, inds_eq)
 add_constraint!(cons, con_in, inds_in, sig=RD.InPlace())
 add_constraint!(cons, con_so, inds_so)
 
-conset = Altro.ALConstraintSet2{T}(cons)
+Z = Traj(randn(n,N), randn(m,N), dt=0.1)
+opts = SolverOptions()
+alcosts = zeros(N)
+conset = Altro.ALConstraintSet2{T}()
+Altro.initialize!(conset, cons, Z, opts, alcosts)
+
 @test length(conset) == 3
 @test length(conset.constraints) == 3
-@test length(conset.c_max) == 3
+@test length(conset.c_max) == N 
 @test length(conset.μ_max) == 3
 @test conset[begin].con == con_eq
 @test conset[2].con == con_in
@@ -52,14 +57,16 @@ Z = Traj(X, U, tf=2.0)
 Altro.evaluate_constraints!(conset, Z)
 Altro.constraint_jacobians!(conset, Z)
 Altro.alcost(conset)
+@test sum(alcosts) != 0
 Altro.algrad!(conset)
 Altro.alhess!(conset)
-Altro.max_violation(conset[1])
+Altro.max_violation!(conset[1])
 Altro.dualupdate!(conset)
+Altro.reset_penalties!(conset)
 Altro.penaltyupdate!(conset)
 @test Altro.max_penalty(conset) == 10.0
 
 ## Reset
-opts = SolverOptions(penalty_initial=0.1)
-Altro.reset!(conset, opts)
+opts.penalty_initial = 0.1
+Altro.reset!(conset)
 @test Altro.max_penalty(conset) ≈ 0.1

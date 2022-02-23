@@ -45,17 +45,21 @@ add_constraint!(cons, lin, 2:N-1)
 add_constraint!(cons, bnd, 1:N-1)
 # add_constraint!(cons, dyn, 1:N-1)
 
+prob, = Problems.Cartpole(N=N)
+
 ##--- Create an ALConstraintSet
-conset = Altro.ALConstraintSet2{Float64}(cons)
-Altro.reset!(conset, SolverOptions())
+ilqr = Altro.iLQRSolver2(prob)
+conset = Altro.ALConstraintSet2{Float64}()
+Altro.initialize!(conset, cons, ilqr.Z, ilqr.opts, ilqr.obj.J, ilqr.Efull)
+Altro.reset!(conset)
 
 cval = conset[1]
 @test cval isa Altro.ALConstraint{Float64, typeof(cir)}
 @test cval.inds == cons.inds[1]
-@test size(cval.jac[1]) == (RD.output_dim(cir), n+m)
+@test size(cval.jac[1]) == (RD.output_dim(cir), n)
 @test size(cval.jac) == (N,)
 cval.jac[1] .= 1
-@test cval.jac[1] == ones(RD.output_dim(cir), n+m)
+@test cval.jac[1] == ones(RD.output_dim(cir), n)
 
 cval = conset[3]
 @test cval isa Altro.ALConstraint{Float64,typeof(lin)}
@@ -91,13 +95,14 @@ xn = zeros(n)
 RD.jacobian!(RD.StaticReturn(), RD.ForwardAD(), dmodel, ∇c, xn, Z[1])
 # @test conset[end].jac[1] ≈ ∇c
 # @test conset[end].jac[1,2] ≈ [-I(n) zeros(n,m)]
-@test conset[2].jac[1] ≈ [I(n) zeros(n,m)]
+@test conset[2].jac[1] ≈ I(n)
 ∇c = TO.gen_jacobian(lin)
 c = zeros(RD.output_dim(lin))
 RD.jacobian!(lin, ∇c, c, Z[5])
 @test conset[3].jac[5] ≈ ∇c ≈ A
 
 ##--- Stats functions
+TO.evaluate_constraints!(conset)
 vals = [conval.vals for conval in conset]
 viols = map(enumerate(vals)) do (i,val)
     pos(x) = x > 0 ? x : zero(x)
@@ -107,16 +112,17 @@ viols = map(enumerate(vals)) do (i,val)
         [abs.(v) for v in val]
     end
 end
+pos(x) = max(0,x)
 c_max = map(enumerate(vals)) do (i,val)
     if TO.sense(cons[i]) == Inequality()
-        maximum(maximum.(val))
+        maximum(maximum.([pos.(c) for c in val]))
     else
         maximum(norm.(val,Inf))
     end
 end
+
 @test maximum(c_max) ≈ max_violation(conset)
 @test maximum(maximum.([maximum.(viol) for viol in viols])) ≈ max_violation(conset)
-max_violation(conset)
 
 p = 2
 @test norm([norm(norm.(val,p),p) for val in viols],p) ≈ Altro.normviolation!(conset, p)
@@ -127,18 +133,30 @@ p = Inf
 @test !(Altro.normviolation!(conset, Inf) ≈ Altro.normviolation!(conset, 2))
 
 # TODO: test penalty reset
+conset[1].opts.usedefault[:penalty_initial] = true
+conset[1].opts.penalty_initial = 10
+Altro.resetparams!(conset[1])
+Altro.reset_penalties!(conset)
+@test conset[1].opts.penalty_initial == ilqr.opts.penalty_initial
 @test Altro.max_penalty(conset) ≈ 1.0
+
+Altro.setparams!(conset[1], penalty_initial = 10.0)
+Altro.resetparams!(conset[1])
+@test conset[1].opts.penalty_initial == 10.0 
+
+Altro.reset_penalties!(conset)
+@test Altro.max_penalty(conset) ≈ 10.0
+
 conset[3].μ[6] = @SVector fill(30, RD.output_dim(cons[3]))
 @test Altro.max_penalty(conset) == 30
 Altro.reset_penalties!(conset)
-@test Altro.max_penalty(conset) ≈ 1.0
-conset[1].opts.penalty_initial = 10
-Altro.reset_penalties!(conset)
-@test Altro.max_penalty(conset) ≈ 10
+@test Altro.max_penalty(conset) ≈ 10.0
 
 Altro.evaluate_constraints!(conset, Z)
 conset[2].vals[1][2] = 2*max_violation(conset)
+
 @test Altro.findmax_violation(conset) == "GoalConstraint at time step 11 at index 2"
+Altro.findmax_violation(conset)
 conset[4].vals[2][3] = 2*max_violation(conset)
 @test Altro.findmax_violation(conset) == "BoundConstraint at time step 2 at x max 3"
 

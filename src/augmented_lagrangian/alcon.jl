@@ -113,6 +113,10 @@ struct ALConstraint{T, C<:TO.StageConstraint, R<:Traj}
     hess::Vector{Matrix{T}}    # Hessian of Augmented Lagrangian
     tmp_jac::Matrix{T}
     
+    # Hack to avoid allocations
+    # Store references to the trajectory and cost expansion
+    # The trajectory is stored in a vector so it can be mutated
+    # NOTE: tried to use Refs but it ended up allocating
     Z::Vector{R}
     E::CostExpansion2{T}
 
@@ -375,8 +379,12 @@ function alhess!(::TO.Equality, alcon::ALConstraint, i::Integer)
     hess = gethess(alcon, i)
     # hess = alcon.hess[i]
     tmp = alcon.tmp_jac
-    Iμ = Diagonal(alcon.μ[i])
-    matmul!(tmp, Iμ, ∇c)
+    # Iμ = Diagonal(alcon.μ[i])
+    # matmul!(tmp, Iμ, ∇c)
+    μ = alcon.μ[i]
+    for i = 1:size(∇c,1), j = 1:size(∇c,2)
+        tmp[i,j] = μ[i] * ∇c[i,j] 
+    end
     matmul!(hess, ∇c', tmp)
     return nothing
 end

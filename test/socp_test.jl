@@ -165,7 +165,7 @@ u_bnd = 6.0
 connorm = NormConstraint(n, m, u_bnd, cone, :control)
 add_constraint!(cons, connorm, 1:N-1)
 prob = Problem(model, obj, x0, tf, xf=xf, constraints=cons, integration=RD.Euler(model))
-solver = Altro.ALSolver(prob)
+solver = Altro.ALSolver(prob, use_static=Val(true))
 conSet = TO.get_constraints(solver)
 alobj = TO.get_objective(solver)
 
@@ -210,9 +210,11 @@ statuses = [TO.cone_status(TO.SecondOrderCone(), λ) for λ in λbar]
 @test :below ∈ statuses
 
 # E = TO.QuadraticObjective(n,m,N)
-E = Altro.CostExpansion2{Float64}(n,m,N)
+E0 = Altro.CostExpansion2{Float64}(n,m,N)
+E = Altro.get_ilqr(solver).Efull
 let solver = solver.ilqr
     Altro.cost_expansion!(solver.obj, E, solver.Z)
+    @test_throws AssertionError Altro.cost_expansion!(solver.obj, E0, solver.Z)
 end
 # TO.cost_expansion!(E, alobj, Z0)
 grad = vcat([e.grad for e in E]...)[1:end-m]
@@ -242,12 +244,16 @@ end
 LA(x) = auglag(di_obj, di_soc, x, z, μ)
 
 # E = TO.QuadraticObjective(n,m,N)
-E = Altro.CostExpansion2{Float64}(n,m,N)
+# E = Altro.CostExpansion2{Float64}(n,m,N)
+E = Altro.get_ilqr(solver).Efull
 @test LA(x0) ≈ cost(solver, Z0)
 Altro.cost_expansion!(alobj, E, Z0)
 # TO.cost_expansion!(E, alobj, Z0)
+alcon = conSet[1]
+Altro.getinputinds(alcon)
 grad = vcat([e.grad for e in E]...)[1:end-m]
-@test grad ≈ FiniteDiff.finite_difference_gradient(LA, x0)
+@test grad ≈ FiniteDiff.finite_difference_gradient(LA, x0) atol=1e-6
+[grad FiniteDiff.finite_difference_gradient(LA, x0)]
 
 hess_blocks = vcat([[e.xx, e.uu] for e in E]...)
 hess = cat(hess_blocks..., dims=(1,2))[1:end-m, 1:end-m]

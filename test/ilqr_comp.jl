@@ -1,11 +1,11 @@
-ENV["ALTRO_USE_OCTAVIAN"] = false 
+ENV["ALTRO_USE_OCTAVIAN"] = true 
 using Altro
 using TrajectoryOptimization
 using RobotDynamics
 using BenchmarkTools
 using Test
 using LinearAlgebra
-using SolverLogging
+# using SolverLogging
 using Logging
 using RobotZoo
 const RD = RobotDynamics
@@ -15,8 +15,8 @@ Altro.USE_OCTAVIAN
 
 use_alobj = true 
 
-prob,opts = Problems.Pendulum()
-# prob,opts = Problems.Quadrotor()
+# prob,opts = Problems.Pendulum()
+prob,opts = Problems.Quadrotor()
 # prob,opts = Problems.YakProblems(costfun=:QuatLQR, termcon=:quatvec)
 
 if use_alobj
@@ -40,8 +40,8 @@ Altro.initialize!(s2)
 @btime Altro.initialize!($s1)
 @btime Altro.initialize!($s2)  # faster
 
-@test SolverLogging.getlevel(s2.logger) == 4
-global_logger(ConsoleLogger())
+# SolverLogging.getlevel(s2.logger) == 4
+# global_logger(ConsoleLogger())
 
 ##
 @test s1.Z ≈ s2.Z
@@ -84,8 +84,8 @@ for k = 1:prob.N
     @test s1.quad_obj[k].grad ≈ s2.Efull[k].grad
 end
 @btime TO.cost_expansion!($s1.quad_obj, $s1.obj, $s1.Z, init=true, rezero=true)
-@btime Altro.cost_expansion!($s2.obj, $s2.Efull, $s2.Z)  # faster
-@btime Altro.cost_expansion!($s2.obj.obj, $s2.Efull, $s2.Z)  # faster
+@btime Altro.cost_expansion!($s2.obj, $s2.Efull, $s2.Z) evals=1  # faster
+# @btime Altro.cost_expansion!($s2.obj.obj, $s2.Efull, $s2.Z)  # faster
 
 TO.error_expansion!(s1.E, s1.quad_obj, s1.model, s1.Z, s1.G)
 Altro.error_expansion!(s2.model, s2.Eerr, s2.Efull, s2.G, s2.Z)
@@ -100,8 +100,8 @@ end
 s1.ρ[1] = 1e-8 
 s2.reg.ρ = 1e-8 
 s1.opts.save_S = true
-DV1 = Altro.backwardpass!(s1)
-DV2 = Altro.backwardpass!(s2)
+@time DV1 = Altro.backwardpass!(s1)
+@time DV2 = Altro.backwardpass!(s2)
 # @time DV1 = Altro.static_backwardpass!(s1)
 # @time DV2 = Altro.static_backwardpass!(s2)
 @test DV1 ≈ DV2
@@ -112,6 +112,7 @@ for k = 1:prob.N-1
     @test s1.S[k].x ≈ s2.S[k].x
 end
 
+@time Altro.static_backwardpass!(s1, false)
 @btime Altro.backwardpass!($s1)
 @btime Altro.static_backwardpass!($s1)
 @btime Altro.backwardpass!($s2)  # faster
@@ -137,7 +138,8 @@ Jnew2 = Altro.forwardpass!(s2, Jprev2)
 @test Jnew1 ≈ Jnew2
 
 s2.opts.verbose = 0
-setlevel!(s2.logger, 0)
+Altro.initialize!(s2)
+# setlevel!(s2.logger, 0)
 @btime Altro.forwardpass!($s1, $DV1, $Jprev1)
 @btime Altro.forwardpass!($s2, $Jprev2)  # slightly slower
 
@@ -157,9 +159,6 @@ Altro.record_iteration!(s1, Jprev1, Jprev1-Jnew1)
 Altro.record_iteration!(s2, Jprev2, Jprev2-Jnew2, grad2)
 s2.stats.iterations
 
-Altro.record_iteration!(s1, Jprev1, Jprev1-Jnew1)
-@btime Altro.record_iteration!($s2, $Jprev2, $Jprev2-$Jnew2, $grad2)
-
 for field in (:iterations, :iteration, :cost, :dJ, :gradient, :c_max, :dJ_zero_counter)
     @test getfield(s1.stats, field) ≈ getfield(s2.stats, field)
 end
@@ -171,13 +170,14 @@ SolverLogging.resetcount!(s2.logger)
 printlog(s2.logger)
 
 ## Try entire solve
-prob,opts = Problems.Pendulum()
-# prob,opts = Problems.Quadrotor()
-prob,opts = Problems.DubinsCar(:parallel_park)
+# prob,opts = Problems.Pendulum()
+prob,opts = Problems.Quadrotor()
+# prob,opts = Problems.DubinsCar(:parallel_park)
 # prob,opts = Problems.Cartpole()
 # prob,opts = Problems.YakProblems()
-s1 = Altro.iLQRSolver(prob, opts)
+s1 = Altro.iLQRSolver(prob, opts, verbose=0, show_summary=false)
 s2 = Altro.iLQRSolver2(copy(prob), copy(opts), show_summary=false, verbose=0, use_static=Val(true))
+b1 = benchmark_solve!(s1)
 b2 = benchmark_solve!(s2)
 b2.allocs
 

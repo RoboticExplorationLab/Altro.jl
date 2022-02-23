@@ -78,15 +78,20 @@ con_so = TO.NormConstraint(n, m, 3, TO.SecondOrderCone(), :state)
 inds_so = N:N 
 confun_so(x) = [x; 3]
 
+# Other data needed for constructor
+Z = Traj(randn(n,N), randn(m,N-1), dt=0.1)
+opts = SolverOptions()
+costs = zeros(N)
+
 ##
 @testset "$(TO.conename(TO.sense(con))) ALConstraint" for (con,inds,confun) in [
     (con_eq, inds_eq, confun_eq),
     (con_in, inds_in, confun_in),
     (con_so, inds_so, confun_so),
 ]
-con, inds, confun = 
-    (con_so, inds_so, confun_so)
-alcon = Altro.ALConstraint{T}(n, m, con, inds)
+# con, inds, confun = 
+#     (con_so, inds_so, confun_so)
+alcon = Altro.ALConstraint{T}(Z, con, inds, costs, solveropts=opts)
 
 # Test that it got filled in correctly
 p = TO.output_dim(alcon.con)
@@ -98,9 +103,10 @@ for field in (:vals, :λ, :μ, :μinv, :λbar, :λproj, :λscaled, :viol)
     @test all(x->length(x)==p, getfield(alcon, field))
     @test length(getfield(alcon, field)) == P
 end
-@test size(alcon.c_max) == (P,)
+w = RD.input_dim(con)
+@test size(alcon.c_max) == (N,)
 @test length(alcon.jac) == P
-@test all(x->size(x)==(p,n+m), alcon.jac)
+@test all(x->size(x)==(p,w), alcon.jac)
 @test length(alcon.∇proj) == P
 @test all(x->size(x)==(p,p), alcon.∇proj)
 @test length(alcon.∇²proj) == P
@@ -109,25 +115,22 @@ end
 @test all(x->size(x)==(n+m,), alcon.grad)
 @test length(alcon.hess) == P
 @test all(x->size(x)==(n+m,n+m), alcon.hess)
-@test size(alcon.tmp_jac) == (p,n+m)
+@test size(alcon.tmp_jac) == (p,w)
 @test all(x->x == ones(p), alcon.μ)
 
-# Generate a random trajectory
-X = [randn(T,n) for k = 1:N]
-U = [randn(T,m) for k = 1:N-1]
-Z = Traj(X, U, tf=2.0)
-
 # Test evaluation methods
-Altro.evaluate_constraint!(alcon, Z)
+Altro.settraj!(alcon, Z)
+Altro.evaluate_constraints!(alcon)
 c = map(Z[inds]) do z
     confun(TO.state(z))
     # (TO.state(z) - xf)[[1,3]]
 end
 @test c ≈ alcon.vals
 
-Altro.constraint_jacobian!(alcon, Z)
+Altro.constraint_jacobians!(alcon)
 C = map(Z[inds]) do z
-    [ForwardDiff.jacobian(confun, TO.state(z)) zeros(p,m)]
+    J = ForwardDiff.jacobian(confun, TO.state(z))
+    [J zeros(p,w-n)]
 end
 @test C ≈ alcon.jac
 
@@ -142,7 +145,7 @@ end
 alcon.opts.use_conic_cost = false 
 cone = TO.sense(con)
 
-Altro.evaluate_constraint!(alcon, Z)
+Altro.evaluate_constraints!(alcon)
 for i = 1:P
     Altro.alcost(alcon, i)
     Altro.algrad!(cone, alcon, i)
@@ -153,9 +156,9 @@ for i = 1:P
         _z
     )
     @test grad ≈ alcon.grad[i]
-    @test alcon.grad[i] ≈ algrad(
+    @test alcon.grad[i][1:n] ≈ algrad(
         cone, alcon.con, SVector{p}(λ[i]), SVector{p}(μ[i]), alcon.jac[i], _z
-    )
+    )[1:n]
 end
 
 for i = 1:P
@@ -165,15 +168,17 @@ for i = 1:P
     # Get Gauss-Newton approximation
     z = Z[inds[i]]
     _z = RD.StaticKnotPoint{n,m}(MVector{n+m}(z.z), z.t, z.dt)
-    ForwardDiff.jacobian!(
-        hess, x->algrad(cone, alcon.con, SVector{p}(λ[i]), SVector{p}(μ[i]), alcon.jac[i], x), 
+    ix = Altro.getinputinds(alcon)
+    jac = ForwardDiff.jacobian(
+        x->algrad(cone, alcon.con, SVector{p}(λ[i]), SVector{p}(μ[i]), alcon.jac[i], x), 
         _z
     )
-    @test hess ≈ alcon.hess[i]
+    hess[ix,:] .= jac
+    @test hess[ix,ix] ≈ alcon.hess[i][ix,ix]
 end
 
 # Use Conic cost
-Altro.evaluate_constraint!(alcon, Z)
+Altro.evaluate_constraints!(alcon)
 alcon.opts.use_conic_cost = true
 for i = 1:P
     z = Z[inds[i]]
@@ -191,7 +196,7 @@ for i = 1:P
     Altro.algrad!(alcon, i)
     @test alcon.grad[i] ≈ grad
     grad = algrad(alcon.con, SVector{p}(λ[i]), SVector{p}(μ[i]), alcon.jac[i], _z)
-    @test alcon.grad[i] ≈ grad
+    @test alcon.grad[i][1:n] ≈ grad[1:n]
 end
 
 let i = P
@@ -199,9 +204,11 @@ let i = P
     _z = RD.StaticKnotPoint{n,m}(MVector{n+m}(z.z), z.t, z.dt)
     Altro.alhess!(alcon, i)
     hess = zeros(n+m, n+m)
-    ForwardDiff.jacobian!(hess, x->algrad(alcon.con, SVector{p}(λ[i]), SVector{p}(μ[i]), 
+    jac = ForwardDiff.jacobian(x->algrad(alcon.con, SVector{p}(λ[i]), SVector{p}(μ[i]), 
         alcon.jac[i], x), _z
     )
+    iz = Altro.getinputinds(alcon)
+    hess[iz,:] .= jac
     @test alcon.hess[i] ≈ hess
 end
 

@@ -12,7 +12,7 @@ const RD = RobotDynamics
 save_results = false 
 
 # TO.diffmethod(::RobotZoo.Cartpole) = RD.ForwardAD()
-@testset "Cartpole" begin
+# @testset "Cartpole" begin
 # load expected results
 res = load(joinpath(@__DIR__,"cartpole.jld2"))
 
@@ -136,8 +136,8 @@ J_prev = J_new
 Altro.set_tolerances!(solver2.solver_al, 1)
 J = 0.0
 for i = 3:26
-    J = let solver = ilqr
-        J_prev = cost(solver)
+    global J = let solver = ilqr
+        global J_prev = cost(solver)
         Altro.errstate_jacobians!(solver.model, solver.G, solver.Z)
         Altro.dynamics_expansion!(solver)
         Altro.error_expansion!(solver.model, solver.D, solver.G)
@@ -147,10 +147,10 @@ for i = 3:26
         Altro.forwardpass!(solver, J_prev)
     end
     # println("iter = $i, J = $J")
-    dJ = J_prev - J
-    J_prev = J
+    global dJ = J_prev - J
+    global J_prev = J
     copyto!(ilqr.Z, ilqr.Z̄)
-    grad = Altro.gradient!(ilqr)
+    global grad = Altro.gradient!(ilqr)
     Altro.record_iteration!(ilqr, J, dJ, grad)
 end
 
@@ -191,7 +191,7 @@ grad = Altro.gradient!(ilqr)
 Altro.record_iteration!(ilqr, J, dJ, grad)
 
 for i = 2:3
-    J = let solver = ilqr
+    local J = let solver = ilqr
         J_prev = cost(solver)
         Altro.errstate_jacobians!(solver.model, solver.G, solver.Z)
         Altro.dynamics_expansion!(solver)
@@ -202,10 +202,10 @@ for i = 2:3
         Altro.forwardpass!(solver, J_prev)
     end
     # println("iter = $i, J = $J")
-    dJ = J_prev - J
-    J_prev = J
+    local dJ = J_prev - J
+    local J_prev = J
     copyto!(ilqr.Z, ilqr.Z̄)
-    grad = Altro.gradient!(ilqr)
+    local grad = Altro.gradient!(ilqr)
     Altro.record_iteration!(ilqr, J, dJ, grad)
 end
 @test Altro.evaluate_convergence(ilqr)
@@ -320,4 +320,4 @@ if save_results
     @save resfile_pn viol0 viol1 viol2 dY1 dZ1 Z1 Z2 D0 d0 Y
 end
 
-end
+# end
