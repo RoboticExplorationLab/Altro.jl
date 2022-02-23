@@ -38,7 +38,8 @@ function cost_expansion!(alobj::ALObjective2, E::CostExpansion2, Z)
     # each ALConstraint has local alias to ilqr.Efull
     # this is a hack to avoid an allocation for each constraint
     # due to type instability
-    add_alcost_expansion!(alobj.conset)
+    @assert E === alobj.conset.Eref[]
+    add_alcost_expansion!(alobj.conset, E)
 
     return nothing
 end
