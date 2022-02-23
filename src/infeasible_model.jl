@@ -71,8 +71,8 @@ end
 
 function RD.discrete_dynamics!(model::InfeasibleModel{Nx,Nu}, xn,
         x, u, t, dt) where {Nx,Nu}
-    u0 = view(x, 1:Nx)
-    ui = view(x, Nx+1:Nx+Nu)
+    u0 = view(u, 1:Nu)
+    ui = view(u, Nu+1:Nx+Nu)
     RobotDynamics.discrete_dynamics!(model.model, xn, x, u0, t, dt)
     xn .+= ui
     return
