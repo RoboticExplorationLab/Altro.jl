@@ -2,7 +2,12 @@
 struct BlockIndices
     i1::UnitRange{Int}
     i2::UnitRange{Int}
+    isdiag::Bool
 end
+
+# Remove isdiag field from comparison for dict
+Base.isequal(b1::BlockIndices, b2::BlockIndices) = b1.i1 == b2.i1 && b1.i2 == b2.i2
+Base.hash(b::BlockIndices, h::UInt) = hash((b.i1, b.i2), h)
 
 """
     SparseBlocks
@@ -57,7 +62,7 @@ returned from this object:
     inds = sb[1:2, 1:2]  # cache this somewhere for future indexing calls
     A[inds] .= randn(2,2)
 
-All of these methods avoid dynamic memory allocations and are about 5-10x faster 
+All of these methods avoid dynamic memory allocations and are about 5-20x faster 
 indexing directly into the sparse matrix.
 """
 struct SparseBlocks
@@ -74,9 +79,13 @@ Add a nonzero block for the sparse matrix, spanning the block defined by
    consecutive `rows` and `cols` ranges. All calls to `addblock!` should be 
    made before calling [`initialize!`](@ref).
 """
-function addblock!(blocks::SparseBlocks, i1::UnitRange, i2::UnitRange)
-    block = BlockIndices(i1, i2)
-    blocks.inds[block] = zeros(Int, length(i1), length(i2))
+function addblock!(blocks::SparseBlocks, i1::UnitRange, i2::UnitRange, isdiag::Bool=false)
+    block = BlockIndices(i1, i2, isdiag)
+    if isdiag
+        blocks.inds[block] = zeros(Int, min(length(i1), length(i2)), 1)
+    else
+        blocks.inds[block] = zeros(Int, length(i1), length(i2))
+    end
     blocks
 end
 
@@ -95,17 +104,32 @@ function initialize!(blocks::SparseBlocks, A::SparseMatrixCSC{T}) where T
     end
     @assert size(A) == (blocks.n, blocks.m)
     for block in keys(blocks.inds) 
-        A[block.i1, block.i2].= eps(T)
+        if block.isdiag
+            for (i,j) in zip(block.i1, block.i2)
+                A[i,j] = eps(T)
+            end
+        else
+            A[block.i1, block.i2] .= eps(T)
+        end
     end
     inds = blocks.inds
     for (block,inds) in pairs(blocks.inds)
         rows = block.i1
         cols = block.i2
         n = length(rows)
-        for (j,col) in enumerate(cols)
-            nzind = getnzind(A, rows[1], col)
-            if !isempty(nzind)
-                inds[:,j] .= nzind[1] - 1 .+ (1:n)
+        if block.isdiag
+            for (j,(r,c)) in enumerate(zip(rows, cols))
+                nzind = getnzind(A, r, c)
+                if !isempty(nzind)
+                    inds[j] = nzind[1]
+                end
+            end
+        else
+            for (j,col) in enumerate(cols)
+                nzind = getnzind(A, rows[1], col)
+                if !isempty(nzind)
+                    inds[:,j] .= nzind[1] - 1 .+ (1:n)
+                end
             end
         end
     end
@@ -136,7 +160,11 @@ struct SparseBlockIndex
 end
 
 function Base.getindex(blocks::SparseBlocks, i1::UnitRange, i2::UnitRange)
-    block = BlockIndices(i1, i2)
+    block0 = BlockIndices(i1, i2, false)
+    block = getkey(blocks.inds, block0, nothing)
+    if isnothing(block)
+        throw(KeyError((i1, i2)))
+    end
     SparseBlockIndex(block, blocks.inds[block])
 end
 
@@ -175,7 +203,6 @@ Base.BroadcastStyle(::SparseViewStyle, ::Broadcast.BroadcastStyle) = SparseViewS
 
 # Handle generic expressions like B .= f.(arg)
 function Broadcast.materialize!(B::SparseBlockView, bc::Broadcast.Broadcasted{Broadcast.DefaultMatrixStyle})
-    println("Array style")
     for i in eachindex(bc)
         B[i] = bc[i]
     end
@@ -207,4 +234,32 @@ function Broadcast.materialize!(B::SparseBlockView, bc::Broadcast.Broadcasted{Sp
         B[i] = bc.f(B[i], data[i])
     end
     B
+end
+
+# Specialization of B .= D::Diagonal
+function Broadcast.materialize!(B::SparseBlockView, bc::Broadcast.Broadcasted{<:LinearAlgebra.StructuredMatrixStyle{<:Diagonal}, Nothing, typeof(identity), <:Tuple{<:Diagonal}})
+    D = bc.args[1]
+    if B.block.block.isdiag
+        for i in eachindex(B)
+            B[i] = D.diag[i]
+        end
+    else
+        for i = 1:minimum(size(B))
+            B[i,i] = D.diag[i]
+        end
+    end
+end
+
+function Broadcast.materialize!(B::SparseBlockView, bc::Broadcast.Broadcasted{SparseViewStyle,Nothing,<:Any,<:Tuple{<:SparseBlockView,<:Diagonal}})
+    D = bc.args[2]
+    f = bc.f
+    if B.block.block.isdiag
+        for i in eachindex(B)
+            B[i] = f(D.diag[i], D.diag[i])
+        end
+    else
+        for i = 1:minimum(size(B))
+            B[i,i] = f(D.diag[i], D.diag[i])
+        end
+    end
 end

@@ -1,34 +1,40 @@
-using Altro
+# using Altro
+# using Altro: SparseBlocks, BlockIndices, addblock!, initialize!, SparseBlockIndex
 using SparseArrays
-using Altro: SparseBlocks
+include(joinpath(@__DIR__,"../src/direct/sparseblocks.jl"))
 using Test
 
 
 ## Test
-using BenchmarkTools
-A = spzeros(10,10)
-blocks = [(2:3,1:2), (3:4,8:10), (5:7,2:2), (4:5,7:9)]
+block1 = BlockIndices(1:2, 3:4, false)
+block2 = BlockIndices(1:2, 3:4, true)
+block3 = BlockIndices(1:2, 3:5, false)
+block1 == block2
+d = Dict(block1=>1)
+@test d[block2] == 1
+@test_throws KeyError d[block3]
 
-# A = spzeros(100,100)
-# blocks = [(2:30,1:20), (3:40,80:100), (50:70,20:20), (20:50,70:90)]
+A = spzeros(10,10)
+blocks = [(2:3,1:2), (3:4,8:10), (5:7,2:2), (2:5,7:9)]
 
 sb = SparseBlocks(10,10)
 for block in blocks
-    Altro.addblock!(sb, block...)
+    addblock!(sb, block...)
 end
-Altro.initialize!(sb, A)
+initialize!(sb, A)
 
 @test_throws MethodError sb[1]
 @test_throws KeyError sb[1:3,1:2]
 idx = sb[2:3,1:2] 
-@test idx isa Altro.SparseBlockIndex
+@test idx isa SparseBlockIndex
 @test size(idx.nzinds) == length.(blocks[1]) 
 @test idx.block.i1 == 2:3
 @test idx.block.i2 == 1:2
 
-@test_throws DimensionMismatch Altro.initialize!(sb, spzeros(10,12)) 
-Altro.initialize!(sb, A)
-@test nnz(A) == sum([prod(length.(block)) for block in blocks]) - 2  # 2 overlapping
+@test_throws DimensionMismatch initialize!(sb, spzeros(10,12)) 
+A = spzeros(10,10)
+initialize!(sb, A)
+@test nnz(A) == sum([prod(length.(block)) for block in blocks]) - 4  # 4 overlapping
 @test A.rowval[1] == 2
 @test A.rowval[2] == 3
 @test A.rowval[3] == 2
@@ -41,26 +47,64 @@ v = A[idx]
 @test v[2] == A[3,1]
 @test v[1,2] == A[2,2]
 
+# Copy from a diagonal block
+D = Diagonal(randn(2))
+# NOTE: this doesn't set the off-diagonal elements to zero! 
+A[3,1] = 4
+v .= D
+@test A[2,1] == D[1,1]
+@test A[3,2] == D[2,2]
+
 function testallocs(sb::SparseBlocks, A)
-    @allocated idx = sb[2:3,1:2] 
-    @allocated v = A[idx] 
+    allocs = @allocated idx = sb[2:3,1:2] 
+    allocs += @allocated v = A[idx] 
     data = randn(size(v))
-    @allocated A[idx] .= data
-    @allocated A[idx] .+= data
+    allocs += @allocated A[idx] .= data
+    allocs += @allocated A[idx] .+= data
+    D = Diagonal(randn(size(v,1)))
+    allocs += @allocated A[idx] .= D
+    allocs += @allocated A[idx] .+= D
 end
 
 @test testallocs(sb, A) == 0
+nnz0 = nnz(A)
+
+
+## Diagonal block
+using LinearAlgebra
+addblock!(sb, 8:10, 8:10, true)
+A = spzeros(10,10)
+initialize!(sb, A)
+@test nnz(A) == nnz0 + 3 
+idx = sb[8:10,8:10]
+@test idx.block.isdiag
+@test size(idx.nzinds) == (3,1)
+@test idx.nzinds[1] ∈ nzrange(A, 8)
+@test idx.nzinds[2] ∈ nzrange(A, 9)
+@test idx.nzinds[3] ∈ nzrange(A, 10)
+
+function testallocs_diag(sb, A)
+    allocs = @allocated idx = sb[8:10,8:10]
+    @test idx.block.isdiag
+    allocs += @allocated v = A[idx]
+    D = Diagonal(randn(length(v)))
+    allocs += @allocated v .= D
+    allocs += @allocated v .+= D
+    allocs
+end
+@test testallocs_diag(sb, A) == 0
 
 
 # Performance comp
+using BenchmarkTools
 A = spzeros(100,100)
 blocks = [(2:30,1:20), (3:40,80:100), (50:70,20:20), (20:50,70:90)]
 
 sb = SparseBlocks(size(A)...)
 for block in blocks
-    Altro.addblock!(sb, block...)
+    addblock!(sb, block...)
 end
-Altro.initialize!(sb, A)
+initialize!(sb, A)
 
 inds = [sb[block...] for block in blocks]
 data = [randn(length.(block)) for block in blocks]
@@ -80,3 +124,21 @@ end
     v = view($A, rows, cols)
     v .+= d
 end
+
+addblock!(sb, 50:100, 50:100, true)
+A = spzeros(100,100)
+initialize!(sb, A)
+
+D = Diagonal(randn(51))
+ind = sb[50:100, 50:100]
+v = A[ind]
+@btime $A[$ind] .= $D
+@btime $v .= $D
+@btime $A[50:100,50:100] .= $D
+
+@btime $A[$ind] .+= $D
+@btime $v .+= $D
+@btime $A[50:100,50:100] .+= $D
+@btime view($A,50:100,50:100) .+= $D
+
+
