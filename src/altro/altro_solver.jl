@@ -68,7 +68,7 @@ end
 
 # Getters
 @inline RD.dims(solver::ALTROSolver) = RD.dims(solver.solver_pn)
-@inline TO.get_trajectory(solver::ALTROSolver)::Traj = get_trajectory(solver.solver_al)
+@inline TO.get_trajectory(solver::ALTROSolver)::SampledTrajectory = get_trajectory(solver.solver_al)
 @inline TO.get_objective(solver::ALTROSolver) = get_objective(solver.solver_al)
 @inline TO.get_model(solver::ALTROSolver) = get_model(solver.solver_al)
 @inline get_initial_state(solver::ALTROSolver) = get_initial_state(solver.solver_al)
@@ -143,7 +143,7 @@ end
 
 
 # Infeasible methods
-function InfeasibleProblem(prob::Problem{RK}, Z0::Traj, R_inf::Real) where RK
+function InfeasibleProblem(prob::Problem{RK}, Z0::SampledTrajectory, R_inf::Real) where RK
     @assert !isnan(sum(sum.(states(Z0))))
 
     n,m,N = dims(prob)  # original sizes

@@ -9,14 +9,14 @@ Any type that inherits from `AbstractSolver` must define the following methods:
 model = get_model(::AbstractSolver)::AbstractModel
 obj   = get_objective(::AbstractSolver)::AbstractObjective
 E     = get_cost_expansion(::AbstractSolver)::QuadraticExpansion  # quadratic error state expansion
-Z     = get_trajectory(::AbstractSolver)::Traj
+Z     = get_trajectory(::AbstractSolver)::SampledTrajectory
 n,m,N = Base.size(::AbstractSolver)
 x0    = get_initial_state(::AbstractSolver)::StaticVector
 solve!(::AbstractSolver)
 ```
 
 Optional methods for line search and merit function interface. Note that these do not
-    have to return `Traj`
+    have to return `SampledTrajectory`
 ```julia
 Z     = get_solution(::AbstractSolver)  # current solution (defaults to get_trajectory)
 Z     = get_primals(::AbstractSolver)   # current primals estimate used in the line search
@@ -188,7 +188,7 @@ end
 """ $(SIGNATURES)
 Calculate all the constraint values given the trajectory `Z`
 """
-function update_constraints!(solver::ConstrainedSolver, Z::Traj=get_trajectory(solver))
+function update_constraints!(solver::ConstrainedSolver, Z::SampledTrajectory=get_trajectory(solver))
     conSet = get_constraints(solver)
     RD.evaluate!(conSet, Z)
 end
@@ -257,7 +257,7 @@ TO.set_initial_state!(solver::AbstractSolver, x0) = copyto!(get_initial_state(so
 
 @inline TO.initial_states!(solver::AbstractSolver, X0) = RobotDynamics.setstates!(get_trajectory(solver), X0)
 @inline TO.initial_controls!(solver::AbstractSolver, U0) = RobotDynamics.setcontrols!(get_trajectory(solver), U0)
-function TO.initial_trajectory!(solver::AbstractSolver, Z0::Traj)
+function TO.initial_trajectory!(solver::AbstractSolver, Z0::SampledTrajectory)
     Z = get_trajectory(solver)
     for k in eachindex(Z)
         RobotDynamics.setdata!(Z[k], Z0[k].z)
@@ -288,7 +288,7 @@ end
 # Constrained solver
 TO.num_constraints(solver::AbstractSolver) = num_constraints(get_constraints(solver))
 
-function TO.max_violation(solver::ConstrainedSolver, Z::Traj=get_trajectory(solver); recalculate=true)
+function TO.max_violation(solver::ConstrainedSolver, Z::SampledTrajectory=get_trajectory(solver); recalculate=true)
     conSet = get_constraints(solver)
     if recalculate
         RD.evaluate!(conSet, Z)
@@ -296,7 +296,7 @@ function TO.max_violation(solver::ConstrainedSolver, Z::Traj=get_trajectory(solv
     TO.max_violation(conSet)
 end
 
-# function TO.norm_violation(solver::ConstrainedSolver, Z::Traj=get_trajectory(solver); recalculate=true, p=2)
+# function TO.norm_violation(solver::ConstrainedSolver, Z::SampledTrajectory=get_trajectory(solver); recalculate=true, p=2)
 #     conSet = get_constraints(solver)
 #     if recalculate
 #         RD.evaluate!(conSet, Z)
@@ -319,16 +319,16 @@ end
 
 # Return the scalar directional gradient of the cost evaluated at `Z` in the direction of `dZ`,
 # where `Z` and `dZ` are the types returned by `get_primals(solver)` and `get_step(solver)`,
-# and must be able to be converted to a vector of `KnotPoint`s via `Traj()`.
+# and must be able to be converted to a vector of `KnotPoint`s via `SampledTrajectory()`.
 # """
 # function cost_dgrad(solver::AbstractSolver, Z=get_primals(solver), dZ=get_step(solver);
 # 		recalculate=true)
 # 	E = get_cost_expansion(solver)
 # 	if recalculate
 # 		obj = get_objective(solver)
-# 		cost_gradient!(E, obj, Traj(Z))
+# 		cost_gradient!(E, obj, SampledTrajectory(Z))
 # 	end
-# 	TO.dgrad(E, Traj(dZ))
+# 	TO.dgrad(E, SampledTrajectory(dZ))
 # end
 
 # """
@@ -337,17 +337,17 @@ end
 # Calculate the directional derivative of `norm(c(Z), p)` in the direction of `dZ`, where
 # `c(Z)` is the vector of constraints evaluated at `Z`.
 # `Z` and `dZ` are the types returned by `get_primals(solver)` and `get_step(solver)`,
-# and must be able to be converted to a vector of `KnotPoint`s via `Traj()`.
+# and must be able to be converted to a vector of `KnotPoint`s via `SampledTrajectory()`.
 # """
 # function norm_dgrad(solver::AbstractSolver, Z=get_primals(solver), dZ=get_step(solver);
 # 		recalculate=true, p=1)
 #     conSet = get_constraints(solver)
 # 	if recalculate
-# 		Z_ = Traj(Z)
+# 		Z_ = SampledTrajectory(Z)
 # 		RD.evaluate!(conSet, Z_)
 # 		RD.jacobian!(conSet, Z_)
 # 	end
-#     Dc = TO.norm_dgrad(conSet, Traj(dZ), 1)
+#     Dc = TO.norm_dgrad(conSet, SampledTrajectory(dZ), 1)
 # end
 
 
@@ -362,9 +362,9 @@ end
 # 	E = get_cost_expansion(solver)
 # 	if recalculate
 # 		obj = get_objective(solver)
-# 		cost_hessian!(E, obj, Traj(Z))
+# 		cost_hessian!(E, obj, SampledTrajectory(Z))
 # 	end
-# 	TO.dhess(solver.E, Traj(dZ))
+# 	TO.dhess(solver.E, SampledTrajectory(dZ))
 # end
 
 # Logging

@@ -86,7 +86,7 @@ The following methods can be used with an `ALConstraint` object:
 - [`reset_penalties!(alcon)`](@ref)
 """
 
-struct ALConstraint{T, C<:TO.StageConstraint, R<:Traj}
+struct ALConstraint{T, C<:TO.StageConstraint, R<:SampledTrajectory}
     n::Int  # state dimension
     m::Int  # control dimension
     con::C
@@ -128,7 +128,7 @@ struct ALConstraint{T, C<:TO.StageConstraint, R<:Traj}
 			                 sig::FunctionSignature=StaticReturn(), 
                              diffmethod::DiffMethod=UserDefined(),
                              kwargs...
-    ) where {T,R<:AbstractTrajectory}
+    ) where {T,R<:SampledTrajectory}
         opts = ConstraintOptions{T}(;kwargs...)
 
         n,m = RD.dims(Z)
@@ -166,7 +166,7 @@ struct ALConstraint{T, C<:TO.StageConstraint, R<:Traj}
     end
 end
 
-settraj!(alcon::ALConstraint, Z::AbstractTrajectory) = alcon.Z[1] = Z
+settraj!(alcon::ALConstraint, Z::SampledTrajectory) = alcon.Z[1] = Z
 setparams!(alcon::ALConstraint; kwargs...) = setparams!(alcon.opts; kwargs...)
 resetparams!(alcon::ALConstraint) = reset!(alcon.opts)
 RD.vectype(alcon::ALConstraint) = RD.vectype(eltype(alcon.Z[1]))

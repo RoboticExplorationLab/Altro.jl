@@ -68,7 +68,7 @@ end
 function errstate_jacobians!(::RD.StateVectorType, model::DiscreteDynamics, G, Z)
 	for k in eachindex(Z)
 		G[k] .= 0
-		RD.state_diff_jacobian!(RD.statevectortype(model), model, G[k], Z[k])
+		RD.errstate_jacobian!(RD.statevectortype(model), model, G[k], Z[k])
 	end
 end
 

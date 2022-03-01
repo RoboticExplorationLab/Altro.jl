@@ -6,7 +6,7 @@ function Pendulum()
     )
 
     model = RobotZoo.Pendulum()
-    n,m = size(model)
+    n,m = RD.dims(model)
     tf = 3.0
     N = 51
     dt = tf / (N-1)

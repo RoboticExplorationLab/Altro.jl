@@ -87,7 +87,7 @@ function step!(solver::iLQRSolver{<:Any,<:Any,L}, J, grad_only::Bool=false) wher
     init = !solver.opts.reuse_jacobians  # force recalculation if not reusing
     # sig = StaticReturn()
     # diff = ForwardAD()
-    @timeit_debug to "diff jac"     TO.state_diff_jacobian!(solver.model, solver.G, solver.Z)
+    @timeit_debug to "diff jac"     state_diff_jacobian!(solver.model, solver.G, solver.Z)
     if !solver.opts.reuse_jacobians || !(L <: RD.LinearModel) || !grad_only
         @timeit_debug to "dynamics jac" dynamics_jacobians!(solver)
     end

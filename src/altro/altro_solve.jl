@@ -40,9 +40,12 @@ function solve!(solver::ALTROSolver2)
         if (opts.projected_newton && c_max > opts.constraint_tolerance && 
                 (status(solver) <= SOLVE_SUCCEEDED || status(solver) == MAX_ITERATIONS_OUTER)) ||
                 opts.force_pn
+            tstart = time_ns()
             copyto!(get_trajectory(solver.solver_pn), get_trajectory(solver.solver_al))
             solve!(solver.solver_pn)
             copyto!(get_trajectory(solver.solver_al), get_trajectory(solver.solver_pn))
+            tpn = (time_ns() - tstart) / 1e6
+            # println("PN took $tpn ms")
         end
 
         # Back-up check

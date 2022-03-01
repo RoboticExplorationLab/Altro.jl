@@ -2,7 +2,7 @@ struct ALConstraintSet2{T}
     constraints::Vector{ALConstraint{T}}
     c_max::Vector{T}
     μ_max::Vector{T}
-    Zref::Ref{AbstractTrajectory}
+    Zref::Ref{SampledTrajectory}
     Eref::Ref{CostExpansion2}
 end
 
@@ -10,8 +10,8 @@ function ALConstraintSet2{T}() where T
     constraints = ALConstraint{T}[]
     c_max = T[]
     μ_max = T[]
-    Z = Traj(KnotPoint{Any,Any,T,Vector{T}}[]) 
-    Zref = Ref{RD.AbstractTrajectory}(Z)
+    Z = SampledTrajectory(KnotPoint{Any,Any,Vector{T},T}[]) 
+    Zref = Ref{RD.SampledTrajectory}(Z)
     E = CostExpansion2{T}(0,0,0)
     Eref = Ref{CostExpansion2}(E)
 
@@ -19,7 +19,7 @@ function ALConstraintSet2{T}() where T
 end
 
 function initialize!(conset::ALConstraintSet2{T}, cons::TO.ConstraintList, 
-                     Z::AbstractTrajectory, opts::SolverOptions,
+                     Z::SampledTrajectory, opts::SolverOptions,
                      costs, E=CostExpansion2{T}(RD.dims(Z)...)) where T
     n,m = cons.n, cons.m
     @assert RD.state_dim(Z) == n
@@ -65,7 +65,7 @@ for method in (:evaluate_constraints!, :constraint_jacobians!)
             $method(alcon)
         end
     end
-    @eval function $method(conset::ALConstraintSet2, Z::AbstractTrajectory)
+    @eval function $method(conset::ALConstraintSet2, Z::SampledTrajectory)
         # Hack to avoid an allocation from using a function barrier w/ more than 1 arg
         # Store a pointer to the trajectory in each conval
         # Only update the trajectory if it's different than the current one
@@ -98,7 +98,7 @@ function add_alcost_expansion!(conset::ALConstraintSet2, E::CostExpansion2)
     end
 end
 
-function settraj!(conset::ALConstraintSet2, Z::AbstractTrajectory)
+function settraj!(conset::ALConstraintSet2, Z::SampledTrajectory)
     conset.Zref[] = Z
     for alcon in conset.constraints
         settraj!(alcon, Z)

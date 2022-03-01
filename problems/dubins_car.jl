@@ -87,7 +87,7 @@ function DubinsCar(scenario=:three_obstacles; N=101)
 
         # model
         model = RobotZoo.DubinsCar()
-        n,m = size(model)
+        n,m = RD.dims(model)
         tf = 3.
         dt = tf / (N-1)
 

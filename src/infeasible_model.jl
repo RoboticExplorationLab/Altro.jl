@@ -116,7 +116,7 @@ end
 @inline RD.state_diff(model::InfeasibleModel, x::SVector, x0::SVector) = 
     RD.state_diff(model.model, x, x0)
 
-@inline RobotDynamics.state_diff_jacobian!(G, model::InfeasibleModel, Z::Traj) =
+@inline RobotDynamics.state_diff_jacobian!(G, model::InfeasibleModel, Z::SampledTrajectory) =
 	RobotDynamics.state_diff_jacobian!(G, model.model, Z)
 
 @inline RobotDynamics.∇²differential!(∇G, model::InfeasibleModel, x::SVector, dx::SVector) = 
@@ -128,7 +128,7 @@ RobotDynamics.orientation(model::InfeasibleModel, x::SVector) = orientation(mode
 
 "Calculate a dynamically feasible initial trajectory for an infeasible problem, given a
 desired trajectory"
-function infeasible_trajectory(model::InfeasibleModel{n,m}, Z0::Traj) where {T,n,m}
+function infeasible_trajectory(model::InfeasibleModel{n,m}, Z0::SampledTrajectory) where {T,n,m}
     x,u = zeros(model)
     ui = @SVector zeros(n)
     Z = [KnotPoint(state(z), [control(z); ui], z.t, z.dt) for z in Z0]
@@ -141,7 +141,7 @@ function infeasible_trajectory(model::InfeasibleModel{n,m}, Z0::Traj) where {T,n
         RD.setcontrol!(Z[k], u)
         RD.setstate!(Z[k+1], x′ + u_slack)
     end
-    return Traj(Z)
+    return SampledTrajectory(Z)
 end
 
 

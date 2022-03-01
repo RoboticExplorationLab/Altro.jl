@@ -7,7 +7,7 @@ struct ALObjective2{T,O<:AbstractObjective} <: TO.AbstractObjective
     end
 end
 
-function TO.cost(alobj::ALObjective2, Z::AbstractTrajectory)
+function TO.cost(alobj::ALObjective2, Z::SampledTrajectory)
     # Calculate unconstrained cost
     J = TO.cost(alobj.obj, Z)
 

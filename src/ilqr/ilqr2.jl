@@ -14,8 +14,8 @@ struct iLQRSolver2{L,O,Nx,Ne,Nu,T,V} <: UnconstrainedSolver{T}
     opts::SolverOptions{T}
     stats::SolverStats{T}
 
-    Z::Traj{Nx,Nu,T,KnotPoint{Nx,Nu,V,T}}
-    Z̄::Traj{Nx,Nu,T,KnotPoint{Nx,Nu,V,T}}
+    Z::SampledTrajectory{Nx,Nu,T,KnotPoint{Nx,Nu,V,T}}
+    Z̄::SampledTrajectory{Nx,Nu,T,KnotPoint{Nx,Nu,V,T}}
     dx::Vector{Vector{T}}
     du::Vector{Vector{T}}
 
@@ -57,7 +57,7 @@ function iLQRSolver2(
 
     x0 = copy(prob.x0)
     V = USE_STATIC ? SVector{n+m,T} : Vector{T}
-    Z = Traj(map(prob.Z) do z
+    Z = SampledTrajectory(map(prob.Z) do z
         Nx = state_dim(z)
         Nu = control_dim(z)
         RD.KnotPoint{Nx,Nu}(V(RD.getdata(z)), RD.getparams(z)...)
@@ -201,4 +201,10 @@ function reset_gains!(solver::iLQRSolver2)
         solver.d[k] .= 0
     end
     return nothing
+end
+
+function state_diff_jacobian!(model, G, Z)
+    for k = 1:length(Z)
+        RD.errstate_jacobian!(model, G[k], Z[k])
+    end
 end

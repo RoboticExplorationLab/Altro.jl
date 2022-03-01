@@ -34,11 +34,10 @@ using TrajectoryOptimization:
     Problem,
     ConstraintList,
     AbstractObjective, Objective, #QuadraticObjective,
-    AbstractTrajectory,
+    SampledTrajectory,
     DynamicsExpansion, # TODO: Move to ALTRO
     # ALConstraintSet,
     DynamicsConstraint,
-    Traj,
     states, controls,
     Equality, Inequality, SecondOrderCone
 
@@ -49,7 +48,7 @@ using RobotDynamics:
     DiffMethod, ForwardAD, FiniteDifference, UserDefined,
     AbstractKnotPoint, KnotPoint, StaticKnotPoint,
     state_dim, control_dim, output_dim, dims,
-    state, control
+    state, control, SampledTrajectory
 
 
 # types
