@@ -86,6 +86,9 @@ end
 include("logging/SolverLogging.jl")
 using .SolverLogging_v1
 
+include("qdldl.jl")
+using .Cqdldl
+
 # include("linalg.jl")
 include("utils.jl")
 include("infeasible_model.jl")
