@@ -1,7 +1,8 @@
-# using Altro
-# using Altro: SparseBlocks, BlockIndices, addblock!, initialize!, SparseBlockIndex
+using Altro
+using Altro: SparseBlocks, BlockIndices, addblock!, initialize!, SparseBlockIndex
 using SparseArrays
-include(joinpath(@__DIR__,"../src/direct/sparseblocks.jl"))
+using LinearAlgebra
+# include(joinpath(@__DIR__,"../src/direct/sparseblocks.jl"))
 using Test
 
 
@@ -15,7 +16,7 @@ d = Dict(block1=>1)
 @test_throws KeyError d[block3]
 
 A = spzeros(10,10)
-blocks = [(2:3,1:2), (3:4,8:10), (5:7,2:2), (2:5,7:9)]
+blocks = [(2:3,1:2), (3:4,8:10), (5:7,2:2), (2:5,7:9), (8:10,1:4)]
 
 sb = SparseBlocks(10,10)
 for block in blocks
@@ -37,15 +38,33 @@ initialize!(sb, A)
 @test nnz(A) == sum([prod(length.(block)) for block in blocks]) - 4  # 4 overlapping
 @test A.rowval[1] == 2
 @test A.rowval[2] == 3
-@test A.rowval[3] == 2
-@test A.rowval[4] == 3
-@test A.rowval[5] == 5
+@test A.rowval[3] == 8
+@test A.rowval[4] == 9
+@test A.rowval[5] == 10 
+@test A.rowval[6] == 2 
 
 v = A[idx]
 @test size(v) == (2,2)
-@test v[1] == A[2,1]
-@test v[2] == A[3,1]
-@test v[1,2] == A[2,2]
+v .= reshape(1:4, 2,2)
+@test A[2,1] == 1
+@test A[3,1] == 2 
+@test A[2,2] == 3 
+@test A[3,2] == 4 
+
+# Assign transpose
+vt = v'
+vt[2,1] = 10
+@test A[2,2] == 10
+
+# Upper/Lower Triangular
+data = [1 2; 3 4.0]
+v .= 0
+v .= UpperTriangular(data)
+@test A[2:3, 1:2] ≈ UpperTriangular(data)
+v .= 0
+v .= LowerTriangular(data)
+@test A[2:3, 1:2] ≈ LowerTriangular(data)
+
 
 # Copy from a diagonal block
 D = Diagonal(randn(2))

@@ -80,6 +80,9 @@ Add a nonzero block for the sparse matrix, spanning the block defined by
    made before calling [`initialize!`](@ref).
 """
 function addblock!(blocks::SparseBlocks, i1::UnitRange, i2::UnitRange, isdiag::Bool=false)
+    if i1.start < 1 || i1.stop > blocks.n || i2.start < 1 || i2.stop > blocks.m
+        throw(BoundsError(spzeros(blocks.n, blocks.m), (i1, i2)))
+    end
     block = BlockIndices(i1, i2, isdiag)
     if isdiag
         blocks.inds[block] = zeros(Int, min(length(i1), length(i2)), 1)
@@ -260,6 +263,36 @@ function Broadcast.materialize!(B::SparseBlockView, bc::Broadcast.Broadcasted{Sp
     else
         for i = 1:minimum(size(B))
             B[i,i] = f(D.diag[i], D.diag[i])
+        end
+    end
+end
+
+# Specialize B' .= bc
+function Broadcast.materialize!(B::Adjoint{T, <:SparseBlockView{T}}, bc::Broadcast.Broadcasted{Broadcast.DefaultMatrixStyle,Nothing,typeof(identity),<:Tuple{<:AbstractMatrix}}) where T
+    data = bc.args[1]
+    for i in eachindex(bc)
+        it = CartesianIndex(i[2], i[1])
+        B.parent[it] = data[i]
+    end
+    B
+end
+
+# Specialize B = UpperTriangular(data)
+function Broadcast.materialize!(B::SparseBlockView, bc::Broadcast.Broadcasted{<:LinearAlgebra.StructuredMatrixStyle{<:UpperTriangular}})
+    for r = 1:size(B,1)
+        for c = r:size(B,2)
+            i = CartesianIndex(r,c)
+            B[r,c] = bc[i]
+        end
+    end
+end
+
+# Specialize B = LowerTriangular(data)
+function Broadcast.materialize!(B::SparseBlockView, bc::Broadcast.Broadcasted{<:LinearAlgebra.StructuredMatrixStyle{<:LowerTriangular}})
+    for c = 1:size(B,2)
+        for r = c:size(B,1)
+            i = CartesianIndex(r,c)
+            B[r,c] = bc[i]
         end
     end
 end
