@@ -2,28 +2,28 @@
 #                           AUGMENTED LAGRANGIAN OBJECTIVE                                 #
 ############################################################################################
 
-struct ALObjective{T,O<:Objective} <: AbstractObjective
+struct ALObjectiveOld{T,O<:Objective} <: AbstractObjective
     obj::O
     constraints::ALConstraintSet{T}
 end
 
-function ALObjective(obj::Objective, cons::ConstraintList, model::AbstractModel)
-    ALObjective(obj, ALConstraintSet(cons, model))
+function ALObjectiveOld(obj::Objective, cons::ConstraintList, model::AbstractModel)
+    ALObjectiveOld(obj, ALConstraintSet(cons, model))
 end
-@inline ALObjective(prob::Problem) = ALObjective(prob.obj, prob.constraints, prob.model)
+@inline ALObjectiveOld(prob::Problem) = ALObjectiveOld(prob.obj, prob.constraints, prob.model)
 
-@inline TO.get_J(obj::ALObjective) = obj.obj.J
-@inline Base.length(obj::ALObjective) = length(obj.obj)
-@inline RobotDynamics.state_dim(obj::ALObjective) = RobotDynamics.state_dim(obj.obj)
-@inline RobotDynamics.control_dim(obj::ALObjective) = RobotDynamics.control_dim(obj.obj)
-@inline TO.ExpansionCache(obj::ALObjective) = TO.ExpansionCache(obj.obj)
+@inline TO.get_J(obj::ALObjectiveOld) = obj.obj.J
+@inline Base.length(obj::ALObjectiveOld) = length(obj.obj)
+@inline RobotDynamics.state_dim(obj::ALObjectiveOld) = RobotDynamics.state_dim(obj.obj)
+@inline RobotDynamics.control_dim(obj::ALObjectiveOld) = RobotDynamics.control_dim(obj.obj)
+@inline TO.ExpansionCache(obj::ALObjectiveOld) = TO.ExpansionCache(obj.obj)
 
 
-function Base.copy(obj::ALObjective)
-    ALObjective(obj.obj, ConstraintSet(copy(obj.constraints.constraints), length(obj.obj)))
+function Base.copy(obj::ALObjectiveOld)
+    ALObjectiveOld(obj.obj, ConstraintSet(copy(obj.constraints.constraints), length(obj.obj)))
 end
 
-function TO.cost!(obj::ALObjective, Z::SampledTrajectory)
+function TO.cost!(obj::ALObjectiveOld, Z::SampledTrajectory)
     # Calculate unconstrained cost
     TO.cost!(obj.obj, Z)
 
@@ -33,12 +33,12 @@ function TO.cost!(obj::ALObjective, Z::SampledTrajectory)
     TO.cost!(TO.get_J(obj), obj.constraints)
 end
 
-function TO.cost(obj::ALObjective, Z::SampledTrajectory)
+function TO.cost(obj::ALObjectiveOld, Z::SampledTrajectory)
     TO.cost!(obj, Z)
     return sum(TO.get_J(obj))
 end
 
-function TO.cost_expansion!(E, obj::ALObjective, Z::SampledTrajectory; 
+function TO.cost_expansion!(E, obj::ALObjectiveOld, Z::SampledTrajectory; 
         init::Bool=false, rezero::Bool=false)
     # Update constraint jacobians
     RD.jacobian!(obj.constraints, Z, init)

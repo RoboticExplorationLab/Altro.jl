@@ -57,7 +57,7 @@ Z = Traj(X, U, tf=2.0)
 
 # Build AL Objectives
 obj = build_test_objective()
-alobj1 = Altro.ALObjective(obj, cons, model)
+alobj1 = Altro.ALObjectiveOld(obj, cons, model)
 alobj2 = Altro.ALObjective2{T}(obj, cons)
 conset1 = alobj1.constraints
 conset2 = alobj2.conset
@@ -86,7 +86,7 @@ end
 
 # Evaluate cost expansions
 E1 = TO.CostExpansion{T}(n,m,N)
-E2 = Altro.CostExpansion2{T}(n,m,N)
+E2 = Altro.CostExpansion{T}(n,m,N)
 TO.cost_expansion!(E1, alobj1, Z)
 Altro.cost_expansion!(alobj2, E2, Z)
 

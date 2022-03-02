@@ -3,7 +3,7 @@ struct ALConstraintSet2{T}
     c_max::Vector{T}
     μ_max::Vector{T}
     Zref::Ref{SampledTrajectory}
-    Eref::Ref{CostExpansion2}
+    Eref::Ref{CostExpansion}
 end
 
 function ALConstraintSet2{T}() where T
@@ -12,15 +12,15 @@ function ALConstraintSet2{T}() where T
     μ_max = T[]
     Z = SampledTrajectory(KnotPoint{Any,Any,Vector{T},T}[]) 
     Zref = Ref{RD.SampledTrajectory}(Z)
-    E = CostExpansion2{T}(0,0,0)
-    Eref = Ref{CostExpansion2}(E)
+    E = CostExpansion{T}(0,0,0)
+    Eref = Ref{CostExpansion}(E)
 
     ALConstraintSet2{T}(constraints, c_max, μ_max, Zref, Eref)
 end
 
 function initialize!(conset::ALConstraintSet2{T}, cons::TO.ConstraintList, 
                      Z::SampledTrajectory, opts::SolverOptions,
-                     costs, E=CostExpansion2{T}(RD.dims(Z)...)) where T
+                     costs, E=CostExpansion{T}(RD.dims(Z)...)) where T
     n,m = cons.n, cons.m
     @assert RD.state_dim(Z) == n
     @assert RD.control_dim(Z) == m
@@ -92,7 +92,7 @@ for method in (:algrad!, :alhess!, :dualupdate!, :penaltyupdate!,
     end
 end
 
-function add_alcost_expansion!(conset::ALConstraintSet2, E::CostExpansion2)
+function add_alcost_expansion!(conset::ALConstraintSet2, E::CostExpansion)
     for alcon in conset.constraints
         add_alcost_expansion!(alcon)
     end

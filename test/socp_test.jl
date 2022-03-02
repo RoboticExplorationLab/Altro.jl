@@ -210,7 +210,7 @@ statuses = [TO.cone_status(TO.SecondOrderCone(), λ) for λ in λbar]
 @test :below ∈ statuses
 
 # E = TO.QuadraticObjective(n,m,N)
-E0 = Altro.CostExpansion2{Float64}(n,m,N)
+E0 = Altro.CostExpansion{Float64}(n,m,N)
 E = Altro.get_ilqr(solver).Efull
 let solver = solver.ilqr
     Altro.cost_expansion!(solver.obj, E, solver.Z)
@@ -244,7 +244,7 @@ end
 LA(x) = auglag(di_obj, di_soc, x, z, μ)
 
 # E = TO.QuadraticObjective(n,m,N)
-# E = Altro.CostExpansion2{Float64}(n,m,N)
+# E = Altro.CostExpansion{Float64}(n,m,N)
 E = Altro.get_ilqr(solver).Efull
 @test LA(x0) ≈ cost(solver, Z0)
 Altro.cost_expansion!(alobj, E, Z0)

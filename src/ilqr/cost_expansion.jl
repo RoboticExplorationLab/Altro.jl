@@ -67,22 +67,22 @@ end
 
 Represents the expansion of the cost function over the time horizon.
 """
-struct CostExpansion2{T} <: AbstractVector{StateControlExpansion{T}}
+struct CostExpansion{T} <: AbstractVector{StateControlExpansion{T}}
     data::Vector{StateControlExpansion{T}}
     const_hess::BitVector
     const_grad::BitVector
-    function CostExpansion2{T}(n, m, N) where T
+    function CostExpansion{T}(n, m, N) where T
         data = [StateControlExpansion{T}(n,m) for k = 1:N]
         const_hess = BitVector(undef, N)
         const_grad = BitVector(undef, N)
         new{T}(data, const_hess, const_grad)
     end
 end
-@inline CostExpansion2(n,m,N) = CostExpansion2{Float64}(n,m,N)
+@inline CostExpansion(n,m,N) = CostExpansion{Float64}(n,m,N)
 
 # Array interface
-Base.size(E::CostExpansion2) = size(E.data) 
-Base.getindex(E::CostExpansion2, i::Int) = Base.getindex(E.data, i)
+Base.size(E::CostExpansion) = size(E.data) 
+Base.getindex(E::CostExpansion, i::Int) = Base.getindex(E.data, i)
 
 """
     FullStateExpansion(E::CostExpansion, model::DiscreteDynamics)
@@ -90,23 +90,23 @@ Base.getindex(E::CostExpansion2, i::Int) = Base.getindex(E.data, i)
 Create a vector of expansions over the state and control, for the full 
 state vector `x`, given the `E`, the expansion on the error state.
 """
-FullStateExpansion(E::CostExpansion2, model::DiscreteDynamics) = 
+FullStateExpansion(E::CostExpansion, model::DiscreteDynamics) = 
     FullStateExpansion(RD.statevectortype(model), E, model)
 
-function FullStateExpansion(::RD.EuclideanState, E::CostExpansion2, model::DiscreteDynamics)
+function FullStateExpansion(::RD.EuclideanState, E::CostExpansion, model::DiscreteDynamics)
     # Create a CostExpansion linked to error cost expansion
     @assert RobotDynamics.errstate_dim(model) == state_dim(model) 
     return E 
 end
 
 function FullStateExpansion(
-    ::RD.RotationState, E::CostExpansion2{T}, model::DiscreteDynamics
+    ::RD.RotationState, E::CostExpansion{T}, model::DiscreteDynamics
 ) where T
     # Create an expansion for the full state dimension
     @assert length(E[1].x) == RobotDynamics.errstate_dim(model)
     n0 = state_dim(model)
     m = control_dim(model)
-    return CostExpansion2{T}(n0,m,length(E))
+    return CostExpansion{T}(n0,m,length(E))
 end
 
 """
@@ -115,7 +115,7 @@ end
 Evaluate the expansion of the objective `obj` about the trajectory `Z`, storing 
 the result in `E`.
 """
-function cost_expansion!(obj::Objective, E::CostExpansion2, Z)
+function cost_expansion!(obj::Objective, E::CostExpansion, Z)
     for k in eachindex(Z)
         RD.gradient!(obj.diffmethod[k], obj.cost[k], E[k].grad, Z[k])
         RD.hessian!(obj.diffmethod[k], obj.cost[k], E[k].hess, Z[k])
@@ -131,7 +131,7 @@ Evaluate the error state expansion for the cost function about the trajectory `Z
     The result is stored in `Eerr`.
 """
 function error_expansion!(
-    model::DiscreteDynamics, Eerr::CostExpansion2, Efull::CostExpansion2, G, Z
+    model::DiscreteDynamics, Eerr::CostExpansion, Efull::CostExpansion, G, Z
 )
     _error_expansion!(RD.statevectortype(model), model, Eerr, Efull, G, Z)
 end

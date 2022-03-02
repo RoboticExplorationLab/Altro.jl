@@ -23,7 +23,7 @@ function TO.cost(alobj::ALObjective2, Z::SampledTrajectory)
     return J
 end
 
-function cost_expansion!(alobj::ALObjective2, E::CostExpansion2, Z)
+function cost_expansion!(alobj::ALObjective2, E::CostExpansion, Z)
     # Calculate expansion of original cost
     cost_expansion!(alobj.obj, E, Z)
 

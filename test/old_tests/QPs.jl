@@ -41,15 +41,15 @@ cost_expansion!(E, obj, Z)
 @test TO.is_quadratic(E)
 
 # AL Objective
-alobj = Altro.ALObjective(obj, cons0, model)
+alobj = Altro.ALObjectiveOld(obj, cons0, model)
 cost_expansion!(E, alobj, Z)
 @test TO.is_quadratic(E)
 
-alobj = Altro.ALObjective(obj, cons_linear, model)
+alobj = Altro.ALObjectiveOld(obj, cons_linear, model)
 cost_expansion!(E, alobj, Z)
 @test !TO.is_quadratic(E)
 
 # with with nonlinear constraint, should no longer be quadratic
-alobj = Altro.ALObjective(obj, cons_nonlinear, model)
+alobj = Altro.ALObjectiveOld(obj, cons_nonlinear, model)
 cost_expansion!(E, alobj, Z)
 @test !TO.is_quadratic(E)

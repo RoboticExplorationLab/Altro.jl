@@ -118,13 +118,13 @@ struct ALConstraint{T, C<:TO.StageConstraint, R<:SampledTrajectory}
     # The trajectory is stored in a vector so it can be mutated
     # NOTE: tried to use Refs but it ended up allocating
     Z::Vector{R}
-    E::CostExpansion2{T}
+    E::CostExpansion{T}
 
     opts::ConstraintOptions{T}
     function ALConstraint{T}(Z::R, con::TO.StageConstraint, 
                              inds::AbstractVector{<:Integer}, 
                              costs::Vector{T},
-                             E=CostExpansion2{T}(RD.dims(Z)...); 
+                             E=CostExpansion{T}(RD.dims(Z)...); 
 			                 sig::FunctionSignature=StaticReturn(), 
                              diffmethod::DiffMethod=UserDefined(),
                              kwargs...

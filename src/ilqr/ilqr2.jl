@@ -23,11 +23,11 @@ struct iLQRSolver{L,O,Nx,Ne,Nu,T,V} <: UnconstrainedSolver{T}
     K::Vector{SubArray{T,2,Matrix{T},Tuple{ColonSlice, UnitRange{Int}}, true}}  # N-1 × (Nu,Ne)
     d::Vector{SubArray{T,1,Matrix{T},Tuple{ColonSlice, Int}, true}}             # N-1 × (Nu,)
 
-    D::Vector{DynamicsExpansion2{T}}
+    D::Vector{DynamicsExpansion{T}}
     G::Vector{Matrix{T}}  # N × (Nx,Ne) 
 
-    Efull::CostExpansion2{T}  # Cost expansion (full state)
-    Eerr::CostExpansion2{T}   # Cost expansion (error state)
+    Efull::CostExpansion{T}  # Cost expansion (full state)
+    Eerr::CostExpansion{T}   # Cost expansion (error state)
     Q::Vector{StateControlExpansion{T}}      # Action-value expansion
     S::Vector{StateControlExpansion{T}}      # Action-value expansion
     ΔV::Vector{T}
@@ -77,10 +77,10 @@ function iLQRSolver(
     K = [view(gain,:,1:e) for gain in gains]
     d = [view(gain,:,e+1) for gain in gains]
 
-    D = [DynamicsExpansion2{T}(n,e,m) for k = 1:N-1]
+    D = [DynamicsExpansion{T}(n,e,m) for k = 1:N-1]
     G = [Matrix(one(T)*I,n,e) for k = 1:N+1]
 
-    Eerr = CostExpansion2{T}(e,m,N)
+    Eerr = CostExpansion{T}(e,m,N)
     Efull = FullStateExpansion(Eerr, prob.model)
     Q = [StateControlExpansion{T}(e,m) for k = 1:N] 
     S = [StateControlExpansion{T}(e) for k = 1:N] 

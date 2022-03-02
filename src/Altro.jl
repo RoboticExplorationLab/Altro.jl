@@ -34,8 +34,8 @@ using TrajectoryOptimization:
     Problem,
     ConstraintList,
     AbstractObjective, Objective, #QuadraticObjective,
-    SampledTrajectory,
-    DynamicsExpansion, # TODO: Move to ALTRO
+    # SampledTrajectory,
+    # DynamicsExpansion, # TODO: Move to ALTRO
     # ALConstraintSet,
     DynamicsConstraint,
     states, controls,

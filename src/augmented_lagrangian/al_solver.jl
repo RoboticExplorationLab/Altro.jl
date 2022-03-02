@@ -43,7 +43,7 @@ function AugmentedLagrangianSolver(
     set_options!(opts; kwarg_opts...)
 
     # Build Augmented Lagrangian Objective
-    alobj = ALObjective(prob)
+    alobj = ALObjectiveOld(prob)
     prob_al = Problem(prob.model, alobj, ConstraintList(dims(prob)...),
         prob.x0, prob.xf, prob.Z, prob.N, prob.t0, prob.tf)
 
@@ -71,7 +71,7 @@ solvername(::Type{<:AugmentedLagrangianSolver}) = :AugmentedLagrangian
 get_ilqr(solver::AugmentedLagrangianSolver) = solver.solver_uncon
 
 function TO.get_constraints(solver::AugmentedLagrangianSolver{T}) where T
-    obj = get_objective(solver)::ALObjective{T}
+    obj = get_objective(solver)::ALObjectiveOld{T}
     obj.constraints
 end
 
