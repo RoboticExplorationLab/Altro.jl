@@ -9,7 +9,7 @@ function DubinsCar(scenario=:three_obstacles; N=101)
 
         #  Car w/ obstacles
         model = RobotZoo.DubinsCar()
-        n,m = size(model)
+        n,m = RD.dims(model)
 
         N = 101 # number of knot points
         tf = 5.0
@@ -54,7 +54,7 @@ function DubinsCar(scenario=:three_obstacles; N=101)
 
         # model
         model = RobotZoo.DubinsCar()
-        n,m = size(model)
+        n,m = RD.dims(model)
         tf = 3.
         dt = tf / (N-1)
 
@@ -138,7 +138,7 @@ function DubinsCar(scenario=:three_obstacles; N=101)
 
         # model
         model = RobotZoo.DubinsCar()
-        n,m = size(model)
+        n,m = RD.dims(model)
         x0 = @SVector [2.5,2.5,0.]
         xf = @SVector [7.5,2.5,0.]
         N = 101

@@ -39,7 +39,7 @@ InfeasibleModel
 # const InfeasibleModel{N,M,D} = Union{Infeasible{N,M,D},InfeasibleLie{N,M,D}} where {N,M,D}
 
 function InfeasibleModel(model::AbstractModel)
-    n,m = size(model)
+    n,m = RD.dims(model)
     InfeasibleModel{n,m}(model)
 end
 
