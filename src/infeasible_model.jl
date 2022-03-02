@@ -53,7 +53,9 @@ RD.@autodiff struct InfeasibleModel{Nx,Nu,D<:DiscreteDynamics} <: DiscreteDynami
     end
 end
 
-""" $(TYPEDEF)
+"""
+    InfeasibleModel
+
 An infeasible model is an augmented dynamics model that makes the system artifically fully
 actuated by augmenting the control vector with `n` additional controls. The dynamics are
 handled explicitly in discrete time:
@@ -135,7 +137,10 @@ end
 ############################################################################################
 #  								INFEASIBLE CONSTRAINT 									   #
 ############################################################################################
-""" $(TYPEDEF) Constraints additional ``infeasible'' controls to be zero.
+"""
+    InfeasibleConstraint
+
+Constraints additional ``infeasible'' controls to be zero.
 Constructors: ```julia
 InfeasibleConstraint(model::InfeasibleModel)
 InfeasibleConstraint(n,m)

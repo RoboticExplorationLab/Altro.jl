@@ -3,11 +3,8 @@ module Altro
 import TrajectoryOptimization
 import RobotDynamics
 using StaticArrays
-using Parameters
-using DocStringExtensions
 using BenchmarkTools
 using Interpolations
-using UnsafeArrays
 using SolverLogging
 using Crayons
 

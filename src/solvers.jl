@@ -122,12 +122,18 @@ function print_summary(solver::S) where S <: AbstractSolver
     print(Crayon(reset=true))  # reset output color
 end
 
-"$(TYPEDEF) Unconstrained optimization solver. Will ignore
-any constraints in the problem"
+"""
+    UnconstrainedSolver
+
+Unconstrained optimization solver. Will ignore
+any constraints in the problem
+"""
 abstract type UnconstrainedSolver{T} <: AbstractSolver{T} end
 
 
-"""$(TYPEDEF)
+"""
+    ConstrainedSolver
+
 Abstract solver for constrained trajectory optimization problems
 
 In addition to the methods required for `AbstractSolver`, all `ConstrainedSolver`s

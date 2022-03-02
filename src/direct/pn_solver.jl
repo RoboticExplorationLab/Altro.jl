@@ -4,7 +4,8 @@ getinputinds(::RD.StateOnly, n, m) = 1:n
 getinputinds(::RD.ControlOnly, n, m) = n .+ (1:m)
 
 """
-$(TYPEDEF)
+    ProjectedNewtonSolver
+
 Projected Newton Solver
 Direct method developed by the REx Lab at Stanford University
 Achieves machine-level constraint satisfaction by projecting onto the feasible subspace.

@@ -9,6 +9,7 @@ using JLD2
 using ForwardDiff
 using FiniteDiff
 using Random
+using SparseArrays
 const RD = RobotDynamics
 const TO = TrajectoryOptimization
 

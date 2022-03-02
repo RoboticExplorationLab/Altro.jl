@@ -1,4 +1,6 @@
-"""$(TYPEDEF)
+"""
+    ALTROSolver
+
 Augmented Lagrangian Trajectory Optimizer (ALTRO) is a solver developed by the Robotic Exploration Lab at Stanford University.
     The solver is special-cased to solve Markov Decision Processes by leveraging the internal problem structure.
 

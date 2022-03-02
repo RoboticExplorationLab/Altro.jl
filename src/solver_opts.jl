@@ -28,7 +28,7 @@ function set_options!(opts::OPT; d...) where OPT <: AbstractSolverOptions
 end
 
 
-@with_kw mutable struct SolverOptions{T} <: AbstractSolverOptions{T}
+Base.@kwdef mutable struct SolverOptions{T} <: AbstractSolverOptions{T}
     # Optimality Tolerances
     constraint_tolerance::T = 1e-6
     cost_tolerance::T = 1e-4
@@ -102,7 +102,7 @@ function Base.copy(opts::SolverOptions)
     SolverOptions([getfield(opts, fname) for fname in fieldnames(SolverOptions)]...)
 end
 
-@with_kw mutable struct SolverStats{T}
+Base.@kwdef mutable struct SolverStats{T}
     # Iteration counts
     iterations::Int = 0
     iterations_outer::Int = 0
