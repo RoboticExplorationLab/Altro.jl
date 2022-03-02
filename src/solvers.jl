@@ -33,9 +33,9 @@ iters = iterations(::AbstractSolver)    #
 abstract type AbstractSolver{T} end
 
 # Default getters
-@inline TO.get_model(solver::AbstractSolver) = solver.model
-@inline TO.get_objective(solver::AbstractSolver) = solver.obj
-@inline TO.get_trajectory(solver::AbstractSolver) = solver.Z.Z_
+# @inline TO.get_model(solver::AbstractSolver) = solver.model
+# @inline TO.get_objective(solver::AbstractSolver) = solver.obj
+# @inline TO.get_trajectory(solver::AbstractSolver) = solver.Z.Z_
 # @inline get_cost_expansion(solver::AbstractSolver) = solver.E
 # @inline get_cost_expansion_error(solver::AbstractSolver) = solver.E
 # @inline get_error_state_jacobians(solver::AbstractSolver) = solver.G
@@ -48,9 +48,11 @@ abstract type AbstractSolver{T} end
 iterations(solver::AbstractSolver) = stats(solver).iterations
 @inline options(solver::AbstractSolver) = solver.opts
 set_options!(solver::AbstractSolver; opts...) = set_options!(options(solver); opts...)
-reset!(solver::AbstractSolver) = reset_solver!(solver)  # default method
+# reset!(solver::AbstractSolver) = reset_solver!(solver)  # default method
 solvername(solver::S) where S <: AbstractSolver = solvername(S)
 is_parentsolver(solver::AbstractSolver) = stats(solver).parent == solvername(solver)
+
+resetstats!(solver::AbstractSolver) = reset!(stats(solver), iterations(solver), solvername(solver))
 
 """
     reset_solver!(solver::AbstractSolver)
@@ -167,7 +169,7 @@ is_constrained(::Type{<:ConstrainedSolver})::Bool = true
 is_constrained(::Type{<:UnconstrainedSolver})::Bool = false
 is_constrained(solver::AbstractSolver) = is_constrained(typeof(solver)) && !isempty(get_constraints(solver))
 
-@inline get_duals(solver::ConstrainedSolver) = get_duals(get_constraints(solver))
+# @inline get_duals(solver::ConstrainedSolver) = get_duals(get_constraints(solver))
 # @inline set_duals!(solver::ConstrainedSolver, λ) = set_duals!(get_constraints(solver), λ)
 # @inline set_duals!(solver::AbstractSolver, λ) = nothing 
 
@@ -185,28 +187,28 @@ end
 
 # TO.error_expansion!(solver::AbstractSolver) = error_expansion_uncon!(solver)
 
-""" $(SIGNATURES)
-Calculate all the constraint values given the trajectory `Z`
-"""
-function update_constraints!(solver::ConstrainedSolver, Z::SampledTrajectory=get_trajectory(solver))
-    conSet = get_constraints(solver)
-    RD.evaluate!(conSet, Z)
-end
+# """ $(SIGNATURES)
+# Calculate all the constraint values given the trajectory `Z`
+# """
+# function update_constraints!(solver::ConstrainedSolver, Z::SampledTrajectory=get_trajectory(solver))
+#     conSet = get_constraints(solver)
+#     RD.evaluate!(conSet, Z)
+# end
 
-function update_active_set!(solver::ConstrainedSolver, 
-        Z=get_trajectory(solver); tol=solver.opts.active_set_tolerance)
-    conSet = get_constraints(solver)
-    update_active_set!(conSet, Val(tol))
-end
+# function update_active_set!(solver::ConstrainedSolver, 
+#         Z=get_trajectory(solver); tol=solver.opts.active_set_tolerance)
+#     conSet = get_constraints(solver)
+#     update_active_set!(conSet, Val(tol))
+# end
 
-""" $(SIGNATURES)
-Calculate all the constraint Jacobians given the trajectory `Z`
-"""
-function constraint_jacobian!(solver::ConstrainedSolver, Z=get_trajectory(solver))
-    conSet = get_constraints(solver)
-    RD.jacobian!(conSet, Z)
-    return nothing
-end
+# """ $(SIGNATURES)
+# Calculate all the constraint Jacobians given the trajectory `Z`
+# """
+# function constraint_jacobian!(solver::ConstrainedSolver, Z=get_trajectory(solver))
+#     conSet = get_constraints(solver)
+#     RD.jacobian!(conSet, Z)
+#     return nothing
+# end
 
 # #--- Error Expansion ---#
 # function error_expansion_uncon!(solver::AbstractSolver)
@@ -288,13 +290,13 @@ end
 # Constrained solver
 TO.num_constraints(solver::AbstractSolver) = num_constraints(get_constraints(solver))
 
-function TO.max_violation(solver::ConstrainedSolver, Z::SampledTrajectory=get_trajectory(solver); recalculate=true)
-    conSet = get_constraints(solver)
-    if recalculate
-        RD.evaluate!(conSet, Z)
-    end
-    TO.max_violation(conSet)
-end
+# function TO.max_violation(solver::ConstrainedSolver, Z::SampledTrajectory=get_trajectory(solver); recalculate=true)
+#     conSet = get_constraints(solver)
+#     if recalculate
+#         RD.evaluate!(conSet, Z)
+#     end
+#     TO.max_violation(conSet)
+# end
 
 # function TO.norm_violation(solver::ConstrainedSolver, Z::SampledTrajectory=get_trajectory(solver); recalculate=true, p=2)
 #     conSet = get_constraints(solver)
@@ -368,24 +370,24 @@ end
 # end
 
 # Logging
-log_level(solver::AbstractSolver) = OuterLoop
+# log_level(solver::AbstractSolver) = OuterLoop
 
-is_verbose(solver::AbstractSolver) = 
-    log_level(solver) >= LogLevel(-100*options(solver).verbose)
+# is_verbose(solver::AbstractSolver) = 
+#     log_level(solver) >= LogLevel(-100*options(solver).verbose)
 
-function set_verbosity!(solver::AbstractSolver)
-    llevel = log_level(solver)
-    if is_verbose(solver)
-        set_logger()
-        Logging.disable_logging(LogLevel(llevel.level-1))
-    else
-        Logging.disable_logging(llevel)
-    end
-end
+# function set_verbosity!(solver::AbstractSolver)
+#     llevel = log_level(solver)
+#     if is_verbose(solver)
+#         set_logger()
+#         Logging.disable_logging(LogLevel(llevel.level-1))
+#     else
+#         Logging.disable_logging(llevel)
+#     end
+# end
 
-function clear_cache!(solver::AbstractSolver)
-    llevel = log_level(solver)
-    if is_verbose(solver)
-        SolverLogging_v1.clear_cache!(global_logger().leveldata[llevel])
-    end
-end
+# function clear_cache!(solver::AbstractSolver)
+#     llevel = log_level(solver)
+#     if is_verbose(solver)
+#         SolverLogging_v1.clear_cache!(global_logger().leveldata[llevel])
+#     end
+# end

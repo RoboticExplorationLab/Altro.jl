@@ -20,11 +20,11 @@ function convertInf!(A::VecOrMat{Float64},infbnd=1.1e20)
     return nothing
 end
 
-function set_logger()
-    if !(global_logger() isa SolverLogger)
-        global_logger(SolverLogging_v1.default_logger(true))
-    end
-end
+# function set_logger()
+#     if !(global_logger() isa SolverLogger)
+#         global_logger(SolverLogging_v1.default_logger(true))
+#     end
+# end
 
 function benchmark_solve!(solver; samples=10, evals=10)
     Z0 = deepcopy(get_trajectory(solver))
