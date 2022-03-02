@@ -63,6 +63,7 @@ export
     benchmark_solve!,
     iterations,
     set_options!,
+    max_violation,
     status
 
 # modules
