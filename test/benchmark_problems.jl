@@ -61,7 +61,7 @@ if !Sys.iswindows() && VERSION > v"1.5"
     @test b.allocs == 0
 end
 
-solver = Altro.iLQRSolver2(Problems.Cartpole()...)
+solver = Altro.iLQRSolver(Problems.Cartpole()...)
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time /1e6 < 10 
 !Sys.iswindows() && (@test b.allocs == 0)

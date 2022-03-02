@@ -20,8 +20,8 @@ n,m = RD.dims(prob)
 
 # prob, opts = Problems.DubinsCar(:parallel_park, N=11)
 
-# s1 = Altro.iLQRSolver(prob, copy(opts))
-# s2 = Altro.iLQRSolver2(prob, copy(opts))
+# s1 = Altro.iLQRSolverOld(prob, copy(opts))
+# s2 = Altro.iLQRSolver(prob, copy(opts))
 
 opts.trim_stats = false
 opts.constraint_tolerance = opts.projected_newton_tolerance

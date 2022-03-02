@@ -3,7 +3,7 @@ mutable struct DynamicRegularization{T}
     dρ::T
 end
 
-struct iLQRSolver2{L,O,Nx,Ne,Nu,T,V} <: UnconstrainedSolver{T}
+struct iLQRSolver{L,O,Nx,Ne,Nu,T,V} <: UnconstrainedSolver{T}
     model::L
     obj::O
 
@@ -43,10 +43,10 @@ struct iLQRSolver2{L,O,Nx,Ne,Nu,T,V} <: UnconstrainedSolver{T}
     logger::SolverLogging.Logger
 end
 
-function iLQRSolver2(
+function iLQRSolver(
         prob::Problem{T}, 
         opts::SolverOptions=SolverOptions{T}(), 
-        stats::SolverStats=SolverStats{T}(parent=solvername(iLQRSolver2));
+        stats::SolverStats=SolverStats{T}(parent=solvername(iLQRSolver));
         use_static::Val{USE_STATIC}=Val(false), 
         kwarg_opts...
     ) where {T, USE_STATIC}
@@ -114,7 +114,7 @@ function iLQRSolver2(
 
 	L = typeof(prob.model)
 	O = typeof(prob.obj)
-    solver = iLQRSolver2{L,O,n,e,m,T,V}(
+    solver = iLQRSolver{L,O,n,e,m,T,V}(
         prob.model, prob.obj, x0, prob.tf, N, opts, stats, Z, Z̄, dx, du,
         gains, K, d, D, G, Efull, Eerr, Q, S, ΔV, Qtmp, Quu_reg, Qux_reg, reg, grad, xdot, 
         lg,
@@ -123,32 +123,32 @@ function iLQRSolver2(
 end
 
 # Getters
-RD.dims(solver::iLQRSolver2{<:Any,<:Any,n,<:Any,m}) where {n,m} = n,m,solver.N
-RD.state_dim(::iLQRSolver2{<:Any,<:Any,n}) where n = n
-RD.errstate_dim(::iLQRSolver2{<:Any,<:Any,<:Any,e}) where e = e
-RD.control_dim(::iLQRSolver2{<:Any,<:Any,<:Any,<:Any,m}) where m = m
-@inline TO.get_trajectory(solver::iLQRSolver2) = solver.Z
-@inline TO.get_objective(solver::iLQRSolver2) = solver.obj
-@inline TO.get_model(solver::iLQRSolver2) = solver.model
-@inline get_initial_state(solver::iLQRSolver2) = solver.x0
-solvername(::Type{<:iLQRSolver2}) = :iLQR
-getlogger(solver::iLQRSolver2) = solver.logger
+RD.dims(solver::iLQRSolver{<:Any,<:Any,n,<:Any,m}) where {n,m} = n,m,solver.N
+RD.state_dim(::iLQRSolver{<:Any,<:Any,n}) where n = n
+RD.errstate_dim(::iLQRSolver{<:Any,<:Any,<:Any,e}) where e = e
+RD.control_dim(::iLQRSolver{<:Any,<:Any,<:Any,<:Any,m}) where m = m
+@inline TO.get_trajectory(solver::iLQRSolver) = solver.Z
+@inline TO.get_objective(solver::iLQRSolver) = solver.obj
+@inline TO.get_model(solver::iLQRSolver) = solver.model
+@inline get_initial_state(solver::iLQRSolver) = solver.x0
+solvername(::Type{<:iLQRSolver}) = :iLQR
+getlogger(solver::iLQRSolver) = solver.logger
 
-RD.vectype(::iLQRSolver2{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,V}) where V = V
+RD.vectype(::iLQRSolver{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,V}) where V = V
 usestatic(obj) = RD.vectype(obj) <: SVector
 dynamics_signature(obj) = usestatic(obj) ? RD.StaticReturn() : RD.InPlace()
 function_signature(obj) = usestatic(obj) ? RD.StaticReturn() : RD.InPlace()
 
-log_level(::iLQRSolver2) = InnerLoop
+log_level(::iLQRSolver) = InnerLoop
 
-function reset!(solver::iLQRSolver2)
+function reset!(solver::iLQRSolver)
     reset_solver!(solver)
     solver.reg.ρ = solver.opts.bp_reg_initial
     solver.reg.dρ = 0.0
     return solver 
 end
 
-function dynamics_expansion!(solver::iLQRSolver2, Z=solver.Z)
+function dynamics_expansion!(solver::iLQRSolver, Z=solver.Z)
     diff = solver.opts.dynamics_diffmethod
     D = solver.D
     model = solver.model
@@ -162,7 +162,7 @@ function dynamics_expansion!(solver::iLQRSolver2, Z=solver.Z)
     error_expansion!(solver.model, D, solver.G)
 end
 
-function cost_expansion!(solver::iLQRSolver2)
+function cost_expansion!(solver::iLQRSolver)
     # Calculate normal cost expansion
     Altro.cost_expansion!(solver.obj, solver.Efull, solver.Z)
 
@@ -170,7 +170,7 @@ function cost_expansion!(solver::iLQRSolver2)
     Altro.error_expansion!(solver.model, solver.Err, solver.Efull, solver.G, solver.G)
 end
 
-function increaseregularization!(solver::iLQRSolver2)
+function increaseregularization!(solver::iLQRSolver)
     reg = solver.reg
     ρdot = solver.opts.bp_reg_increase_factor
     ρmin = solver.opts.bp_reg_min
@@ -179,7 +179,7 @@ function increaseregularization!(solver::iLQRSolver2)
     return reg
 end
 
-function decreaseregularization!(solver::iLQRSolver2)
+function decreaseregularization!(solver::iLQRSolver)
     reg = solver.reg
     ρdot = solver.opts.bp_reg_increase_factor
     ρmin = solver.opts.bp_reg_min
@@ -193,9 +193,9 @@ end
 
 Resets the gains to zero. Useful if you want to call `solve!` multiple times,
 without using information from the previous solve, since the feedback gains
-are used to perform the initial rollout. See [`initialize!(::iLQRSolver2)`](@ref).
+are used to perform the initial rollout. See [`initialize!(::iLQRSolver)`](@ref).
 """
-function reset_gains!(solver::iLQRSolver2)
+function reset_gains!(solver::iLQRSolver)
     for k in eachindex(solver.K)
         solver.K[k] .= 0
         solver.d[k] .= 0

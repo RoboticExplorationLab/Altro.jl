@@ -4,7 +4,7 @@ using RobotDynamics: get_data
 Calculates the optimal feedback gains K,d as well as the 2nd Order approximation of the
 Cost-to-Go, using a backward Riccati-style recursion. (non-allocating)
 """
-@generated function backwardpass!(solver::iLQRSolver{L,O,Nx,Ne,Nu}, grad_only=false) where {L,O,Nx,Ne,Nu}
+@generated function backwardpass!(solver::iLQRSolverOld{L,O,Nx,Ne,Nu}, grad_only=false) where {L,O,Nx,Ne,Nu}
 	if Ne+Nu < 15 
 		return :(static_backwardpass!(solver, grad_only))
 	else
@@ -12,7 +12,7 @@ Cost-to-Go, using a backward Riccati-style recursion. (non-allocating)
 	end
 end
 
-function _backwardpass!(solver::iLQRSolver{L,O,Nx,Ne,Nu}, grad_only=false) where {L,O,Nx,Ne,Nu}
+function _backwardpass!(solver::iLQRSolverOld{L,O,Nx,Ne,Nu}, grad_only=false) where {L,O,Nx,Ne,Nu}
 	n,n̄,m = Nx,Ne,Nu
 	N = solver.N
 
@@ -84,7 +84,7 @@ function _backwardpass!(solver::iLQRSolver{L,O,Nx,Ne,Nu}, grad_only=false) where
 
 end
 
-function static_backwardpass!(solver::iLQRSolver{L,O,Nx,Ne,Nu}, grad_only=false) where {L,O,Nx,Ne,Nu}
+function static_backwardpass!(solver::iLQRSolverOld{L,O,Nx,Ne,Nu}, grad_only=false) where {L,O,Nx,Ne,Nu}
 	n,n̄,m = Nx,Ne,Nu
 	N = solver.N
 

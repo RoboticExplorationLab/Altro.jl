@@ -39,7 +39,7 @@ function ALTROSolver(prob::Problem{T}, opts::SolverOptions=SolverOptions();
         infeasible::Bool=false,
         R_inf::Real=1.0,
         use_static=Val(false), 
-        solver_uncon=iLQRSolver,
+        solver_uncon=iLQRSolverOldOld,
         kwarg_opts...
     ) where {Q,T}
     if infeasible

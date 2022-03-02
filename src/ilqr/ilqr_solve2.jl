@@ -10,7 +10,7 @@ to provide better stability.
 
 To reset the gains to zero, you can use [`reset_gains!`](@ref).
 """
-function initialize!(solver::iLQRSolver2)
+function initialize!(solver::iLQRSolver)
     reset!(solver)  # resets the stats
 
     # Reset regularization
@@ -38,7 +38,7 @@ function initialize!(solver::iLQRSolver2)
     return nothing
 end
 
-function solve!(solver::iLQRSolver2)
+function solve!(solver::iLQRSolver)
     initialize!(solver)
     lg = solver.logger
     for iter = 1:solver.opts.iterations
@@ -84,7 +84,7 @@ function solve!(solver::iLQRSolver2)
     return solver
 end
 
-function gradient!(solver::iLQRSolver2, Z=solver.Z)
+function gradient!(solver::iLQRSolver, Z=solver.Z)
     m = RD.control_dim(solver)
     avggrad = 0.0
     for k in eachindex(solver.d)
@@ -100,7 +100,7 @@ function gradient!(solver::iLQRSolver2, Z=solver.Z)
     return avggrad / length(solver.d)
 end
 
-function record_iteration!(solver::iLQRSolver2{<:Any,O}, J, dJ, grad) where O
+function record_iteration!(solver::iLQRSolver{<:Any,O}, J, dJ, grad) where O
     lg = solver.logger
     record_iteration!(solver.stats, cost=J, dJ=dJ, gradient=grad)
     iter = solver.stats.iterations
@@ -122,7 +122,7 @@ function record_iteration!(solver::iLQRSolver2{<:Any,O}, J, dJ, grad) where O
     return nothing
 end
 
-# function addlogs(solver::iLQRSolver2)
+# function addlogs(solver::iLQRSolver)
 #     lg = solver.logger
 #     iter = -10
 #     @log lg "cost" 10
@@ -133,7 +133,7 @@ end
 #     printlog(lg)
 # end
 
-function evaluate_convergence(solver::iLQRSolver2)
+function evaluate_convergence(solver::iLQRSolver)
     lg = solver.logger
 
     # Get current iterations

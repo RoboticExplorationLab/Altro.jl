@@ -43,7 +43,7 @@ function ALSolver(
 
     
     # Instantiate the iLQR solver
-    ilqr = iLQRSolver2(prob_al, opts, stats, use_static=use_static)
+    ilqr = iLQRSolver(prob_al, opts, stats, use_static=use_static)
     initialize!(alobj.conset, prob.constraints, ilqr.Z, ilqr.opts, alobj.alcost, ilqr.Efull)
     # settraj!(alobj.conset, get_trajectory(ilqr))
 

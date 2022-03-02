@@ -23,11 +23,11 @@ al = Altro.ALSolver(prob, opts, stats)
 @test al.ilqr.stats.parent == Altro.solvername(solver)
 
 # Try passing in a bad option
-ilqr = Altro.iLQRSolver2(prob, opts, something_wrong=false)
+ilqr = Altro.iLQRSolver(prob, opts, something_wrong=false)
 @test ilqr.opts === solver.opts
 
 # Solve an unconstrained problem
-ilqr = Altro.iLQRSolver2(Problems.Cartpole(constrained=false)..., verbose=2)
+ilqr = Altro.iLQRSolver(Problems.Cartpole(constrained=false)..., verbose=2)
 b0 = benchmark_solve!(ilqr)
 solver = ALTROSolver2(Problems.Cartpole(constrained=false)..., verbose=2, projected_newton=false)
 b1 = benchmark_solve!(solver)

@@ -1,15 +1,15 @@
 
 """
-    iLQRSolver
+    iLQRSolverOld
 
 A fast solver for unconstrained trajectory optimization that uses a Riccati recursion
 to solve for a local feedback controller around the current trajectory, and then 
 simulates the system forward using the derived feedback control law.
 
 # Constructor
-    Altro.iLQRSolver(prob, opts; kwarg_opts...)
+    Altro.iLQRSolverOld(prob, opts; kwarg_opts...)
 """
-struct iLQRSolver{L,O,Nx,Ne,Nu,V,T} <: UnconstrainedSolver{T}
+struct iLQRSolverOld{L,O,Nx,Ne,Nu,V,T} <: UnconstrainedSolver{T}
     # Model + Objective
     model::L
     obj::O
@@ -54,10 +54,10 @@ struct iLQRSolver{L,O,Nx,Ne,Nu,V,T} <: UnconstrainedSolver{T}
     logger::SolverLogger
 end
 
-function iLQRSolver(
+function iLQRSolverOld(
         prob::Problem{T}, 
         opts::SolverOptions=SolverOptions(), 
-        stats::SolverStats=SolverStats(parent=solvername(iLQRSolver));
+        stats::SolverStats=SolverStats(parent=solvername(iLQRSolverOld));
         kwarg_opts...
     ) where {T}
     set_options!(opts; kwarg_opts...)
@@ -99,7 +99,7 @@ function iLQRSolver(
 	L = typeof(prob.model)
 	O = typeof(prob.obj)
 
-    solver = iLQRSolver{L,O,n,n̄,m,SVector{n+m,T},T}(
+    solver = iLQRSolverOld{L,O,n,n̄,m,SVector{n+m,T},T}(
         prob.model, prob.obj, x0, xf,
 		prob.tf, N, opts, stats,
         Z, Z̄, K, d, D, G, quad_exp, S, E, Q, Qprev, Q_tmp, Quu_reg, Qux_reg, ρ, dρ, 
@@ -110,20 +110,20 @@ function iLQRSolver(
 end
 
 # Getters
-RD.dims(solver::iLQRSolver{<:Any,<:Any,n,<:Any,m}) where {n,m} = n,m,solver.N
-@inline TO.get_trajectory(solver::iLQRSolver) = solver.Z
-@inline TO.get_objective(solver::iLQRSolver) = solver.obj
-@inline TO.get_model(solver::iLQRSolver) = solver.model
-@inline get_initial_state(solver::iLQRSolver) = solver.x0
-solvername(::Type{<:iLQRSolver}) = :iLQR
+RD.dims(solver::iLQRSolverOld{<:Any,<:Any,n,<:Any,m}) where {n,m} = n,m,solver.N
+@inline TO.get_trajectory(solver::iLQRSolverOld) = solver.Z
+@inline TO.get_objective(solver::iLQRSolverOld) = solver.obj
+@inline TO.get_model(solver::iLQRSolverOld) = solver.model
+@inline get_initial_state(solver::iLQRSolverOld) = solver.x0
+solvername(::Type{<:iLQRSolverOld}) = :iLQR
 
 using RobotDynamics: dims
 import Base: size
-@deprecate size(solver::iLQRSolver) dims(solver)
+@deprecate size(solver::iLQRSolverOld) dims(solver)
 
-log_level(::iLQRSolver) = InnerLoop
+log_level(::iLQRSolverOld) = InnerLoop
 
-function reset!(solver::iLQRSolver{T}) where T
+function reset!(solver::iLQRSolverOld{T}) where T
     reset_solver!(solver)
     solver.ρ[1] = 0.0
     solver.dρ[1] = 0.0

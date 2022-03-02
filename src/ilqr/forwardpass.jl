@@ -1,5 +1,5 @@
 
-function rollout!(solver::iLQRSolver2, α)
+function rollout!(solver::iLQRSolver, α)
     N = solver.N
     Z = solver.Z; Z̄ = solver.Z̄
     K = solver.K; d = solver.d;
@@ -31,7 +31,7 @@ function rollout!(solver::iLQRSolver2, α)
     return true
 end
 
-function forwardpass!(solver::iLQRSolver2, J_prev) 
+function forwardpass!(solver::iLQRSolver, J_prev) 
     Z = solver.Z; Z̄ = solver.Z̄
     ΔV = solver.ΔV
     ϕ = solver.opts.line_search_decrease_factor

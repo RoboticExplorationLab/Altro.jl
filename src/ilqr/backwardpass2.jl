@@ -9,7 +9,7 @@ function foo(C,A,B)
     C
 end
 
-function backwardpass!(solver::iLQRSolver2)
+function backwardpass!(solver::iLQRSolver)
     # Extract Variables
     _,m,N = RD.dims(solver)
     D = solver.D     # dynamics expansion
@@ -121,7 +121,7 @@ function backwardpass!(solver::iLQRSolver2)
     return ΔV
 end
 
-function static_backwardpass!(solver::iLQRSolver2{<:Any,<:Any,Nx,Ne,Nu}) where {Nx,Ne,Nu}
+function static_backwardpass!(solver::iLQRSolver{<:Any,<:Any,Nx,Ne,Nu}) where {Nx,Ne,Nu}
     # Extract Variables
     _,m,N = RD.dims(solver)
     D = solver.D     # dynamics expansion

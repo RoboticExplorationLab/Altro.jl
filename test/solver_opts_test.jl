@@ -1,6 +1,6 @@
 
 prob, opts = Problems.DoubleIntegrator()
-solver = Altro.iLQRSolver2(prob, verbose=true, cost_tolerance=1e-1)
+solver = Altro.iLQRSolver(prob, verbose=true, cost_tolerance=1e-1)
 @test solver.opts.verbose == true
 @test solver.opts.cost_tolerance == 1e-1
 

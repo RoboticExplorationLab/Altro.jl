@@ -1,4 +1,4 @@
-function initialize!(solver::iLQRSolver)
+function initialize!(solver::iLQRSolverOld)
 	reset!(solver)
     set_verbosity!(solver)
     clear_cache!(solver)
@@ -17,7 +17,7 @@ end
 
 # Generic solve methods
 "iLQR solve method (non-allocating)"
-function solve!(solver::iLQRSolver)
+function solve!(solver::iLQRSolverOld)
     initialize!(solver)
 
     Z = solver.Z; Z̄ = solver.Z̄;
@@ -68,7 +68,7 @@ function solve!(solver::iLQRSolver)
     return solver
 end
 
-# function step!(solver::iLQRSolver, J)
+# function step!(solver::iLQRSolverOld, J)
 #     TO.state_diff_jacobian!(solver.G, solver.model, solver.Z)
 # 	TO.dynamics_expansion!(integration(solver), solver.D, solver.model, solver.Z)
 # 	TO.error_expansion!(solver.D, solver.model, solver.G)
@@ -82,7 +82,7 @@ end
 #     forwardpass!(solver, ΔV, J)
 # end
 
-function step!(solver::iLQRSolver{<:Any,<:Any,L}, J, grad_only::Bool=false) where L
+function step!(solver::iLQRSolverOld{<:Any,<:Any,L}, J, grad_only::Bool=false) where L
     to = solver.stats.to
     init = !solver.opts.reuse_jacobians  # force recalculation if not reusing
     # sig = StaticReturn()
@@ -109,7 +109,7 @@ function step!(solver::iLQRSolver{<:Any,<:Any,L}, J, grad_only::Bool=false) wher
     @timeit_debug to "forward pass" forwardpass!(solver, ΔV, J)
 end
 
-function dynamics_jacobians!(solver::iLQRSolver)
+function dynamics_jacobians!(solver::iLQRSolverOld)
     sig = solver.opts.dynamics_funsig
     diff = solver.opts.dynamics_diffmethod
     D = solver.D
@@ -126,7 +126,7 @@ Simulate the system forward using the optimal feedback gains from the backward p
 projecting the system on the dynamically feasible subspace. Performs a line search to ensure
 adequate progress on the nonlinear problem.
 """
-function forwardpass!(solver::iLQRSolver, ΔV, J_prev)
+function forwardpass!(solver::iLQRSolverOld, ΔV, J_prev)
     Z = solver.Z; Z̄ = solver.Z̄
     obj = solver.obj
 
@@ -219,7 +219,7 @@ function forwardpass!(solver::iLQRSolver, ΔV, J_prev)
 
 end
 
-function copy_trajectories!(solver::iLQRSolver)
+function copy_trajectories!(solver::iLQRSolverOld)
     for k = 1:solver.N
         solver.Z[k].z = solver.Z̄[k].z
     end
@@ -228,7 +228,7 @@ end
 """
 Stash iteration statistics
 """
-function record_iteration!(solver::iLQRSolver, J, dJ)
+function record_iteration!(solver::iLQRSolverOld, J, dJ)
     gradient = mean(solver.grad)
     record_iteration!(solver.stats, cost=J, dJ=dJ, gradient=gradient)
     i = solver.stats.iterations::Int
@@ -251,7 +251,7 @@ end
 $(SIGNATURES)
     Calculate the problem gradient using heuristic from iLQG (Todorov) solver
 """
-function gradient_todorov!(solver::iLQRSolver)
+function gradient_todorov!(solver::iLQRSolverOld)
 	tmp = solver.S[end].r
     for k in eachindex(solver.d)
 		tmp .= abs.(solver.d[k])
@@ -266,7 +266,7 @@ end
 $(SIGNATURES)
 Check convergence conditions for iLQR
 """
-function evaluate_convergence(solver::iLQRSolver)
+function evaluate_convergence(solver::iLQRSolverOld)
     # Get current iterations
     i = solver.stats.iterations
     grad = solver.stats.gradient[i]
@@ -301,7 +301,7 @@ end
 $(SIGNATURES)
 Update the regularzation for the iLQR backward pass
 """
-function regularization_update!(solver::iLQRSolver,status::Symbol=:increase)
+function regularization_update!(solver::iLQRSolverOld,status::Symbol=:increase)
     # println("reg $(status)")
     if status == :increase # increase regularization
         # @logmsg InnerLoop "Regularization Increased"

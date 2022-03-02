@@ -25,8 +25,8 @@ if use_alobj
     s1 = Altro.get_ilqr(al1)
     s2 = Altro.get_ilqr(al2)
 else
-    s1 = Altro.iLQRSolver(prob, opts)
-    s2 = Altro.iLQRSolver2(copy(prob), copy(opts), use_static=Val(true))
+    s1 = Altro.iLQRSolverOld(prob, opts)
+    s2 = Altro.iLQRSolver(copy(prob), copy(opts), use_static=Val(true))
 end
 Altro.usestatic(s2)
 
@@ -175,8 +175,8 @@ prob,opts = Problems.Quadrotor()
 # prob,opts = Problems.DubinsCar(:parallel_park)
 # prob,opts = Problems.Cartpole()
 # prob,opts = Problems.YakProblems()
-s1 = Altro.iLQRSolver(prob, opts, verbose=0, show_summary=false)
-s2 = Altro.iLQRSolver2(copy(prob), copy(opts), show_summary=false, verbose=0, use_static=Val(true))
+s1 = Altro.iLQRSolverOld(prob, opts, verbose=0, show_summary=false)
+s2 = Altro.iLQRSolver(copy(prob), copy(opts), show_summary=false, verbose=0, use_static=Val(true))
 b1 = benchmark_solve!(s1)
 b2 = benchmark_solve!(s2)
 b2.allocs

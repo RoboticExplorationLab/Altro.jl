@@ -48,7 +48,7 @@ add_constraint!(cons, bnd, 1:N-1)
 prob, = Problems.Cartpole(N=N)
 
 ##--- Create an ALConstraintSet
-ilqr = Altro.iLQRSolver2(prob)
+ilqr = Altro.iLQRSolver(prob)
 conset = Altro.ALConstraintSet2{Float64}()
 Altro.initialize!(conset, cons, ilqr.Z, ilqr.opts, ilqr.obj.J, ilqr.Efull)
 Altro.reset!(conset)

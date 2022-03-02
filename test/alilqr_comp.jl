@@ -145,8 +145,8 @@ end
 prob, opts = Problems.Pendulum()
 prob, opts = Problems.DubinsCar(:turn90, N=11)
 
-s1 = Altro.iLQRSolver(prob, opts)
-s2 = Altro.iLQRSolver2(prob, opts)
+s1 = Altro.iLQRSolverOld(prob, opts)
+s2 = Altro.iLQRSolver(prob, opts)
 
 al1.opts.verbose = 0
 al2.opts.verbose = 0

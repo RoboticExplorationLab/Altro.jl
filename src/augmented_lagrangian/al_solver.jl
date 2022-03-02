@@ -37,7 +37,7 @@ function AugmentedLagrangianSolver(
         prob::Problem{T}, 
         opts::SolverOptions=SolverOptions(), 
         stats::SolverStats=SolverStats(parent=solvername(AugmentedLagrangianSolver));
-        solver_uncon=iLQRSolver,
+        solver_uncon=iLQRSolverOldOld,
         kwarg_opts...
     ) where {T}
     set_options!(opts; kwarg_opts...)

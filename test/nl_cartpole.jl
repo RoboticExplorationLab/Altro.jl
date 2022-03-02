@@ -46,7 +46,7 @@ xf = SA[0,pi,0,0]
 
 # Solve w/ iLQR
 prob = Problem(model, obj, x0, tf, xf=xf)
-ilqr = Altro.iLQRSolver2(prob, 
+ilqr = Altro.iLQRSolver(prob, 
     cost_tolerance=1e-3, gradient_tolerance=1e-2, use_static=Val(false))
 ilqr.opts.verbose = 2
 b = benchmark_solve!(ilqr)
