@@ -258,11 +258,11 @@ function Broadcast.materialize!(B::SparseBlockView, bc::Broadcast.Broadcasted{Sp
     f = bc.f
     if B.block.block.isdiag
         for i in eachindex(B)
-            B[i] = f(D.diag[i], D.diag[i])
+            B[i] = f(B[i], D.diag[i])
         end
     else
         for i = 1:minimum(size(B))
-            B[i,i] = f(D.diag[i], D.diag[i])
+            B[i,i] = f(B[i], D.diag[i])
         end
     end
 end
