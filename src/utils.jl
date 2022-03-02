@@ -20,26 +20,14 @@ function convertInf!(A::VecOrMat{Float64},infbnd=1.1e20)
     return nothing
 end
 
-# function set_logger()
-#     if !(global_logger() isa SolverLogger)
-#         global_logger(SolverLogging_v1.default_logger(true))
-#     end
-# end
-
 function benchmark_solve!(solver; samples=10, evals=10)
     Z0 = deepcopy(get_trajectory(solver))
-    # if is_constrained(solver)
-    #     λ0 = deepcopy(get_duals(solver))
-    # else
-    #     λ0 = nothing
-    # end
     v0 = solver.opts.verbose
     s0 = solver.opts.show_summary
     solver.opts.verbose = 0
     solver.opts.show_summary = false
     b = @benchmark begin
         TO.initial_trajectory!($solver,$Z0)
-        # set_duals!($solver, $λ0)
         solve!($solver)
     end samples=samples evals=evals
     solver.opts.verbose = v0 
@@ -106,9 +94,6 @@ function triukkt!(A::SparseMatrixCSC{Tv,Ti}, a::AbstractVector{Bool},
         nvals = A.colptr[j+1] - A.colptr[j]
         nnz_new += nvals * a[j]
     end
-    # nzval_new = unsafeview(nzval, 1, nnz_new)
-    # rowval_new = unsafeview(rowval, 1, nnz_new)
-    # colptr_new = unsafeview(colptr, 1, m_new + 1)
 
     colptr[1] = 1
     col = 1
@@ -139,5 +124,4 @@ function triukkt!(A::SparseMatrixCSC{Tv,Ti}, a::AbstractVector{Bool},
     m2 = col - 1 - n
     nnz_new += m2
     return nnz_new
-    # view(colptr,1:col), view(rowval,1:nnz_new), view(nzval,1:nnz_new)
 end

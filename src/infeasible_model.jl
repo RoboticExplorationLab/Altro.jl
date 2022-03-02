@@ -70,25 +70,10 @@ InfeasibleModel(model::AbstractModel)
 """
 InfeasibleModel
 
-# struct InfeasibleLie{N,M,D<:AbstractModel} <: RobotDynamics.LieGroupModel 
-#     model::D
-#     _u::SVector{M,Int}  # inds to original controls
-#     _ui::SVector{N,Int} # inds to infeasible controls
-# end
-
-# const InfeasibleModel{N,M,D} = Union{Infeasible{N,M,D},InfeasibleLie{N,M,D}} where {N,M,D}
-
 function InfeasibleModel(model::AbstractModel)
     n,m = RD.dims(model)
     InfeasibleModel{n,m}(model)
 end
-
-# function InfeasibleModel(model::RobotDynamics.LieGroupModel)
-#     n,m = size(model)
-#     _u  = SVector{m}(1:m)
-#     _ui = SVector{n}((1:n) .+ m)
-#     InfeasibleLie(model, _u, _ui)
-# end
 
 RD.statevectortype(::Type{<:InfeasibleModel{<:Any,<:Any,D}}) where D = RD.statevectortype(D)
 RD.LieState(model::InfeasibleModel) = RD.LieState(model.model)
@@ -98,9 +83,6 @@ RD.LieState(model::InfeasibleModel) = RD.LieState(model.model)
 @inline RD.state_dim(model::InfeasibleModel{n}) where n = n
 @inline RD.control_dim(model::InfeasibleModel{n,m}) where {n,m} = n+m
 @inline RD.errstate_dim(model::InfeasibleModel) = RD.errstate_dim(model.model)
-
-# RD.dynamics(::InfeasibleModel, x, u) =
-#     throw(ErrorException("Cannot evaluate continuous dynamics on an infeasible model"))
 
 function RD.discrete_dynamics(model::InfeasibleModel,
         x, u, t, dt)
@@ -117,41 +99,6 @@ function RD.discrete_dynamics!(model::InfeasibleModel{Nx,Nu}, xn,
     xn .+= ui
     return
 end
-
-# @generated function RobotDynamics.discrete_jacobian!(::Type{Q}, ∇f, model::InfeasibleModel{N,M},
-#         z::AbstractKnotPoint{T,N}, cache=nothing) where {T,N,M,Q<:Explicit}
-
-#     ∇ui = [(@SMatrix zeros(N,N+M)) Diagonal(@SVector ones(N)) @SVector zeros(N)]
-#     _x = SVector{N}(1:N)
-#     _u = SVector{M}((1:M) .+ N)
-#     _z = SVector{N+M}(1:N+M)
-#     _ui = SVector{N}((1:N) .+ (N+M))
-#     zi = [:(z.z[$i]) for i = 1:N+M]
-#     NM1 = N+M+1
-# 	NM = N+M
-#     ∇u0 = @SMatrix zeros(N,N)
-
-#     quote
-#         # Build KnotPoint for original model
-#         s0 = SVector{$NM1}($(zi...), z.dt)
-
-#         u0 = z.z[$_u]
-#         ui = z.z[$_ui]
-# 		z_ = StaticKnotPoint(z.z[$_z], $_x, $_u, z.dt, z.t)
-# 		∇f_ = uview(∇f, 1:N, 1:$NM)
-#         discrete_jacobian!($Q, ∇f_, model.model, z_)
-# 		# ∇f[$_x, N+NM] .= ∇f_[$_x, N+M] # ∇dt
-# 		∇f[$_x, $_ui] .= Diagonal(@SVector ones(N))
-# 		return
-# 		# ∇f[$_x,$_ui]
-#         # [∇f[$_x, $_z] $∇u0 ∇dt] + $∇ui
-#     end
-# end
-# function RD._discrete_jacobian!(::RD.ForwardAD, ::Type{Q}, ∇f, model::InfeasibleModel{N,M},
-#         z::AbstractKnotPoint{T,N}, cache=nothing) where {T,N,M,Q<:Explicit}
-#     RD.discrete_jacobian!(Q, ∇f, model, z, cache)
-# end
-
 
 @inline RD.state_diff(model::InfeasibleModel, x::SVector, x0::SVector) = 
     RD.state_diff(model.model, x, x0)

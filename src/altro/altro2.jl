@@ -52,7 +52,6 @@ function ALTROSolver(prob::Problem{T}, opts::SolverOptions=SolverOptions();
     stats = SolverStats{T}(parent=solvername(ALTROSolver))
     solver_al = ALSolver(prob, opts, stats)
     solver_pn = ProjectedNewtonSolver2(prob, opts, stats)
-    # link_constraints!(get_constraints(solver_pn), get_constraints(solver_al))
     S = typeof(solver_al.ilqr)
     solver = ALTROSolver{T,S,typeof(solver_pn)}(opts, stats, solver_al, solver_pn)
     reset!(solver)

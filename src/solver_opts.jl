@@ -3,7 +3,6 @@ export
 
 
 abstract type AbstractSolverOptions{T<:Real} end
-# abstract type DirectSolverOptions{T} <: AbstractSolverOptions{T} end
 
 """
     set_options!(opts::AbstractSolverOptions; kwargs...)

@@ -526,11 +526,6 @@ function alhess!(alcon::ALConstraint, i::Integer)
     # hess = ∇c'Iμ*(∇²proj(λs) + ∇proj'Iμ\∇proj)*Iμ*∇c
     matmul!(tmp, ∇²proj, ∇c)
     matmul!(hess, ∇c', tmp)
-    # hess .= ∇c'*(∇²proj)*∇c
-    # tmp_scaled = Iμ\tmp
-    # mul!(hess, tmp', tmp_scaled)
-    # mul!(tmp, ∇²proj, ∇c)
-    # mul!(alcon.hess[i], ∇c', tmp, 1.0, 1.0)
     return nothing
 end
 

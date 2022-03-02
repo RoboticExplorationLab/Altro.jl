@@ -21,9 +21,7 @@ include("../problems/parallel_park.jl")
 include("../problems/cartpole.jl")
 include("../problems/dubins_car.jl")
 include("../problems/bicycle.jl")
-# include("../problems/car_3obs.jl")
 include("../problems/quadrotor.jl")
-# include("../problems/quadrotor_maze.jl")
 include("../problems/airplane.jl")
 
 export

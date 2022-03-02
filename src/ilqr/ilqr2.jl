@@ -142,7 +142,8 @@ function_signature(obj) = usestatic(obj) ? RD.StaticReturn() : RD.InPlace()
 log_level(::iLQRSolver) = InnerLoop
 
 function reset!(solver::iLQRSolver)
-    reset_solver!(solver)
+    opts = options(solver)::SolverOptions
+    reset!(stats(solver), opts.iterations, solvername(solver))
     solver.reg.ρ = solver.opts.bp_reg_initial
     solver.reg.dρ = 0.0
     return solver 

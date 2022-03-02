@@ -156,15 +156,12 @@ function findmax_violation(conSet::ALConstraintSet{T}) where T
             j_con = i
         end
     end
-	# max_violation(conSet)
-	# c_max0, j_con = findmax(conSet.c_max) # which constraint
 	if c_max0 < eps()
 		return "No constraints violated"
 	end
 	conval = conSet[j_con]
 	k_con = argmax(conval.c_max) # which index
     i_con = searchsortedfirst(conval.inds, k_con)
-	# k_con = conval.inds[i_con] # time step
 	c_max, i_max = findmax(abs,conval.viol[i_con])  # index into constraint
 	@assert c_max == c_max0
 	con_name = string(typeof(conval.con).name.name)
