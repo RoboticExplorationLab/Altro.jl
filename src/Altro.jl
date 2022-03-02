@@ -84,8 +84,8 @@ else
     const matmul! = mul!
 end
 
-include("logging/SolverLogging.jl")
-using .SolverLogging_v1
+# include("logging/SolverLogging.jl")
+# using .SolverLogging_v1
 
 include("qdldl.jl")
 using .Cqdldl
