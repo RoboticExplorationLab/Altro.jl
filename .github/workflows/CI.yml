@@ -16,7 +16,7 @@ jobs:
         os:
           - ubuntu-latest
           - macOS-latest
-          - windows-latest
+          # - windows-latest
         arch:
           - x64
     steps:
@@ -25,6 +25,8 @@ jobs:
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
+      - name: Install Dependencies
+        run: julia --project=. -e 'using Pkg; pkg"""add TrajectoryOptimization#v0.7"""; Pkg.instantiate()'
       - uses: julia-actions/julia-runtest@latest
       - uses: julia-actions/julia-uploadcodecov@latest
         env:

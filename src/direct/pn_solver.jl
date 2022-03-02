@@ -253,7 +253,7 @@ function constraint_jacobians!(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=
     constraint_jacobians!(pn.conset, Z)
 end
 
-function TO.max_violation(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=pn.Z̄)
+function max_violation(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=pn.Z̄)
     evaluate_constraints!(pn, Z)
     update_active_set!(pn)
     max_violation(pn, nothing)
@@ -263,7 +263,7 @@ function norm_violation(pn::ProjectedNewtonSolver2, p=1)
     return norm(pn.d[pn.active], p)
 end
 
-function TO.max_violation(pn::ProjectedNewtonSolver2, Z::Nothing)
+function max_violation(pn::ProjectedNewtonSolver2, Z::Nothing)
     Np = num_primals(pn)
     c_max = zero(eltype(pn.d))
     for i in eachindex(pn.d)

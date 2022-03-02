@@ -77,7 +77,7 @@ function reset!(solver::ALSolver)
     reset!(conset)
 end
 
-function TO.max_violation(solver::ALSolver)
+function max_violation(solver::ALSolver)
     evaluate_constraints!(get_constraints(solver), get_trajectory(solver))
     max_violation(get_constraints(solver))
 end

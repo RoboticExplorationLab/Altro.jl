@@ -77,7 +77,7 @@ is_constrained(solver::ALTROSolver) = !isempty(get_constraints(solver.solver_al)
 solvername(::Type{<:ALTROSolver}) = :ALTRO
 
 # Methods
-function TO.max_violation(solver::ALTROSolver)
+function max_violation(solver::ALTROSolver)
     return max(max_violation(solver.solver_al), max_violation(solver.solver_pn))
 end
 
