@@ -35,7 +35,7 @@ add_constraint!(cons, con_so, inds_so)
 Z = SampledTrajectory{n,m}(randn(n,N), randn(m,N), dt=0.1)
 opts = SolverOptions()
 alcosts = zeros(N)
-conset = Altro.ALConstraintSet2{T}()
+conset = Altro.ALConstraintSet{T}()
 Altro.initialize!(conset, cons, Z, opts, alcosts)
 
 @test length(conset) == 3

@@ -37,7 +37,7 @@ function ALSolver(
     set_options!(opts; kwarg_opts...)
 
     # Build Augmented Lagrangian Objective
-    alobj = ALObjective2{T}(prob.obj)
+    alobj = ALObjective{T}(prob.obj)
     prob_al = Problem(prob.model, alobj, ConstraintList(dims(prob)...),
         prob.x0, prob.xf, prob.Z, prob.N, prob.t0, prob.tf)
 

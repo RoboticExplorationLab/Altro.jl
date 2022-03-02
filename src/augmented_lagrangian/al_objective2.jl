@@ -1,13 +1,13 @@
-struct ALObjective2{T,O<:AbstractObjective} <: TO.AbstractObjective
+struct ALObjective{T,O<:AbstractObjective} <: TO.AbstractObjective
     obj::O
-    conset::ALConstraintSet2{T}
+    conset::ALConstraintSet{T}
     alcost::Vector{T}
-    function ALObjective2{T}(obj::AbstractObjective) where T
-        new{T,typeof(obj)}(obj, ALConstraintSet2{T}(), zeros(T, length(obj)))
+    function ALObjective{T}(obj::AbstractObjective) where T
+        new{T,typeof(obj)}(obj, ALConstraintSet{T}(), zeros(T, length(obj)))
     end
 end
 
-function TO.cost(alobj::ALObjective2, Z::SampledTrajectory)
+function TO.cost(alobj::ALObjective, Z::SampledTrajectory)
     # Calculate unconstrained cost
     J = TO.cost(alobj.obj, Z)
 
@@ -23,7 +23,7 @@ function TO.cost(alobj::ALObjective2, Z::SampledTrajectory)
     return J
 end
 
-function cost_expansion!(alobj::ALObjective2, E::CostExpansion, Z)
+function cost_expansion!(alobj::ALObjective, E::CostExpansion, Z)
     # Calculate expansion of original cost
     cost_expansion!(alobj.obj, E, Z)
 

@@ -115,7 +115,7 @@ function record_iteration!(solver::iLQRSolver{<:Any,O}, J, dJ, grad) where O
     @log lg grad
     @log lg "dJ_zero" solver.stats.dJ_zero_counter
     @log lg "ρ" solver.reg.ρ
-    if O <: ALObjective2
+    if O <: ALObjective
         conset = solver.obj.conset
         @log lg "||v||" max_violation(conset)
     end

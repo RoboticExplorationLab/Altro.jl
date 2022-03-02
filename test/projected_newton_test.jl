@@ -148,7 +148,7 @@ con = prob.constraints[1]
 Altro.getinputinds(con, n, m)
 
 pnconset = Altro.PNConstraintSet(prob.constraints, Z, opts, A, b, a, blocks)
-alconset = Altro.ALConstraintSet2{Float64}()
+alconset = Altro.ALConstraintSet{Float64}()
 Altro.initialize!(alconset, prob.constraints, prob.Z, opts, zeros(N))
 @test length(pnconset) == length(alconset)
 

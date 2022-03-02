@@ -108,7 +108,7 @@ struct ALConstraint{T, C<:TO.StageConstraint, R<:SampledTrajectory}
     ∇proj::Vector{Matrix{T}}   # Jacobian of projection
     ∇proj_scaled::Vector{Matrix{T}}
     ∇²proj::Vector{Matrix{T}}  # Second-order derivative of projection
-    cost::Vector{T}            # (N,) vector of costs (aliased to the one in ALObjective2)
+    cost::Vector{T}            # (N,) vector of costs (aliased to the one in ALObjective)
     grad::Vector{Vector{T}}    # gradient of Augmented Lagrangian
     hess::Vector{Matrix{T}}    # Hessian of Augmented Lagrangian
     tmp_jac::Matrix{T}
@@ -260,7 +260,7 @@ function alcost(alcon::ALConstraint{T}) where T
             # Special-case on the cone
             J = alcost(cone, alcon, i)
         end
-        # Add to the vector of AL penalty costs stored in the ALObjective2
+        # Add to the vector of AL penalty costs stored in the ALObjective
         # Hack to avoid allocation
         alcon.cost[k] += J
     end
