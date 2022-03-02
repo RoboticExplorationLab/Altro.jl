@@ -115,6 +115,8 @@ end
 
 
 # Performance comp
+run_benchmarks = false
+if run_benchmarks
 using BenchmarkTools
 A = spzeros(100,100)
 blocks = [(2:30,1:20), (3:40,80:100), (50:70,20:20), (20:50,70:90)]
@@ -159,5 +161,4 @@ v = A[ind]
 @btime $v .+= $D
 @btime $A[50:100,50:100] .+= $D
 @btime view($A,50:100,50:100) .+= $D
-
-
+end

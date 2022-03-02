@@ -5,14 +5,110 @@ using Test
 using BenchmarkTools
 using SparseArrays
 using LinearAlgebra
-using RobotDynamics: KnotPoint, Traj
+using RobotDynamics: KnotPoint, SampledTrajectory 
 using SparseArrays
+using Altro.Cqdldl
 const TO = TrajectoryOptimization
 const RD = RobotDynamics
 
 # Generate problem
 N = 11
 prob, opts = Problems.DubinsCar(:parallel_park, N=N)
+
+opts.constraint_tolerance = opts.projected_newton_tolerance
+al = Altro.ALSolver(prob, opts, show_summary=false)
+solve!(al)
+@test iterations(al) == 16
+
+Zsol = get_trajectory(al)
+max_violation(al)
+
+pn = Altro.ProjectedNewtonSolver2(prob, opts)
+copyto!(pn.Z, Zsol)
+pn.Z[end].dt = Inf
+copyto!(pn.Z̄data, pn.Zdata)
+@test max_violation(pn) ≈ max_violation(al)
+
+# Check trajectories
+@test pn.Z ≈ Zsol
+@test pn.Z̄ ≈ Zsol
+
+# Check sizes
+n,m,N = RD.dims(prob)
+Np = Altro.num_primals(pn)
+@test Np == N*(n+m)
+
+@test size(pn.hess[end]) == (n+m, n+m)
+@test size(pn.grad[end]) == (n+m,)
+
+# Check Hessian and regularization
+Altro.cost_hessian!(pn)
+iz = pn.iz
+@test pn.Atop[iz[end], iz[end]] ≈ cat(prob.obj[end].Q, prob.obj[end].R, dims=(1,2))
+Altro.primalregularization!(pn)
+ρ_primal = opts.ρ_primal
+@test pn.Atop[iz[end], iz[end]] ≈ 
+    cat(prob.obj[end].Q, prob.obj[end].R, dims=(1,2)) + I * ρ_primal
+
+# Compute the factorization
+Altro.evaluate_constraints!(pn)
+Altro.constraint_jacobians!(pn)
+Altro.update_active_set!(pn)
+
+A = Altro.getKKTMatrix(pn)
+resize!(pn.qdldl, size(A,1))
+Cqdldl.eliminationtree!(pn.qdldl, A)
+Cqdldl.factor!(pn.qdldl)
+F = Cqdldl.QDLDLFactorization(pn.qdldl)
+
+# Try a step
+b = Altro.update_b!(pn)
+Np = Altro.num_primals(pn)
+@test b[1:Np] ≈ zeros(Np)
+@test b[Np+1:end] ≈ -pn.d[pn.active[Np+1:end]]
+dY = F \ b
+pn.Z̄data .= pn.Zdata .+ dY[1:Np]
+Altro.evaluate_constraints!(pn)
+viol = max_violation(pn, nothing)
+@test viol < max_violation(al)
+pn.Zdata .= pn.Z̄data  # accept the step
+
+# Take a second step
+b = Altro.update_b!(pn)
+dY2 = F \ b
+pn.Z̄data .= pn.Zdata .+ dY2[1:Np]
+Altro.evaluate_constraints!(pn)
+viol2 = max_violation(pn, nothing)
+@test viol2 < viol
+
+## Solve the entire thing
+N = 11
+prob, opts = Problems.DubinsCar(:parallel_park, N=N)
+
+opts.constraint_tolerance = opts.projected_newton_tolerance
+al = Altro.ALSolver(prob, opts, show_summary=false)
+solve!(al)
+
+Zsol = get_trajectory(al)
+pn = Altro.ProjectedNewtonSolver2(prob, opts)
+copyto!(pn.Z, Zsol)
+pn.Z[end].dt = Inf
+Z0data = copy(pn.Zdata)
+
+opts.constraint_tolerance = 1e-10
+viol = solve!(pn)
+@test viol < 1e-10
+
+# Test allocations
+bpn = @benchmark let pn = $pn
+    copyto!(pn.Zdata, $Z0data)
+    solve!(pn)
+end samples=1 evals=1
+@test bpn.allocs == 0
+
+#################################
+## Basic tests
+#################################
 
 # Create a trajectory with views into a single array
 n,m,N = RD.dims(prob)
@@ -87,6 +183,7 @@ pnconset = pn.conset
 
 # Cost expansion 
 copyto!(pn.Z, ilqr.Z)
+copyto!(pn.Z̄data, pn.Zdata)
 Altro.cost_gradient!(pn)
 Altro.cost_hessian!(pn)
 Altro.cost_expansion!(ilqr.obj.obj, ilqr.Efull, ilqr.Z)
@@ -94,8 +191,6 @@ for k = 1:N
     @test ilqr.Efull[k].hess ≈ pn.hess[k]
     @test ilqr.Efull[k].grad ≈ pn.grad[k]
 end
-
-@test nnz(pn.A) == Np
 
 # Dynamics Jacobian 
 Altro.constraint_jacobians!(pn)
@@ -118,39 +213,3 @@ let pn = pn
     Altro.cost_hessian!(pn)
     Altro.update_active_set!(pn)
 end
-
-D,d = Altro.active_constraints(pn)
-@test length(d) < length(pn.d)
-
-# Prepare for line search
-ρ_primal = pn.opts.ρ_primal
-ρ_chol = pn.opts.ρ_chol
-HinvD = Diagonal(pn.H + I*ρ_primal) \ D'
-S = Symmetric(D*HinvD)
-Sreg = cholesky(S + ρ_chol*I, check=false)
-@test issuccess(Sreg)
-@test norm(d, Inf) > 1e-6
-
-# line search
-δλ = Altro.reg_solve(S, d, Sreg, 1e-8, 25)
-δZ = -HinvD*δλ
-pn.Z̄data .= pn.Zdata + 1.0 * δZ
-
-Altro.evaluate_constraints!(pn, pn.Z̄)
-@test Altro.max_violation(pn, nothing) < 1e-6
-
-# Try entire pn solve
-prob, opts = Problems.DubinsCar(:parallel_park, N=11)
-
-solver = Altro.ALTROSolver2(prob, copy(opts))
-solver.opts.projected_newton = false
-solver.opts.constraint_tolerance = 1e-3
-solve!(solver.solver_al)
-viol = max_violation(solver) 
-@test viol > 1e-6
-
-solver.opts.constraint_tolerance = 1e-8
-copyto!(get_trajectory(solver.solver_pn), get_trajectory(solver.solver_al))
-@test max_violation(solver.solver_pn) ≈ viol
-solve!(solver.solver_pn)
-@test max_violation(solver.solver_pn) < 1e-8
