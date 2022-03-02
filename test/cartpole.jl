@@ -274,10 +274,10 @@ cost0 = cost(solver.solver_al)
 cost_final = cost(pn)
 @test (cost_final - cost0) / cost0 * 100 < 0.1
 Zpn = copy(pn.Z̄data)
-@test dY2 ≈ res_pn["dY2"] atol=1e-6
-@test viol2 ≈ res_pn["viol2"]
-@test cost_final ≈ res_pn["cost_final"]
-@test Zpn ≈ res_pn["Zpn"]
+@test dY2 ≈ res_pn["dY2"] rtol=1e-6
+@test viol2 ≈ res_pn["viol2"] rtol=1e-8
+@test cost_final ≈ res_pn["cost_final"] rtol=1e-6
+@test Zpn ≈ res_pn["Zpn"] rtol=1e-6
 
 if save_results
     @save resfile_pn viol0 viol1 viol2 dY1 dY2 Zpn cost_final A
