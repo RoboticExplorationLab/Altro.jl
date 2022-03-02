@@ -2,7 +2,7 @@
 ##
 res = load(joinpath(@__DIR__, "escape_solve.jld2"))
 prob,opts = Problems.DubinsCar(:escape)
-solver = ALTROSolver2(prob, opts, infeasible=true, R_inf=0.1)
+solver = ALTROSolver(prob, opts, infeasible=true, R_inf=0.1)
 
 ##
 ilqr = Altro.get_ilqr(solver)

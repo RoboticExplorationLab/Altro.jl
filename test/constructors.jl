@@ -1,12 +1,12 @@
 @testset "Constructors" begin
 prob, opts = Problems.DoubleIntegrator()
 
-solver = ALTROSolver2(prob)
-solver = ALTROSolver2(prob, opts)
+solver = ALTROSolver(prob)
+solver = ALTROSolver(prob, opts)
 @test solver.opts === solver.solver_al.opts === solver.solver_al.ilqr.opts
 
 # Pass in option arguments
-solver = ALTROSolver2(prob, opts, verbose=2, cost_tolerance=1)
+solver = ALTROSolver(prob, opts, verbose=2, cost_tolerance=1)
 @test solver.opts.verbose == 2
 @test solver.opts.cost_tolerance == 1
 @test solver.stats.parent == Altro.solvername(solver)
@@ -29,7 +29,7 @@ ilqr = Altro.iLQRSolver(prob, opts, something_wrong=false)
 # Solve an unconstrained problem
 ilqr = Altro.iLQRSolver(Problems.Cartpole(constrained=false)..., verbose=2)
 b0 = benchmark_solve!(ilqr)
-solver = ALTROSolver2(Problems.Cartpole(constrained=false)..., verbose=2, projected_newton=false)
+solver = ALTROSolver(Problems.Cartpole(constrained=false)..., verbose=2, projected_newton=false)
 b1 = benchmark_solve!(solver)
 @test iterations(solver) == iterations(ilqr)
 @test cost(solver) ≈ cost(ilqr)

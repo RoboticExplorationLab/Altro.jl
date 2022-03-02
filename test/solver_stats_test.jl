@@ -48,7 +48,7 @@ Altro.trim!(stats)
     c_max=2, gradient=1e-1, is_pn=true) samples=10 evals=10) == 0
 
 
-solver = ALTROSolver2(Problems.DoubleIntegrator()...)
+solver = ALTROSolver(Problems.DoubleIntegrator()...)
 set_options!(solver, verbose=0, projected_newton=true, show_summary=false)
 # solver.opts.verbose = 2
 Z0 = copy(get_trajectory(solver))

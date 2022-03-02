@@ -453,7 +453,7 @@ prob, opts = Problems.DubinsCar(:parallel_park, N=11)
 # s2 = Altro.ALSolver(prob, copy(opts))
 
 s1 = Altro.ALTROSolver(prob, copy(opts))
-s2 = Altro.ALTROSolver2(prob, copy(opts))
+s2 = Altro.ALTROSolver(prob, copy(opts))
 
 # s1.opts.projected_newton = false
 # s2.opts.projected_newton = false

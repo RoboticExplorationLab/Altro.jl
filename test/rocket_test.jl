@@ -21,7 +21,7 @@ add_constraint!(cons, GoalConstraint(xf), N)
 add_constraint!(cons, connorm, 1:N-1)
 
 prob = Problem(model, obj, x0, tf, xf=xf, constraints=cons)
-solver = ALTROSolver2(prob, projected_newton=false, show_summary=false) 
+solver = ALTROSolver(prob, projected_newton=false, show_summary=false) 
 solve!(solver)
 @test iterations(solver) == 13 # 12
 

@@ -1,5 +1,5 @@
 
-function solve!(solver::ALTROSolver2)
+function solve!(solver::ALTROSolver)
     reset!(solver)
     conSet = get_constraints(solver)
 

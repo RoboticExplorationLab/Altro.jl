@@ -26,14 +26,14 @@ as additional keyword arguments and will be set in the solver.
 * `Base.size`: returns `(n,m,N)`
 * `TO.is_constrained`
 """
-struct ALTROSolver2{T,S,P} <: ConstrainedSolver{T}
+struct ALTROSolver{T,S,P} <: ConstrainedSolver{T}
     opts::SolverOptions{T}
     stats::SolverStats{T}
     solver_al::ALSolver{T,S}
     solver_pn::P
 end
 
-function ALTROSolver2(prob::Problem{T}, opts::SolverOptions=SolverOptions();
+function ALTROSolver(prob::Problem{T}, opts::SolverOptions=SolverOptions();
         infeasible::Bool=false,
         R_inf::Real=1.0,
         kwarg_opts...
@@ -49,12 +49,12 @@ function ALTROSolver2(prob::Problem{T}, opts::SolverOptions=SolverOptions();
         # con_inf.params.ϕ = opts.penalty_scaling_infeasible
     end
     set_options!(opts; kwarg_opts...)
-    stats = SolverStats{T}(parent=solvername(ALTROSolver2))
+    stats = SolverStats{T}(parent=solvername(ALTROSolver))
     solver_al = ALSolver(prob, opts, stats)
     solver_pn = ProjectedNewtonSolver2(prob, opts, stats)
     # link_constraints!(get_constraints(solver_pn), get_constraints(solver_al))
     S = typeof(solver_al.ilqr)
-    solver = ALTROSolver2{T,S,typeof(solver_pn)}(opts, stats, solver_al, solver_pn)
+    solver = ALTROSolver{T,S,typeof(solver_pn)}(opts, stats, solver_al, solver_pn)
     reset!(solver)
     # set_options!(solver; opts...)
     solver
@@ -62,25 +62,25 @@ end
 
 
 # Getters
-get_ilqr(solver::ALTROSolver2) = get_ilqr(solver.solver_al)
+get_ilqr(solver::ALTROSolver) = get_ilqr(solver.solver_al)
 for method in (:(RD.dims), :(RD.state_dim), :(RD.errstate_dim), :(RD.control_dim), 
               :(TO.get_trajectory), :(TO.get_objective), :(TO.get_model), 
               :(TO.get_initial_state), :getlogger)
-    @eval $method(solver::ALTROSolver2) = $method(get_ilqr(solver))
+    @eval $method(solver::ALTROSolver) = $method(get_ilqr(solver))
 end
-TO.get_constraints(solver::ALTROSolver2) = get_constraints(solver.solver_al)
-stats(solver::ALTROSolver2) = solver.stats
-options(solver::ALTROSolver2) = solver.opts
+TO.get_constraints(solver::ALTROSolver) = get_constraints(solver.solver_al)
+stats(solver::ALTROSolver) = solver.stats
+options(solver::ALTROSolver) = solver.opts
 
-is_constrained(solver::ALTROSolver2) = !isempty(get_constraints(solver.solver_al))
-solvername(::Type{<:ALTROSolver2}) = :ALTRO
+is_constrained(solver::ALTROSolver) = !isempty(get_constraints(solver.solver_al))
+solvername(::Type{<:ALTROSolver}) = :ALTRO
 
 # Methods
-function TO.max_violation(solver::ALTROSolver2)
+function TO.max_violation(solver::ALTROSolver)
     return max(max_violation(solver.solver_al), max_violation(solver.solver_pn))
 end
 
-function reset!(solver::ALTROSolver2)
+function reset!(solver::ALTROSolver)
     # reset_solver!(solver)
     opts = options(solver)::SolverOptions
     reset!(stats(solver), opts.iterations, solvername(solver))

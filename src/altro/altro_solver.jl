@@ -28,7 +28,7 @@ as additional keyword arguments and will be set in the solver.
 * `TO.integration`
 * `TO.is_constrained`
 """
-struct ALTROSolver{T,S} <: ConstrainedSolver{T}
+struct ALTROSolverOld{T,S} <: ConstrainedSolver{T}
     opts::SolverOptions{T}
     stats::SolverStats{T}
     solver_al::AugmentedLagrangianSolver{T,S}
@@ -60,7 +60,7 @@ function ALTROSolver(prob::Problem{T}, opts::SolverOptions=SolverOptions();
     solver_pn = ProjectedNewtonSolver(prob, opts, stats)
     link_constraints!(get_constraints(solver_pn), get_constraints(solver_al))
     S = typeof(solver_al.solver_uncon)
-    solver = ALTROSolver{T,S}(opts, stats, solver_al, solver_pn)
+    solver = ALTROSolverOld{T,S}(opts, stats, solver_al, solver_pn)
     reset!(solver)
     # set_options!(solver; opts...)
     solver
@@ -72,7 +72,7 @@ end
 @inline TO.get_objective(solver::ALTROSolver) = get_objective(solver.solver_al)
 @inline TO.get_model(solver::ALTROSolver) = get_model(solver.solver_al)
 @inline get_initial_state(solver::ALTROSolver) = get_initial_state(solver.solver_al)
-solvername(::Type{<:ALTROSolver}) = :ALTRO
+solvername(::Type{<:ALTROSolverOld}) = :ALTRO
 is_constrained(solver::ALTROSolver) = !isempty(get_constraints(solver.solver_al))
 @inline get_ilqr(solver::ALTROSolver) = solver.solver_al.solver_uncon
 

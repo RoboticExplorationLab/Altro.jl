@@ -22,7 +22,7 @@ U = [[u] for u in U]
 initial_controls!(prob, U)
 rollout!(prob)
 
-solver2 = Altro.ALTROSolver2(prob, opts, save_S=true)
+solver2 = Altro.ALTROSolver(prob, opts, save_S=true)
 n,m,N = RD.dims(solver2)
 ilqr = Altro.get_ilqr(solver2)
 Altro.initialize!(ilqr)
@@ -220,7 +220,7 @@ end
 ## Projected Newton
 resfile_pn = joinpath(@__DIR__, "cartpole_pn.jld2")
 res_pn = load(resfile_pn)
-solver = Altro.ALTROSolver2(Problems.Cartpole()..., verbose=0)
+solver = Altro.ALTROSolver(Problems.Cartpole()..., verbose=0)
 solver.opts.constraint_tolerance = solver.opts.projected_newton_tolerance
 solve!(solver.solver_al)
 @test iterations(solver) == 39

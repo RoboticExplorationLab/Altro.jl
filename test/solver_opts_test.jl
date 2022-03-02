@@ -18,7 +18,7 @@ Altro.set_options!(solver, verbose=0)
 @test solver.ilqr.opts.verbose == false 
 
 # Test ALTRO solver options
-solver = ALTROSolver2(prob, cost_tolerance=1e-1, square_root=true, 
+solver = ALTROSolver(prob, cost_tolerance=1e-1, square_root=true, 
     iterations=210, iterations_outer=60, ρ_chol=1e-1, constraint_tolerance=1e-2)
 @test solver.opts.cost_tolerance == 1e-1
 @test solver.solver_al.opts.cost_tolerance == 1e-1
