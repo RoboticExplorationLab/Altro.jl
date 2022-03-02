@@ -45,7 +45,7 @@ const RD = RobotDynamics
         @test_throws UndefRefError S.u
         @test eltype(S.data) == T
 
-        Z = RD.Traj(map(1:N) do k
+        Z = SampledTrajectory(map(1:N) do k
             x,u = rand(model)
             RD.KnotPoint{n,m}(Vector(x),Vector(u),(k-1)*dt,dt)
         end)
@@ -76,7 +76,7 @@ const RD = RobotDynamics
         Altro.errstate_jacobians!(dmodel,G,Z)
         for k = 1:N-1
             Gk = zeros(T,n,e)
-            RD.state_diff_jacobian!(RD.RotationState(), model, Gk, Z[k])
+            RD.errstate_jacobian!(RD.RotationState(), model, Gk, Z[k])
             G[k] ≈ Gk
         end
 
