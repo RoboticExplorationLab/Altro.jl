@@ -95,16 +95,16 @@ include("solver_opts.jl")
 # iLQR Solver
 include("ilqr/cost_expansion.jl")
 include("ilqr/dynamics_expansion.jl")
-include("ilqr/ilqr2.jl")
-include("ilqr/backwardpass2.jl")
+include("ilqr/ilqr_solver.jl")
+include("ilqr/backwardpass.jl")
 include("ilqr/forwardpass.jl")
-include("ilqr/ilqr_solve2.jl")
+include("ilqr/ilqr_solve.jl")
 
 # Augmented Lagrangian Solver
 include("augmented_lagrangian/alcon.jl")
 include("augmented_lagrangian/alconset.jl")
-include("augmented_lagrangian/al_objective2.jl")
-include("augmented_lagrangian/alilqr.jl")
+include("augmented_lagrangian/al_objective.jl")
+include("augmented_lagrangian/al_solver.jl")
 include("augmented_lagrangian/al_solve.jl")
 include("direct/sparseblocks.jl")
 
@@ -115,7 +115,7 @@ include("direct/pn_solver.jl")
 include("direct/pn_solve.jl")
 
 # ALTRO Solver
-include("altro/altro2.jl")
+include("altro/altro_solver.jl")
 include("altro/altro_solve.jl")
 
 # Example problems submodule
