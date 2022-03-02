@@ -1,3 +1,11 @@
+# `v0.5comp` Branch
+This branch has both the old version of Altro from `v0.4` which uses StaticArrays and is 
+very fast for small dimensions but has problems scaling up to larger dimensions,
+and the new versions of the Altro solvers from `v0.5`, which uses normal Julia dynamics 
+arrays, the new RobotDynamics `v0.4` API, and Octavian for performance on in-place matrix 
+operations. The new solvers and methods generally have a `2` suffix, e.g. `iLQRSolver2`.
+This branch should stay around for a while for the sake of comparison.
+
 # New in `v0.2`
 
 ## Flattened API
