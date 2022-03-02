@@ -234,6 +234,16 @@ z = rand.(length.(di_soc(x0)))
 z .*= 100
 λbar = z .- μ .* di_soc(x0)
 statuses = [TO.cone_status(TO.SecondOrderCone(), λ) for λ in λbar]
+for i = 1:20
+    if :outside in statuses && :in in statuses
+        break
+    else
+        z .= rand.(length.(di_soc(x0)))
+        z .*= 100
+        λbar .= z .- μ .* di_soc(x0)
+        statuses .= [TO.cone_status(TO.SecondOrderCone(), λ) for λ in λbar]
+    end
+end
 @test :outside ∈ statuses
 @test :in ∈ statuses
 for i = 1:N-1
