@@ -7,7 +7,7 @@ end
 function projection_solve!(pn::ProjectedNewtonSolver2)
     ϵ_feas = pn.opts.constraint_tolerance
     evaluate_constraints!(pn)
-    viol = TO.max_violation(pn, nothing)
+    viol = max_violation(pn, nothing)
     max_projection_iters = pn.opts.n_steps
     count = 0
     J_prev = cost(pn, pn.Z̄)

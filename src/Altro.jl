@@ -24,7 +24,7 @@ using TrajectoryOptimization:
     num_constraints, get_trajectory
 
 import TrajectoryOptimization: rollout!, get_constraints, get_model, get_objective, 
-    max_violation, evaluate_constraints!, constraint_jacobians!
+    evaluate_constraints!, constraint_jacobians!
 import RobotDynamics: discrete_dynamics, dynamics, dynamics!, evaluate, evaluate!
 
 using TrajectoryOptimization:
@@ -34,7 +34,7 @@ using TrajectoryOptimization:
     # SampledTrajectory,
     # DynamicsExpansion, # TODO: Move to ALTRO
     # ALConstraintSet,
-    DynamicsConstraint,
+    # DynamicsConstraint,
     states, controls,
     Equality, Inequality, SecondOrderCone,
     cost

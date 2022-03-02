@@ -185,5 +185,5 @@ end
 # Constrained solver
 TO.num_constraints(solver::AbstractSolver) = num_constraints(get_constraints(solver))
 
-@inline TO.findmax_violation(solver::ConstrainedSolver) =
-    TO.findmax_violation(get_constraints(solver))
+# @inline TO.findmax_violation(solver::ConstrainedSolver) =
+#     TO.findmax_violation(get_constraints(solver))

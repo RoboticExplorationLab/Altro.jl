@@ -33,7 +33,7 @@ function solve!(solver::ALTROSolver)
         if i > 1
             c_max = solver.solver_al.stats.c_max[i]
         else
-            c_max = TO.max_violation(solver.solver_al)
+            c_max = max_violation(solver.solver_al)
         end
 
         opts.constraint_tolerance = ϵ_con
@@ -51,7 +51,7 @@ function solve!(solver::ALTROSolver)
         # Back-up check
         if status(solver) <= SOLVE_SUCCEEDED 
             # TODO: improve this check
-            if TO.max_violation(solver.solver_al) < solver.opts.constraint_tolerance
+            if max_violation(solver.solver_al) < solver.opts.constraint_tolerance
                 solver.stats.status = SOLVE_SUCCEEDED
             end
         end
