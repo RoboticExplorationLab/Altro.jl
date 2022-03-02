@@ -55,6 +55,7 @@ struct ProjectedNewtonSolver2{L<:DiscreteDynamics,O<:AbstractObjective,Nx,Nu,T} 
     f::Vector{Vector{T}}           # dynamics values 
     e::Vector{VectorView{T,Int}}   # dynamics residuals
     Iinit::Diagonal{T,Vector{T}}
+    Ireg::Diagonal{T,Vector{T}}    # primal regularization
 
     # Indices
     ix::Vector{UnitRange{Int}}
@@ -71,18 +72,22 @@ function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOpti
                                 stats::SolverStats=SolverStats(parent=solvername(ProjectedNewtonSolver2)); kwargs...) where T
     n,m,N = RD.dims(prob)
     Nc = sum(num_constraints(prob.constraints))  # stage constraints
-    Np = N*n + (N-1)*m  # number of primals
+    Np = N*n + (N)*m  # number of primals
     Nd = N*n + Nc       # number of duals (no constraints)
 
     set_options!(opts; kwargs...)
+    if stats.parent == solvername(ProjectedNewtonSolver2) 
+        reset!(stats, opts.iterations)
+    end
 
     ix = [(1:n) .+ (k-1)*(n+m) for k = 1:N]
     iu = [n .+ (1:m) .+ (k-1)*(n+m) for k = 1:N-1]
-    iz = [(1:n + (k == N ? 0 : m)) .+ (k-1)*(n+m) for k = 1:N]
+    # iz = [(1:n + (k == N ? 0 : m)) .+ (k-1)*(n+m) for k = 1:N]
+    iz = [(1:n + m) .+ (k-1)*(n+m) for k = 1:N]
 
     _data = zeros(2Np + Nd + 2m)  # leave extra room for terminal control
     Zdata = view(_data, 1:Np)
-    Z̄data = view(_data, Np + m .+ (1:Np)) 
+    Z̄data = view(_data, Np .+ (1:Np)) 
     Ydata = view(_data, 2Np + 2m .+ (1:Nd)) 
     Atop = spzeros(T, Np, Np + Nd)
     d = zeros(T, Nd)
@@ -95,14 +100,14 @@ function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOpti
     Ireg = Diagonal(fill(-one(T), Nd))
 
     Z = SampledTrajectory([KnotPoint{n,m}(view(_data, iz[k]), prob.Z[k].t, prob.Z[k].dt) for k = 1:N])
-    Z[end].dt = 0
-    Z̄ = SampledTrajectory([KnotPoint{n,m}(view(_data, Np + m .+ iz[k]), prob.Z[k].t, prob.Z[k].dt) for k = 1:N])
-    Z̄[end].dt = 0
+    Z[end].dt = Inf 
+    Z̄ = SampledTrajectory([KnotPoint{n,m}(view(_data, Np .+ iz[k]), prob.Z[k].t, prob.Z[k].dt) for k = 1:N])
+    Z̄[end].dt = Inf 
     dY = zeros(T, Np + Nd)
 
     # Create sparse blocks and initialize cost Hessian sparsity
     blocks = SparseBlocks(Np, Np + Nd)
-    isdiag = TO.is_diag(prob.obj[1])
+    isdiag = prob.obj[1] isa TO.QuadraticCostFunction ? TO.is_diag(prob.obj[1]) : false
     for i in iz
         addblock!(blocks, i, i, isdiag)
     end
@@ -151,12 +156,13 @@ function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOpti
     end
 
     Iinit = -Diagonal(ones(n))
+    Ireg = Diagonal(ones(n+m))
     qdldl = QDLDLSolver{T}(Np + Nd, nnz_A, 2*nnz_A)
 
     ProjectedNewtonSolver2(prob.model, prob.obj, Vector(prob.x0), conset, opts, stats, 
         _data, Zdata, Z̄data, dY, Ydata, Atop, colptr, rowval, nzval, d, b, active,
-        Z, Z̄, hess, hessdiag, grad, ∇f, f, e, Iinit, ix, iu, iz, blocks, hessblocks, ∇fblocks,
-        qdldl,
+        Z, Z̄, hess, hessdiag, grad, ∇f, f, e, Iinit, Ireg, ix, iu, iz, blocks, hessblocks, 
+        ∇fblocks, qdldl,
     )
 
     # ProjectedNewtonSolver2(prob.model, prob.obj, Vector(prob.x0), conset, opts, stats, 
@@ -178,6 +184,15 @@ solvername(::Type{<:ProjectedNewtonSolver2}) = :ProjectedNewton
 num_primals(pn::ProjectedNewtonSolver2) = length(pn.Zdata)
 num_duals(pn::ProjectedNewtonSolver2) = length(pn.Ydata)
 TO.get_constraints(pn::ProjectedNewtonSolver2) = pn.conset
+
+function primalregularization!(pn::ProjectedNewtonSolver2)
+    ρ_primal = pn.opts.ρ_primal
+    Ireg = pn.Ireg
+    Ireg.diag .= ρ_primal
+    for block in pn.hessblocks 
+        pn.Atop[block] .+= Ireg
+    end
+end
 
 function cost_hessian!(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=pn.Z)
     obj = pn.obj
