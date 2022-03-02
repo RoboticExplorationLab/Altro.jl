@@ -6,7 +6,7 @@ function DoubleIntegrator(;N=21)
     )
 
     model = RobotZoo.DoubleIntegrator()
-    n,m = size(model)
+    n,m = RD.dims(model)
 
     # Task
     x0 = @SVector [0., 0.]

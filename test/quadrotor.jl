@@ -23,7 +23,7 @@ U = controls(ilqr)
 @test U ≈ res["U"] atol=1e-6
 
 # State diff Jacobian
-TO.state_diff_jacobian!(ilqr.model, ilqr.G, ilqr.Z)
+Altro.errstate_jacobians!(ilqr.model, ilqr.G, ilqr.Z)
 G = ilqr.G
 @test G[1] != zeros(n,n)
 @test G[N] != zeros(n,n)

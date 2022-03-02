@@ -95,7 +95,7 @@ FullStateExpansion(E::CostExpansion2, model::DiscreteDynamics) =
 
 function FullStateExpansion(::RD.EuclideanState, E::CostExpansion2, model::DiscreteDynamics)
     # Create a CostExpansion linked to error cost expansion
-    @assert RobotDynamics.errstate_dim(model) == size(model)[1]
+    @assert RobotDynamics.errstate_dim(model) == state_dim(model) 
     return E 
 end
 
@@ -151,7 +151,7 @@ function _error_expansion!(model::DiscreteDynamics, E, cost, G, tmp, z)
     E.xx .= 0
     E.uu .= cost.uu
     E.u .= cost.u
-    RD.∇²differential!(model, E.xx, state(z), cost.x)
+    RD.∇errstate_jacobian!(model, E.xx, state(z), cost.x)
     matmul!(E.ux, cost.ux, G)
     matmul!(E.x, G', cost.x)
     matmul!(tmp, cost.xx, G)

@@ -77,7 +77,7 @@ solvername(::Type{<:ALTROSolver2}) = :ALTRO
 
 # Methods
 function TO.max_violation(solver::ALTROSolver2)
-    return max_violation(solver.solver_al)
+    return max(max_violation(solver.solver_al), max_violation(solver.solver_pn))
 end
 
 function reset!(solver::ALTROSolver2)

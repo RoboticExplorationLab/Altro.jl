@@ -183,7 +183,7 @@ z0 = deepcopy(z)
 
 X0 = [x0[xi] for xi in xinds]
 U0 = [x0[ui] for ui in uinds]
-Z0 = Traj(X0,U0,fill(dt,N))
+Z0 = SampledTrajectory(X0,U0, dt=dt)
 initial_trajectory!(solver, Z0)
 
 ## Test objective and soc constraints

@@ -32,7 +32,7 @@ add_constraint!(cons, con_eq, inds_eq)
 add_constraint!(cons, con_in, inds_in, sig=RD.InPlace())
 add_constraint!(cons, con_so, inds_so)
 
-Z = Traj(randn(n,N), randn(m,N), dt=0.1)
+Z = SampledTrajectory{n,m}(randn(n,N), randn(m,N), dt=0.1)
 opts = SolverOptions()
 alcosts = zeros(N)
 conset = Altro.ALConstraintSet2{T}()
@@ -51,7 +51,7 @@ Altro.initialize!(conset, cons, Z, opts, alcosts)
 # Generate a random trajectory
 X = [randn(T,n) for k = 1:N]
 U = [randn(T,m) for k = 1:N-1]
-Z = Traj(X, U, tf=2.0)
+Z = SampledTrajectory{n,m}(X, U, tf=2.0)
 
 # Methods
 Altro.evaluate_constraints!(conset, Z)

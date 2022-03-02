@@ -23,7 +23,7 @@ function Base.copy(obj::ALObjective)
     ALObjective(obj.obj, ConstraintSet(copy(obj.constraints.constraints), length(obj.obj)))
 end
 
-function TO.cost!(obj::ALObjective, Z::AbstractTrajectory)
+function TO.cost!(obj::ALObjective, Z::SampledTrajectory)
     # Calculate unconstrained cost
     TO.cost!(obj.obj, Z)
 
@@ -33,12 +33,12 @@ function TO.cost!(obj::ALObjective, Z::AbstractTrajectory)
     TO.cost!(TO.get_J(obj), obj.constraints)
 end
 
-function TO.cost(obj::ALObjective, Z::AbstractTrajectory)
+function TO.cost(obj::ALObjective, Z::SampledTrajectory)
     TO.cost!(obj, Z)
     return sum(TO.get_J(obj))
 end
 
-function TO.cost_expansion!(E, obj::ALObjective, Z::Traj; 
+function TO.cost_expansion!(E, obj::ALObjective, Z::SampledTrajectory; 
         init::Bool=false, rezero::Bool=false)
     # Update constraint jacobians
     RD.jacobian!(obj.constraints, Z, init)

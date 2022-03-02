@@ -9,7 +9,7 @@ function Cartpole(method=:none; constrained::Bool=true, N=101,
     )
 
     model = RobotZoo.Cartpole()
-    n,m = size(model)
+    n,m = RD.dims(model)
     # tf = 5.
     dt = tf/(N-1)
 
@@ -32,7 +32,7 @@ function Cartpole(method=:none; constrained::Bool=true, N=101,
     X0 = [@SVector fill(NaN,n) for k = 1:N]
     u0 = @SVector fill(0.01,m)
     U0 = [u0 for k = 1:N-1]
-    Z = Traj(X0,U0,dt*ones(N))
+    Z = SampledTrajectory(X0,U0,dt=dt*ones(N-1))
     prob = Problem(model, obj, conSet, x0, xf, Z, N, 0.0, tf, integration=RD.RK3(model))
     rollout!(prob)
 

@@ -2,7 +2,7 @@ using RobotZoo
 using StaticArrays, LinearAlgebra
 
 model = RobotZoo.Cartpole()
-n,m = size(model)
+n,m = RD.dims(model)
 N = 11
 x,u = rand(model)
 t,dt = 1.1,0.1
@@ -83,7 +83,7 @@ cval.jac[2][:,n+1:end] .= 2
 @test length(conset) == length(cons)
 
 ##--- Test evaluation
-Z = Traj([rand(n) for k = 1:N], [rand(m) for k = 1:N-1], fill(dt,N)) 
+Z = SampledTrajectory{n,m}([rand(n) for k = 1:N], [rand(m) for k = 1:N-1], dt=fill(dt,N-1)) 
 Altro.evaluate_constraints!(conset, Z)
 # @test conset[end].vals[1] ≈ RD.discrete_dynamics(dmodel, Z[1]) - RD.state(Z[2])
 @test conset[3].vals[2] ≈ RD.evaluate(lin, Z[3])

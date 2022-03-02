@@ -20,7 +20,7 @@ function Base.copy(P::Primals)
     Primals(copy(P.Z),P.xinds,P.uinds,P.equal)
 end
 
-function Base.copyto!(P::Primals, Z::Traj)
+function Base.copyto!(P::Primals, Z::SampledTrajectory)
     uN = P.equal ? length(Z) : length(Z)-1
     for k in 1:uN
         inds = [P.xinds[k]; P.uinds[k]]
@@ -32,7 +32,7 @@ function Base.copyto!(P::Primals, Z::Traj)
     return nothing
 end
 
-function Base.copyto!(V::AbstractVector{<:Real}, Z::Traj,
+function Base.copyto!(V::AbstractVector{<:Real}, Z::SampledTrajectory,
         xinds::Vector{<:AbstractVector}, uinds::Vector{<:AbstractVector})
     n,m,N = RobotDynamics.traj_size(Z)
     equal = (n+m)*N == length(V)
@@ -48,7 +48,7 @@ function Base.copyto!(V::AbstractVector{<:Real}, Z::Traj,
     return nothing
 end
 
-function Base.copyto!(Z::Traj, P::Primals)
+function Base.copyto!(Z::SampledTrajectory, P::Primals)
     uN = P.equal ? length(Z) : length(Z)-1
     for k in 1:uN
         inds = [P.xinds[k]; P.uinds[k]]
@@ -61,7 +61,7 @@ function Base.copyto!(Z::Traj, P::Primals)
     return nothing
 end
 
-function Base.copyto!(Z::Traj, V::Vector{<:Real},
+function Base.copyto!(Z::SampledTrajectory, V::Vector{<:Real},
         xinds::Vector{<:AbstractVector}, uinds::Vector{<:AbstractVector})
     n,m,N = Dynamics.traj_size(Z)
     equal = (n+m)*N == length(V)

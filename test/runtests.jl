@@ -6,7 +6,6 @@ using RobotDynamics
 using RobotZoo
 using StaticArrays, LinearAlgebra
 using JLD2
-using FileIO
 using ForwardDiff
 using FiniteDiff
 using Random
@@ -44,9 +43,19 @@ end
     include("alconset_test.jl")
     include("solve_tests.jl")
     include("socp_test.jl")
+    include("projected_newton_test.jl")
 end
 
 @testset "Solver Options" begin
     include("solver_opts_test.jl")
     include("solver_stats_test.jl")
+end
+
+@testset "Utils" begin
+    @testset "QDLDL" begin
+        include("qdldl_test.jl")
+    end
+    @testset "Sparseblocks" begin
+        include("sparseblocks_test.jl")
+    end
 end

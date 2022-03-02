@@ -79,7 +79,7 @@ inds_so = N:N
 confun_so(x) = [x; 3]
 
 # Other data needed for constructor
-Z = Traj(randn(n,N), randn(m,N-1), dt=0.1)
+Z = SampledTrajectory{n,m}(randn(n,N), randn(m,N-1), dt=0.1)
 opts = SolverOptions()
 costs = zeros(N)
 

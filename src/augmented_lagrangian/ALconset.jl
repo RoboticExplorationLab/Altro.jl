@@ -292,7 +292,7 @@ end
 # 	end
 # end
 
-# function TO.cost_expansion!(E::Objective, conSet::ALConstraintSet, Z::AbstractTrajectory,
+# function TO.cost_expansion!(E::Objective, conSet::ALConstraintSet, Z::SampledTrajectory,
 # 		init::Bool=false, rezero::Bool=false)
 # 	for i in eachindex(conSet.errvals)
 # 		TO.cost_expansion!(E, conSet.convals[i], conSet.λ[i], conSet.μ[i], conSet.active[i])
