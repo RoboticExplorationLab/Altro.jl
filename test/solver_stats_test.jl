@@ -73,13 +73,13 @@ solve!(solver)
 @test max_violation(solver.solver_pn) ≈ c_max
 
 # Make sure AL solver resets properly
-solver = Altro.AugmentedLagrangianSolver(Problems.DoubleIntegrator()..., show_summary=false)
+solver = Altro.ALSolver(Problems.DoubleIntegrator()..., show_summary=false)
 Z0 = copy(get_trajectory(solver))
 solve!(solver)
 J = cost(solver)
 iters = iterations(solver)
 initial_trajectory!(solver, Z0)
-Altro.initialize!(solver)
+Altro.reset!(solver)
 solve!(solver)
 @test J ≈ cost(solver)
 @test iters == iterations(solver)

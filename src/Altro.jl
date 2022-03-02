@@ -39,7 +39,8 @@ using TrajectoryOptimization:
     # ALConstraintSet,
     DynamicsConstraint,
     states, controls,
-    Equality, Inequality, SecondOrderCone
+    Equality, Inequality, SecondOrderCone,
+    cost
 
 using RobotDynamics:
     AbstractModel, DiscreteDynamics, DiscreteLieDynamics,
@@ -102,36 +103,36 @@ include("ilqr/backwardpass2.jl")
 include("ilqr/forwardpass.jl")
 include("ilqr/ilqr_solve2.jl")
 
-include("ilqr/ilqr.jl")
-include("ilqr/ilqr_solve.jl")
-include("ilqr/backwardpass.jl")
-include("ilqr/rollout.jl")
+# include("ilqr/ilqr.jl")
+# include("ilqr/ilqr_solve.jl")
+# include("ilqr/backwardpass.jl")
+# include("ilqr/rollout.jl")
 # include("augmented_lagrangian/conic_penalties.jl")
-include("augmented_lagrangian/alconval.jl")
-include("augmented_lagrangian/ALconset.jl")
-include("augmented_lagrangian/alcosts.jl")
-include("augmented_lagrangian/al_solver.jl")
-include("augmented_lagrangian/al_objective.jl")
-include("augmented_lagrangian/al_methods.jl")
+# include("augmented_lagrangian/alconval.jl")
+# include("augmented_lagrangian/ALconset.jl")
+# include("augmented_lagrangian/alcosts.jl")
+# include("augmented_lagrangian/al_solver.jl")
+# include("augmented_lagrangian/al_objective.jl")
+# include("augmented_lagrangian/al_methods.jl")
 include("augmented_lagrangian/alcon.jl")
 include("augmented_lagrangian/alconset.jl")
 include("augmented_lagrangian/al_objective2.jl")
 include("augmented_lagrangian/alilqr.jl")
 include("augmented_lagrangian/al_solve.jl")
 include("direct/sparseblocks.jl")
-include("direct/primals.jl")
-include("direct/pn.jl")
-include("direct/pn_methods.jl")
+# include("direct/primals.jl")
+# include("direct/pn.jl")
+# include("direct/pn_methods.jl")
 include("direct/pncon.jl")
 include("direct/pnconset.jl")
 include("direct/pn_solver.jl")
 include("direct/pn_solve.jl")
-include("altro/altro_solver.jl")
+# include("altro/altro_solver.jl")
 include("altro/altro2.jl")
 include("altro/altro_solve.jl")
 
-include("direct/copy_blocks.jl")
-include("direct/direct_constraints.jl")
+# include("direct/copy_blocks.jl")
+# include("direct/direct_constraints.jl")
 
 include("problems.jl")
 # include("deprecated.jl")

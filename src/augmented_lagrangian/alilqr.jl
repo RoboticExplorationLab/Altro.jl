@@ -30,7 +30,7 @@ end
 function ALSolver(
         prob::Problem{T}, 
         opts::SolverOptions=SolverOptions(), 
-        stats::SolverStats=SolverStats(parent=solvername(AugmentedLagrangianSolver));
+        stats::SolverStats=SolverStats(parent=solvername(ALSolver));
         use_static=Val(false), 
         kwarg_opts...
     ) where {T}

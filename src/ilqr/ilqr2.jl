@@ -46,7 +46,7 @@ end
 function iLQRSolver2(
         prob::Problem{T}, 
         opts::SolverOptions=SolverOptions{T}(), 
-        stats::SolverStats=SolverStats{T}(parent=solvername(iLQRSolver));
+        stats::SolverStats=SolverStats{T}(parent=solvername(iLQRSolver2));
         use_static::Val{USE_STATIC}=Val(false), 
         kwarg_opts...
     ) where {T, USE_STATIC}

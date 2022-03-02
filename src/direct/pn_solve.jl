@@ -15,11 +15,13 @@ function projection_solve!(pn::ProjectedNewtonSolver2)
     viol = TO.max_violation(pn, nothing)
     max_projection_iters = pn.opts.n_steps
     count = 0
+    J_prev = cost(pn, pn.Z̄)
     while count <= max_projection_iters && viol > ϵ_feas
         # println("PN Iter = ", count + 1)
         # println("  v = ", viol)
         # _projection_solve!(pn)
         _qdldl_solve!(pn)
+        J = cost(pn, pn.Z̄)
         viol = max_violation(pn)  # calculate again, updating the active set
         if (pn.opts.multiplier_projection)
             # TODO: (#35) Re-implement this
@@ -29,18 +31,16 @@ function projection_solve!(pn::ProjectedNewtonSolver2)
             res = Inf
         end
         count += 1
-        record_iteration!(pn, viol, res)
+        dJ = J_prev - J
+        record_iteration!(pn, viol, res, J, dJ)
+        J_prev = J
     end
     return viol
 end
 
-function record_iteration!(pn::ProjectedNewtonSolver2, viol, res)
+function record_iteration!(pn::ProjectedNewtonSolver2, viol, res, J, dJ)
     # TODO: (#35) compute the gradient
-    J = TO.cost(pn)
-    pn.stats.iterations += 1
-    pn.stats.iterations_pn += 1
-    J_prev = pn.stats.cost[pn.stats.iterations]
-    record_iteration!(pn.stats, cost=J, c_max=viol, is_pn=true, dJ=J_prev-J, # gradient=res, 
+    record_iteration!(pn.stats, cost=J, c_max=viol, is_pn=true, dJ=dJ, # gradient=res, 
         penalty_max=NaN)
 end
 

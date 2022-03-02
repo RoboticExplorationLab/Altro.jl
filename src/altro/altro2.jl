@@ -49,7 +49,7 @@ function ALTROSolver2(prob::Problem{T}, opts::SolverOptions=SolverOptions();
         # con_inf.params.ϕ = opts.penalty_scaling_infeasible
     end
     set_options!(opts; kwarg_opts...)
-    stats = SolverStats{T}(parent=solvername(ALTROSolver))
+    stats = SolverStats{T}(parent=solvername(ALTROSolver2))
     solver_al = ALSolver(prob, opts, stats)
     solver_pn = ProjectedNewtonSolver2(prob, opts, stats)
     # link_constraints!(get_constraints(solver_pn), get_constraints(solver_al))

@@ -261,7 +261,7 @@ hess = cat(hess_blocks..., dims=(1,2))[1:end-m, 1:end-m]
 
 ## Solve it 
 prob = Problem(model, obj, zero(SVector{n}), tf, xf=xf, constraints=cons, integration=RD.Euler(model))
-solver = Altro.AugmentedLagrangianSolver(prob, verbose=0, show_summary=false, 
+solver = Altro.ALSolver(prob, verbose=0, show_summary=false, 
 	projected_newton=true, penalty_initial=100.0, penalty_scaling=50, 
 	cost_tolerance_intermediate=1e-1)
 initial_controls!(solver, [rand(D) for k = 1:N])

@@ -15,6 +15,7 @@ ci = haskey(ENV, "CI")
 ## Double Integrator
 v && println("Double Integrator")
 solver = ALTROSolver2(Problems.DoubleIntegrator()...)
+solve!(solver)
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time / 1e6 < 1 
 @test max_violation(solver) < 1e-6

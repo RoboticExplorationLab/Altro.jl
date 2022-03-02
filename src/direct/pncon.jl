@@ -48,9 +48,6 @@ function PNConstraint(Z::R, con::TO.StageConstraint,
     P = length(inds)
     nm = n + m
     Np = RD.num_vars(Z)
-    if TO.sense(con) == TO.SecondOrderCone()
-        error("ProjectedNewtonSolver doesn't support SecondOrderCone constraints.")
-    end
     cinds = [view.block.block.i2 for view in jacviews]
 
     @assert length(cinds) == P
@@ -70,6 +67,10 @@ function PNConstraint(Z::R, con::TO.StageConstraint,
 end
 
 function evaluate_constraints!(pncon::PNConstraint)
+    # TODO: move this to a single check that runs before the solve
+    if TO.sense(pncon.con) == TO.SecondOrderCone()
+        error("ProjectedNewtonSolver doesn't support SecondOrderCone constraints.")
+    end
     Z = pncon.Z[1]
     TO.evaluate_constraints!(pncon.sig, pncon.con, pncon.vals, Z, pncon.inds)
 end

@@ -1,4 +1,44 @@
 
+# Infeasible methods
+function InfeasibleProblem(prob::Problem{RK}, Z0::SampledTrajectory, R_inf::Real) where RK
+    @assert !isnan(sum(sum.(states(Z0))))
+
+    n,m,N = dims(prob)  # original sizes
+
+    # Create model with augmented controls
+    model_inf = InfeasibleModel(prob.model)
+
+    # Get a trajectory that is dynamically feasible for the augmented problem
+    #   and matches the states and controls of the original guess
+    Z = infeasible_trajectory(model_inf, Z0)
+
+    # Convert constraints so that they accept new dimensions
+    conSet = TO.change_dimension(get_constraints(prob), n, m+n, 1:n, 1:m)
+
+    # Constrain additional controls to be zero
+    inf = InfeasibleConstraint(model_inf)
+    TO.add_constraint!(conSet, inf, 1:N-1)
+
+    # Infeasible Objective
+    obj = infeasible_objective(prob.obj, R_inf)
+
+    # Create new problem
+    Problem(model_inf, obj, conSet, prob.x0, prob.xf, Z, N, prob.t0, prob.tf)
+end
+
+function infeasible_objective(obj::Objective, regularizer)
+    n,m = TO.state_dim(obj.cost[1]), TO.control_dim(obj.cost[1])
+    Rd = [@SVector zeros(m); @SVector fill(regularizer,n)]
+    R = Diagonal(Rd)
+    cost_inf = TO.DiagonalCost(Diagonal(@SVector zeros(n)), R, checks=false)
+    costs = map(obj.cost) do cost
+        cost_idx = TO.change_dimension(cost, n, n+m, 1:n, 1:m)
+        cost_idx + cost_inf
+    end
+    TO.Objective(costs)
+end
+
+
 ############################################################################################
 #                               INFEASIBLE MODELS                                          #
 ############################################################################################
