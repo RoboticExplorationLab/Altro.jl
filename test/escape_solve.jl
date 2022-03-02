@@ -1,5 +1,4 @@
 @testset "Escape Solve" begin
-using FileIO
 ##
 res = load(joinpath(@__DIR__, "escape_solve.jld2"))
 prob,opts = Problems.DubinsCar(:escape)

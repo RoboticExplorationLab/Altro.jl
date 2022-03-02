@@ -21,8 +21,8 @@ function YakProblems(;
     )
 
     s = RD.LieState(model)
-    n,m = size(model)
-    rsize = size(model)[1] - 9
+    n,m = RD.dims(model)
+    rsize = RD.state_dim(model) - 9
     vinds = SA[1,2,3,8,9,10,11,12,13]
 
     # Discretization

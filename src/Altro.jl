@@ -34,11 +34,10 @@ using TrajectoryOptimization:
     Problem,
     ConstraintList,
     AbstractObjective, Objective, #QuadraticObjective,
-    AbstractTrajectory,
+    SampledTrajectory,
     DynamicsExpansion, # TODO: Move to ALTRO
     # ALConstraintSet,
     DynamicsConstraint,
-    Traj,
     states, controls,
     Equality, Inequality, SecondOrderCone
 
@@ -49,7 +48,7 @@ using RobotDynamics:
     DiffMethod, ForwardAD, FiniteDifference, UserDefined,
     AbstractKnotPoint, KnotPoint, StaticKnotPoint,
     state_dim, control_dim, output_dim, dims,
-    state, control
+    state, control, SampledTrajectory
 
 
 # types
@@ -87,6 +86,9 @@ end
 include("logging/SolverLogging.jl")
 using .SolverLogging_v1
 
+include("qdldl.jl")
+using .Cqdldl
+
 # include("linalg.jl")
 include("utils.jl")
 include("infeasible_model.jl")
@@ -116,6 +118,7 @@ include("augmented_lagrangian/alconset.jl")
 include("augmented_lagrangian/al_objective2.jl")
 include("augmented_lagrangian/alilqr.jl")
 include("augmented_lagrangian/al_solve.jl")
+include("direct/sparseblocks.jl")
 include("direct/primals.jl")
 include("direct/pn.jl")
 include("direct/pn_methods.jl")

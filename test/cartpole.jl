@@ -3,7 +3,6 @@ using Altro
 using TrajectoryOptimization
 using RobotZoo
 using RobotDynamics
-using FileIO
 using JLD2
 using LinearAlgebra
 const TO = TrajectoryOptimization
@@ -11,8 +10,7 @@ const RD = RobotDynamics
 
 save_results = false 
 
-# TO.diffmethod(::RobotZoo.Cartpole) = RD.ForwardAD()
-# @testset "Cartpole" begin
+@testset "Cartpole" begin
 # load expected results
 res = load(joinpath(@__DIR__,"cartpole.jld2"))
 
@@ -136,8 +134,8 @@ J_prev = J_new
 Altro.set_tolerances!(solver2.solver_al, 1)
 J = 0.0
 for i = 3:26
-    global J = let solver = ilqr
-        global J_prev = cost(solver)
+    J = let solver = ilqr
+        J_prev = cost(solver)
         Altro.errstate_jacobians!(solver.model, solver.G, solver.Z)
         Altro.dynamics_expansion!(solver)
         Altro.error_expansion!(solver.model, solver.D, solver.G)
@@ -147,10 +145,10 @@ for i = 3:26
         Altro.forwardpass!(solver, J_prev)
     end
     # println("iter = $i, J = $J")
-    global dJ = J_prev - J
-    global J_prev = J
+    dJ = J_prev - J
+    J_prev = J
     copyto!(ilqr.Z, ilqr.Z̄)
-    global grad = Altro.gradient!(ilqr)
+    grad = Altro.gradient!(ilqr)
     Altro.record_iteration!(ilqr, J, dJ, grad)
 end
 
@@ -228,96 +226,61 @@ solve!(solver.solver_al)
 @test iterations(solver) == 39
 pn = solver.solver_pn
 copyto!(get_trajectory(pn), get_trajectory(solver.solver_al))
+pn.Z[end].dt = Inf
+copyto!(pn.Z̄data, pn.Zdata)
 let pn = pn
     Altro.evaluate_constraints!(pn)
     Altro.constraint_jacobians!(pn)
-    Altro.cost_gradient!(pn)
     Altro.cost_hessian!(pn)
     Altro.update_active_set!(pn)
 end
 
-# Projection solve
-D,d = let solver = pn
-    Altro.active_constraints(solver)
-end
-D0 = copy(D)
-d0 = copy(d)
-viol0 = norm(d,Inf)
-@test max_violation(pn) ≈ norm(d,Inf)
+# Matrix Factorization
+A = Altro.getKKTMatrix(pn)
+@test A ≈ res_pn["A"] atol=1e-6
+Np = Altro.num_primals(pn)
+@test size(A,1) == sum(pn.active)
+@test istriu(A)
+@test A[end,end] ≈ -1e-8
+b = Altro.update_b!(pn)
+@test length(b) == sum(pn.active)
+@test b[Np+1:end] ≈ -pn.d[pn.active[Np+1:end]]
+viol0 = norm(b,Inf)
+@test viol0 ≈ max_violation(pn)
 @test viol0 ≈ res_pn["viol0"]
-@test D0 ≈ res_pn["D0"]
-@test d0 ≈ res_pn["d0"]
 
-H = pn.H
-HinvD = Diagonal(H)\D'
-S = Symmetric(D*HinvD)
-Sreg = cholesky(S + solver.opts.ρ_chol * I)
+resize!(pn.qdldl, sum(pn.active))
+Altro.Cqdldl.eliminationtree!(pn.qdldl, A)
+Altro.Cqdldl.factor!(pn.qdldl)
+F = Altro.Cqdldl.QDLDLFactorization(pn.qdldl)
 
-# Line Search
-dY,dZ = let solver = pn
-    a = solver.active
-    d = solver.d[a]
-    viol0 = norm(d,Inf)
-
-    δλ = Altro.reg_solve(S, d, Sreg, 1e-8, 25)
-    δZ = -HinvD*δλ
-    δλ, δZ
-end
-dY1,dZ1 = copy(dY), copy(dZ)
-@test dY1 ≈ res_pn["dY1"]
-@test dZ1 ≈ res_pn["dZ1"]
-
-let
-    α = 1.0
-    pn.Z̄data .= pn.Zdata .+ α .* dZ
-    Altro.evaluate_constraints!(pn, pn.Z̄)
-    TO.max_violation(pn, nothing)
-    d = pn.d[pn.active]
-    pn.Zdata .= pn.Z̄data
-end
-Z1 = copy(pn.Zdata)
+dY1 = F \ b
+pn.Z̄data .= pn.Zdata .+ dY1[1:Np]
+Altro.evaluate_constraints!(pn)
 viol1 = max_violation(pn, nothing)
-@test norm(pn.d[pn.active], Inf) ≈ viol1 
-@test viol1 < 1e-5
-@test Z1 ≈ res_pn["Z1"]
+@test viol1 < viol0
+copyto!(pn.Zdata, pn.Z̄data)
+@test dY1 ≈ res_pn["dY1"] atol=1e-6
 @test viol1 ≈ res_pn["viol1"]
 
+
 ## Next Line search
-let solver = pn, S=(S,Sreg)
-    α = 1.0
-
-    d = solver.d[solver.active]
-    δλ = Altro.reg_solve(S[1], d, S[2], 1e-8, 25)
-    δZ = -HinvD*δλ
-    pn.Z̄data .= pn.Zdata .+ α .* δZ
-
-    Altro.evaluate_constraints!(pn, pn.Z̄)
-    viol = TO.max_violation(pn, nothing)
-end
-Z2 = copy(pn.Zdata)
-viol2 = TO.max_violation(pn, nothing)
-@test viol2 < 1e-8
-@test Z2 ≈ res_pn["Z2"]
+Altro.update_b!(pn)
+dY2 = F \ b
+pn.Z̄data .= pn.Zdata .+ dY2[1:Np]
+Altro.evaluate_constraints!(pn)
+viol2 = max_violation(pn, nothing)
+cost0 = cost(solver.solver_al)
+cost_final = cost(pn)
+@test (cost_final - cost0) / cost0 * 100 < 0.1
+Zpn = copy(pn.Z̄data)
+@test dY2 ≈ res_pn["dY2"] atol=1e-6
 @test viol2 ≈ res_pn["viol2"]
-
-let pn = pn
-    Altro.evaluate_constraints!(pn)
-    Altro.constraint_jacobians!(pn)
-    Altro.cost_gradient!(pn)
-    Altro.cost_hessian!(pn)
-    Altro.update_active_set!(pn)
-end
-res0 = pn.g + pn.D'pn.Ydata
-norm(res0)
-
-Altro.multiplier_projection!(pn)
-res = pn.g + pn.D'pn.Ydata
-@test norm(res) < norm(res0)   # TODO: shouldn't this be machine precision?
-Y = copy(pn.Ydata)
-@test Y ≈ res_pn["Y"]
+@test cost_final ≈ res_pn["cost_final"]
+@test Zpn ≈ res_pn["Zpn"]
 
 if save_results
-    @save resfile_pn viol0 viol1 viol2 dY1 dZ1 Z1 Z2 D0 d0 Y
+    @save resfile_pn viol0 viol1 viol2 dY1 dY2 Zpn cost_final A
 end
 
-# end
+end

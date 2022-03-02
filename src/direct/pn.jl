@@ -34,8 +34,8 @@ This solver is to be used exlusively for solutions that are close to the optimal
 struct ProjectedNewtonSolver{Nx,Nu,Nxu,T} <: ConstrainedSolver{T}
     # Problem Info
     prob::ProblemInfo{T,Nx}
-    Z::Traj{Nx,Nu,T,KnotPoint{Nx,Nu,Nxu,T}}
-    Z̄::Traj{Nx,Nu,T,KnotPoint{Nx,Nu,Nxu,T}}
+    Z::SampledTrajectory{Nx,Nu,T,KnotPoint{Nx,Nu,Nxu,T}}
+    Z̄::SampledTrajectory{Nx,Nu,T,KnotPoint{Nx,Nu,Nxu,T}}
 
     opts::SolverOptions{T}
     stats::SolverStats{T}

@@ -6,7 +6,7 @@ function Acrobot()
     )
     # model
     model = RobotZoo.Acrobot()
-    n,m = size(model)
+    n,m = RD.dims(model)
 
     # discretization
     tf = 5.0
