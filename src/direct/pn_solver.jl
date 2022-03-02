@@ -1,0 +1,308 @@
+getinputinds(fun::RD.AbstractFunction, n, m) = getinputinds(RD.functioninputs(fun), n, m)
+getinputinds(::RD.StateControl, n, m) = 1:n+m
+getinputinds(::RD.StateOnly, n, m) = 1:n
+getinputinds(::RD.ControlOnly, n, m) = n .+ (1:m)
+
+"""
+$(TYPEDEF)
+Projected Newton Solver
+Direct method developed by the REx Lab at Stanford University
+Achieves machine-level constraint satisfaction by projecting onto the feasible subspace.
+    It can also take a full Newton step by solving the KKT system.
+This solver is to be used exlusively for solutions that are close to the optimal solution.
+    It is intended to be used as a "solution polishing" method for augmented Lagrangian methods.
+"""
+struct ProjectedNewtonSolver2{L<:DiscreteDynamics,O<:AbstractObjective,Nx,Nu,T} <: ConstrainedSolver{T}
+    # Problem Info
+    model::L
+    obj::O
+    x0::Vector{T}
+    conset::PNConstraintSet{T}
+    opts::SolverOptions{T}
+    stats::SolverStats{T}
+
+    # Data
+    _data::Vector{T}  # storage for primal and dual variables
+    Zdata::VectorView{T,Int}  
+    Z̄data::VectorView{T,Int}
+    dY::Vector{T}                 # KKT solution vector
+    Ydata::VectorView{T,Int}  
+    Atop::SparseMatrixCSC{T,Int}  # top Np rows of KKT matrix
+    colptr::Vector{Int}
+    rowval::Vector{Int}
+    nzval::Vector{T}
+    d::Vector{T}               # constraints
+    b::Vector{T}               # rhs vector
+    # H::SparseView{T,Int}
+    # g::VectorView{T,Int}
+    # D::SparseView{T,Int}
+    # d::VectorView{T,Int}
+    active::BitVector
+    # Ireg::Diagonal{T,Vector{T}}  # dual regularization
+    # regblock::SparseBlockIndex
+
+    # Trajectories
+    Z::SampledTrajectory{Nx,Nu,T,KnotPoint{Nx,Nu,VectorView{T,Int},T}}
+    Z̄::SampledTrajectory{Nx,Nu,T,KnotPoint{Nx,Nu,VectorView{T,Int},T}}
+
+    # Cost function
+    hess::Vector{Matrix{T}}
+    hessdiag::Vector{Diagonal{T,SubArray{T,1,Matrix{T}, Tuple{Vector{CartesianIndex{2}}}, false}}}
+    grad::Vector{VectorView{T,Int}}
+
+    # Dynamics
+    ∇f::Matrix{Matrix{T}}  # dynamics Jacobians
+    f::Vector{Vector{T}}           # dynamics values 
+    e::Vector{VectorView{T,Int}}   # dynamics residuals
+    Iinit::Diagonal{T,Vector{T}}
+    Ireg::Diagonal{T,Vector{T}}    # primal regularization
+
+    # Indices
+    ix::Vector{UnitRange{Int}}
+    iu::Vector{UnitRange{Int}}
+    iz::Vector{UnitRange{Int}}
+    # id::Vector{UnitRange{Int}}
+    blocks::SparseBlocks
+    hessblocks::Vector{SparseBlockIndex}
+    ∇fblocks::Matrix{SparseBlockIndex}
+    qdldl::Cqdldl.QDLDLSolver{T,Int}
+end
+
+function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOptions{T}(), 
+                                stats::SolverStats=SolverStats(parent=solvername(ProjectedNewtonSolver2)); kwargs...) where T
+    n,m,N = RD.dims(prob)
+    Nc = sum(num_constraints(prob.constraints))  # stage constraints
+    Np = N*n + (N)*m  # number of primals
+    Nd = N*n + Nc       # number of duals (no constraints)
+
+    set_options!(opts; kwargs...)
+    if stats.parent == solvername(ProjectedNewtonSolver2) 
+        reset!(stats, opts.iterations)
+    end
+
+    ix = [(1:n) .+ (k-1)*(n+m) for k = 1:N]
+    iu = [n .+ (1:m) .+ (k-1)*(n+m) for k = 1:N-1]
+    # iz = [(1:n + (k == N ? 0 : m)) .+ (k-1)*(n+m) for k = 1:N]
+    iz = [(1:n + m) .+ (k-1)*(n+m) for k = 1:N]
+
+    _data = zeros(2Np + Nd + 2m)  # leave extra room for terminal control
+    Zdata = view(_data, 1:Np)
+    Z̄data = view(_data, Np .+ (1:Np)) 
+    Ydata = view(_data, 2Np + 2m .+ (1:Nd)) 
+    Atop = spzeros(T, Np, Np + Nd)
+    d = zeros(T, Nd)
+    b = zeros(T, Np + Nd)  # allocate maximum size
+    # H = view(A, 1:Np, 1:Np) 
+    # g = view(b, 1:Np) 
+    # D = view(A, Np .+ (1:Nd), 1:Np) 
+    # d = view(b, Np .+ (1:Nd)) 
+    active = trues(Np + Nd)
+    Ireg = Diagonal(fill(-one(T), Nd))
+
+    Z = SampledTrajectory([KnotPoint{n,m}(view(_data, iz[k]), prob.Z[k].t, prob.Z[k].dt) for k = 1:N])
+    Z[end].dt = Inf 
+    Z̄ = SampledTrajectory([KnotPoint{n,m}(view(_data, Np .+ iz[k]), prob.Z[k].t, prob.Z[k].dt) for k = 1:N])
+    Z̄[end].dt = Inf 
+    dY = zeros(T, Np + Nd)
+
+    # Create sparse blocks and initialize cost Hessian sparsity
+    blocks = SparseBlocks(Np, Np + Nd)
+    isdiag = prob.obj[1] isa TO.QuadraticCostFunction ? TO.is_diag(prob.obj[1]) : false
+    for i in iz
+        addblock!(blocks, i, i, isdiag)
+    end
+    id = Np .+ (1:Nd)  # dual indices
+    # addblock!(blocks, id, id, true)  # duals regularization
+
+    # Create the constraint set
+    # NOTE: this initializes the sparsity structure in Atop
+    conset = PNConstraintSet(prob.constraints, Z̄, opts, Atop, d, view(active, id), blocks)
+
+    # Initialize the storage for the full sparse KKT matrix
+    #   These will get dynamically resized depending on the active set
+    nnz_Atop = nnz(Atop)
+    nnz_A = nnz_Atop + Nd  # add nnz for the dual regularization 
+    colptr = zeros(Int, Np + Nd + 1)
+    rowval = zeros(Int, nnz_A)
+    nzval = zeros(T, nnz_A)
+
+    # Storage for the dynamics expansion
+    ∇f = [j == 1 ? zeros(T, n, n+m) : zeros(T, n, n) for k = 1:N-1, j = 1:2]
+    f = [zeros(T,n) for k = 1:N-1]
+    e = [view(d, conset.cinds[end][k+1]) for k = 1:N-1]
+
+    # Cache the sparse view blocks for the dynamics Jacobians
+    izk(k,j) = j == 1 ? iz1(k) : iz2(k)
+    iz1(k) = (k-1) * (n + m) .+ (1:n+m)
+    iz2(k) = (k) * (n + m) .+ (1:n)
+    ci(k) = conset.cinds[end][k+1] .+ Np
+    ∇fblocks = [
+        begin blocks[izk(k,j), ci(k)] end for k = 1:N-1, j = 1:2
+    ] 
+    ∇fblocks = vcat(
+        [blocks[ix[1], ci(0)] blocks[ix[1], ci(0)]], 
+        ∇fblocks
+    )
+
+    # Storage for the cost expansion
+    hess = [zeros(T, length(i), length(i)) for i in iz]
+    grad = [view(b,i) for i in iz]
+    hessdiag = map(hess) do H
+        inds = [CartesianIndex(i,i) for i = 1:size(H,1)]
+        Diagonal(view(H, inds))
+    end
+    hessblocks = map(iz) do i  # cache for the Hessian block views
+        blocks[i, i]
+    end
+
+    Iinit = -Diagonal(ones(n))
+    Ireg = Diagonal(ones(n+m))
+    qdldl = QDLDLSolver{T}(Np + Nd, nnz_A, 2*nnz_A)
+
+    ProjectedNewtonSolver2(prob.model, prob.obj, Vector(prob.x0), conset, opts, stats, 
+        _data, Zdata, Z̄data, dY, Ydata, Atop, colptr, rowval, nzval, d, b, active,
+        Z, Z̄, hess, hessdiag, grad, ∇f, f, e, Iinit, Ireg, ix, iu, iz, blocks, hessblocks, 
+        ∇fblocks, qdldl,
+    )
+
+    # ProjectedNewtonSolver2(prob.model, prob.obj, Vector(prob.x0), conset, opts, stats, 
+    #     _data, Zdata, Z̄data, Ydata, A, b, H, g, D, d, active, Z, Z̄, hess, 
+    #     grad, ∇f, f, e,
+    #     Iinit, ix, iu, iz, blocks, hessblocks, ∇fblocks)
+
+    # ProjectedNewtonSolver2(prob.model, prob.obj, prob.x0, opts, stats, Zdata, Ydata, H, g, 
+    #                        hess, grad, Z, ∇f, f, e, ix, iu, iz ,id)
+end
+
+# Getters
+RD.dims(pn::ProjectedNewtonSolver2{<:Any,<:Any,n,m}) where {n,m} = n,m,length(pn.ix)
+TO.get_objective(pn::ProjectedNewtonSolver2) = pn.obj
+TO.get_model(pn::ProjectedNewtonSolver2) = pn.model
+TO.get_trajectory(pn::ProjectedNewtonSolver2) = pn.Z
+iterations(pn::ProjectedNewtonSolver2) = pn.stats.iterations_pn
+solvername(::Type{<:ProjectedNewtonSolver2}) = :ProjectedNewton
+num_primals(pn::ProjectedNewtonSolver2) = length(pn.Zdata)
+num_duals(pn::ProjectedNewtonSolver2) = length(pn.Ydata)
+TO.get_constraints(pn::ProjectedNewtonSolver2) = pn.conset
+
+function primalregularization!(pn::ProjectedNewtonSolver2)
+    ρ_primal = pn.opts.ρ_primal
+    Ireg = pn.Ireg
+    Ireg.diag .= ρ_primal
+    for block in pn.hessblocks 
+        pn.Atop[block] .+= Ireg
+    end
+end
+
+function cost_hessian!(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=pn.Z)
+    obj = pn.obj
+    for k in eachindex(Z)
+        RD.hessian!(obj.diffmethod[k], obj.cost[k], pn.hess[k], Z[k])
+
+        # Copy to Sparse Array
+        hessblock = pn.hessblocks[k]
+        if hessblock.block.isdiag
+            pn.Atop[hessblock] .= pn.hessdiag[k]
+        else
+            pn.Atop[hessblock] .= UpperTriangular(pn.hess[k])
+        end
+    end
+end
+
+function cost_gradient!(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=pn.Z)
+    obj = pn.obj
+    for k in eachindex(Z)
+        RD.gradient!(obj.diffmethod[k], obj.cost[k], pn.grad[k], Z[k])
+    end
+end
+
+function dynamics_expansion!(pn::ProjectedNewtonSolver2{<:Any,<:Any,Nx,Nu}, 
+        Z::SampledTrajectory=pn.Z̄, ∇f=pn.∇f) where {Nx,Nu}
+    # sig = pn.opts.dynamics_funsig
+    # sig = function_signature(pn)
+    diff = pn.opts.dynamics_diffmethod
+    model = pn.model
+    n,_,N = RD.dims(pn)
+    for k = 1:N - 1
+        RD.jacobian!(RD.InPlace(), diff, model, ∇f[k,1], pn.f[k], Z[k])
+
+        # Copy to Sparse Array
+        ∇fview1 = pn.Atop[pn.∇fblocks[k+1,1]]'
+        ∇fview1 .= ∇f[k,1]
+
+        ∇fblock2 = pn.∇fblocks[k+1,2]
+        pn.Atop[∇fblock2] .= pn.Iinit  # assumes explicit
+    end
+end
+
+function dynamics_error!(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=pn.Z̄)
+    sig = pn.opts.dynamics_funsig
+    model = pn.model
+    N = length(Z)
+    for k = 1:N - 1
+        RD.evaluate!(sig, model, pn.f[k], Z[k])
+        RD.state_diff!(model, pn.e[k], pn.f[k], RD.state(Z[k+1]))
+    end
+end
+
+function evaluate_constraints!(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=pn.Z̄)
+    ix = pn.ix
+    n = RD.dims(pn)[1]
+
+    # Initial condition
+    pn.d[ix[1]] .= pn.x0 .- RD.state(Z[1])
+
+    # Dynamics 
+    dynamics_error!(pn, Z)
+
+    # Stage constraints
+    evaluate_constraints!(pn.conset, Z)
+end
+
+function constraint_jacobians!(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=pn.Z̄)
+    ix = pn.ix
+    n = RD.state_dim(pn.model)
+
+    # Initial condition
+    # TODO: skip this since it's constant
+    x0block = pn.∇fblocks[1]
+    pn.Atop[x0block] .= pn.Iinit
+
+    # Dynamics
+    dynamics_expansion!(pn, Z)
+
+    # Stage constraints
+    constraint_jacobians!(pn.conset, Z)
+end
+
+function TO.max_violation(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=pn.Z̄)
+    evaluate_constraints!(pn, Z)
+    update_active_set!(pn)
+    max_violation(pn, nothing)
+end
+
+function norm_violation(pn::ProjectedNewtonSolver2, p=1)
+    return norm(pn.d[pn.active], p)
+end
+
+function TO.max_violation(pn::ProjectedNewtonSolver2, Z::Nothing)
+    Np = num_primals(pn)
+    c_max = zero(eltype(pn.d))
+    for i in eachindex(pn.d)
+        if pn.active[i + Np]
+            c_max = max(c_max, abs(pn.d[i]))
+        end
+    end
+    return c_max
+    # norm(view(pn.d, pn.active), Inf)  # TODO: update this for inequality constraints
+end
+
+
+function update_active_set!(pn::ProjectedNewtonSolver2)
+    update_active_set!(pn.conset)
+    return nothing
+end
+
+function active_constraints(pn::ProjectedNewtonSolver2)
+    return sparse(pn.D)[pn.active, :], pn.d[pn.active]
+end

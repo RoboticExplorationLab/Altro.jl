@@ -40,7 +40,7 @@ initial_controls!(solver, U0)
 initial_trajectory!(solver, Z0)
 ```
 where `U0::Union{SVector, Matrix, Vector{<:StaticVector}}` and 
-`Z0::AbstractTrajectory`. 
+`Z0::SampledTrajectory`. 
 
 ```@docs
 InfeasibleModel

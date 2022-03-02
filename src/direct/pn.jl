@@ -34,8 +34,8 @@ This solver is to be used exlusively for solutions that are close to the optimal
 struct ProjectedNewtonSolver{Nx,Nu,Nxu,T} <: ConstrainedSolver{T}
     # Problem Info
     prob::ProblemInfo{T,Nx}
-    Z::Traj{Nx,Nu,T,KnotPoint{Nx,Nu,Nxu,T}}
-    Z̄::Traj{Nx,Nu,T,KnotPoint{Nx,Nu,Nxu,T}}
+    Z::SampledTrajectory{Nx,Nu,T,KnotPoint{Nx,Nu,Nxu,T}}
+    Z̄::SampledTrajectory{Nx,Nu,T,KnotPoint{Nx,Nu,Nxu,T}}
 
     opts::SolverOptions{T}
     stats::SolverStats{T}
@@ -59,7 +59,8 @@ struct ProjectedNewtonSolver{Nx,Nu,Nxu,T} <: ConstrainedSolver{T}
 end
 
 function ProjectedNewtonSolver(prob::Problem, 
-        opts::SolverOptions=SolverOptions(), stats::SolverStats=SolverStats())
+        opts::SolverOptions=SolverOptions(), 
+        stats::SolverStats=SolverStats(parent=solvername(ProjectedNewtonSolver2)))
     Z = prob.Z  # grab trajectory before copy to keep associativity
     prob = copy(prob)  # don't modify original problem
 
@@ -67,7 +68,7 @@ function ProjectedNewtonSolver(prob::Problem,
     NN = n*N + m*(N-1)
 
     # Add dynamics constraints
-    TO.add_dynamics_constraints!(prob, 1, 
+    TO.add_dynamics_constraints!(prob, -1, 
         sig=opts.dynamics_funsig, diffmethod=opts.dynamics_diffmethod)
     conSet = prob.constraints
     NP = sum(num_constraints(conSet))

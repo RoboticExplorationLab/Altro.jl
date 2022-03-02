@@ -188,7 +188,7 @@ function update_active_set!(conval::ALConVal, ::Val{tol}) where tol
 	λ = conval.λ
 	if TO.sense(conval.con) == TO.Inequality()
 		for i in eachindex(a)
-			a[i] = @. (conval.vals[i] >= -tol) | (λ[i] > zero(tol))
+			a[i] = @. (conval.vals[i] >= -tol) #| (λ[i] > zero(tol))
 		end
 	end
 end
@@ -292,7 +292,7 @@ end
 # 	end
 # end
 
-# function TO.cost_expansion!(E::Objective, conSet::ALConstraintSet, Z::AbstractTrajectory,
+# function TO.cost_expansion!(E::Objective, conSet::ALConstraintSet, Z::SampledTrajectory,
 # 		init::Bool=false, rezero::Bool=false)
 # 	for i in eachindex(conSet.errvals)
 # 		TO.cost_expansion!(E, conSet.convals[i], conSet.λ[i], conSet.μ[i], conSet.active[i])

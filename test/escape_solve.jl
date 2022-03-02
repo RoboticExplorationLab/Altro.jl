@@ -1,38 +1,41 @@
 @testset "Escape Solve" begin
-using FileIO
 ##
 res = load(joinpath(@__DIR__, "escape_solve.jld2"))
 prob,opts = Problems.DubinsCar(:escape)
-solver = ALTROSolver(prob, opts, infeasible=true, R_inf=0.1)
+solver = ALTROSolver2(prob, opts, infeasible=true, R_inf=0.1)
 
 ##
 ilqr = Altro.get_ilqr(solver)
 let solver = ilqr
-    TO.state_diff_jacobian!(solver.model, solver.G, solver.Z)
-    TO.dynamics_expansion!( RD.StaticReturn(), RD.ForwardAD(), solver.model, solver.D, solver.Z)
-	TO.error_expansion!(solver.D, solver.model, solver.G)
-    TO.cost_expansion!(solver.quad_obj, solver.obj.obj, solver.Z, init=true, rezero=true)
-    TO.error_expansion!(solver.E, solver.quad_obj, solver.model, solver.Z, solver.G)
+    Altro.errstate_jacobians!(solver.model, solver.G, solver.Z)
+    Altro.dynamics_expansion!(solver)
+    Altro.error_expansion!(solver.model, solver.D, solver.G)
+    Altro.cost_expansion!(solver.obj.obj, solver.Efull, solver.Z)
+    Altro.error_expansion!(solver.model, solver.Eerr, solver.Efull, solver.G, solver.Z)
 end
 
-@test Matrix.(ilqr.G) ≈ fill(zeros(3,3), prob.N+1) 
+@test Matrix.(ilqr.G)[1:prob.N] ≈ fill(Matrix(I,3,3), prob.N)
 @test [D.∇f for D in ilqr.D] ≈ res["D"]
-@test [E.xx for E in ilqr.E] ≈ res["Q0"]
-@test [E.uu for E in ilqr.E] ≈ res["R0"]
-@test [E.x for E in ilqr.E] ≈ res["q0"]
-@test [E.u for E in ilqr.E] ≈ res["r0"]
+@test [E.xx for E in ilqr.Eerr] ≈ res["Q0"]
+@test [E.uu for E in ilqr.Eerr] ≈ res["R0"]
+@test [E.x for E in ilqr.Eerr] ≈ res["q0"]
+@test [E.u for E in ilqr.Eerr] ≈ res["r0"]
 
 conset = get_constraints(solver.solver_al)
 let solver = ilqr
-    RD.evaluate!(conset, solver.Z)
-    RD.jacobian!(conset, solver.Z)
-    TO.cost_expansion!(solver.quad_obj, solver.obj, solver.Z, init=true, rezero=true)
-    TO.error_expansion!(solver.E, solver.quad_obj, solver.model, solver.Z, solver.G)
+    Altro.evaluate_constraints!(conset, solver.Z)
+    Altro.constraint_jacobians!(conset, solver.Z)
+    Altro.algrad!(conset)
+    Altro.alhess!(conset)
+    # Altro.cost_expansion!(solver.obj.obj, solver.Efull, solver.Z)
+    # Altro.error_expansion!(solver.model, solver.Eerr, solver.Efull, solver.G, solver.Z)
+    # TO.cost_expansion!(solver.quad_obj, solver.obj, solver.Z, init=true, rezero=true)
+    # TO.error_expansion!(solver.E, solver.quad_obj, solver.model, solver.Z, solver.G)
 end
-vals = [Vector.(cv.vals) for cv in conset.convals]
-jacs = [Matrix.(cv.jac) for cv in conset.convals]
-grad = [Vector.(cv.grad) for cv in conset.convals]
-hess = [Matrix.(cv.hess) for cv in conset.convals]
+vals = [Vector.(cv.vals) for cv in conset]
+jacs = [Matrix.(cv.jac) for cv in conset]
+grad = [Vector.(cv.grad) for cv in conset]
+hess = [Matrix.(cv.hess) for cv in conset]
 
 @test vals[1] ≈ res["vals"][1]  # circle constraints
 @test vals[2] ≈ res["vals"][2]  # bound constraint
@@ -54,15 +57,20 @@ hess = [Matrix.(cv.hess) for cv in conset.convals]
 @test [hess[1:3,1:3] for hess in hess[3]] ≈ res["hess"][3]      # goal constraint
 @test [hess[4:end,4:end] for hess in hess[4]] ≈ res["hess"][4]  # infeasible constraint
 
-@test [E.xx for E in ilqr.E] ≈ res["Q"]
-@test [E.uu for E in ilqr.E] ≈ res["R"]
-@test [E.x for E in ilqr.E] ≈ res["q"]
-@test [E.u for E in ilqr.E] ≈ res["r"]
+
+let solver = ilqr
+    Altro.cost_expansion!(solver.obj, solver.Efull, solver.Z)
+    Altro.error_expansion!(solver.model, solver.Eerr, solver.Efull, solver.G, solver.Z)
+end
+@test [E.xx for E in ilqr.Eerr] ≈ res["Q"]
+@test [E.uu for E in ilqr.Eerr] ≈ res["R"]
+@test [E.x for E in ilqr.Eerr] ≈ res["q"]
+@test [E.u for E in ilqr.Eerr] ≈ res["r"]
 
 ΔV = Altro.backwardpass!(ilqr)
 @test ΔV ≈ res["dV"]
 
 J = cost(ilqr)
-J_new = Altro.forwardpass!(ilqr, ΔV, J)
+J_new = Altro.forwardpass!(ilqr, J)
 @test J_new ≈ res["J_new"]
 end

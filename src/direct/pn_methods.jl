@@ -36,7 +36,7 @@ function projection_solve!(solver::ProjectedNewtonSolver)
             res = Inf
         end
         count += 1
-        record_iteration!(solver, viol, res)
+        # record_iteration!(solver, viol, res)
     end
     return viol
 end

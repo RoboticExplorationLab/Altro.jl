@@ -44,12 +44,14 @@ end
     square_root::Bool = false
     line_search_lower_bound::T = 1e-8
     line_search_upper_bound::T = 10.0
+    line_search_decrease_factor::T = 0.5
     iterations_linesearch::Int = 20
     max_cost_value::T = 1.0e8
     max_state_value::T = 1.0e8
     max_control_value::T = 1.0e8
     static_bp::Bool = true
 	save_S::Bool = false
+    closed_loop_initial_rollout::Bool = false
 
     # Backward pass regularization
     bp_reg::Bool = false
@@ -61,11 +63,13 @@ end
     bp_reg_fp::T = 10.0
 
     # Augmented Lagrangian
+    use_conic_cost::Bool = false
     penalty_initial::T = 1.0 
     penalty_scaling::T = 10.0
-    active_set_tolerance_al::T = 1e-3
-    dual_max::T = 1e8 
     penalty_max::T = 1e8 
+    dual_max::T = 1e8 
+
+    active_set_tolerance_al::T = 1e-3
     iterations_outer::Int = 30
     kickout_max_penalty::Bool = false
     reset_duals::Bool = true

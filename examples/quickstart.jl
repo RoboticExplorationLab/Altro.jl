@@ -3,10 +3,12 @@ using TrajectoryOptimization
 using Altro
 import RobotZoo.Cartpole
 using StaticArrays, LinearAlgebra
+using RobotDynamics
+const RD = RobotDynamics
 
 # Use the Cartpole model from RobotZoo
 model = Cartpole()
-n,m = size(model)
+n,m = RD.dims(model)
 
 # Define model discretization
 N = 101
@@ -45,11 +47,11 @@ opts = SolverOptions(
     penalty_scaling=10.,
     penalty_initial=1.0
 )
-altro = ALTROSolver(prob, opts)
+altro = ALTROSolver2(prob, opts)
 solve!(altro)
 
 # Get some info on the solve
-max_violation(altro)  # 5.89e-7
+max_violation(altro)  # 1.852e-7
 cost(altro)           # 1.539
 iterations(altro)     # 44
 

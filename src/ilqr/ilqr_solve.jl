@@ -87,7 +87,7 @@ function step!(solver::iLQRSolver{<:Any,<:Any,L}, J, grad_only::Bool=false) wher
     init = !solver.opts.reuse_jacobians  # force recalculation if not reusing
     # sig = StaticReturn()
     # diff = ForwardAD()
-    @timeit_debug to "diff jac"     TO.state_diff_jacobian!(solver.model, solver.G, solver.Z)
+    @timeit_debug to "diff jac"     state_diff_jacobian!(solver.model, solver.G, solver.Z)
     if !solver.opts.reuse_jacobians || !(L <: RD.LinearModel) || !grad_only
         @timeit_debug to "dynamics jac" dynamics_jacobians!(solver)
     end
@@ -143,7 +143,7 @@ function forwardpass!(solver::iLQRSolver, ΔV, J_prev)
     while (z ≤ solver.opts.line_search_lower_bound || z > solver.opts.line_search_upper_bound) && J >= J_prev
 
         # Check that maximum number of line search decrements has not occured
-        if iter > solver.opts.iterations_linesearch
+        if iter >= solver.opts.iterations_linesearch
             for k in eachindex(Z)
                 Z̄[k].z = copy(Z[k].z)
             end
@@ -213,7 +213,7 @@ function forwardpass!(solver::iLQRSolver, ΔV, J_prev)
     @logmsg InnerLoop :z value=z
     @logmsg InnerLoop :α value=2*α
     @logmsg InnerLoop :ρ value=solver.ρ[1]
-    @logmsg InnerLoop :dJ_zero value=solver.opts.dJ_counter_limit
+    @logmsg InnerLoop :dJ_zero value=solver.stats.dJ_zero_counter
 
     return J
 

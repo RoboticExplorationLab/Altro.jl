@@ -24,8 +24,8 @@ struct iLQRSolver{L,O,Nx,Ne,Nu,V,T} <: UnconstrainedSolver{T}
     stats::SolverStats{T}
 
     # Primal Duals
-    Z::Traj{Nx,Nu,T,KnotPoint{Nx,Nu,V,T}}
-    Z̄::Traj{Nx,Nu,T,KnotPoint{Nx,Nu,V,T}}
+    Z::SampledTrajectory{Nx,Nu,T,KnotPoint{Nx,Nu,V,T}}
+    Z̄::SampledTrajectory{Nx,Nu,T,KnotPoint{Nx,Nu,V,T}}
 
     # Data variables
     # K::Vector{SMatrix{m,n̄,T,L2}}  # State feedback gains (m,n,N-1)
@@ -70,7 +70,7 @@ function iLQRSolver(
     xf = prob.xf
 
     Z = prob.Z
-    # Z̄ = Traj(n,m,Z[1].dt,N)
+    # Z̄ = SampledTrajectory(n,m,Z[1].dt,N)
     Z̄ = copy(prob.Z)
 
 	K = [SizedMatrix{m,n̄}(zeros(T,m,n̄)) for k = 1:N-1]
@@ -95,7 +95,7 @@ function iLQRSolver(
     grad = zeros(T,N-1)
     xdot = zeros(T,n)
 
-    logger = SolverLogging.default_logger(opts.verbose >= 2)
+    logger = SolverLogging_v1.default_logger(opts.verbose >= 2)
 	L = typeof(prob.model)
 	O = typeof(prob.obj)
 

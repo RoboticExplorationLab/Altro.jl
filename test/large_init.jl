@@ -25,8 +25,8 @@ x0 = @SVector zeros(n)
 cons = ConstraintList(n,m,N)
 obs = CircleConstraint(n, fill(4.0,50), rand(50)*10, fill(0.1,50))
 goal = GoalConstraint(xf)
-unorm = NormConstraint(n, m, 1000, TO.SecondOrderCone(), :control)
-add_constraint!(cons, unorm, 1:N-1)
+# unorm = NormConstraint(n, m, 1000, TO.SecondOrderCone(), :control)
+# add_constraint!(cons, unorm, 1:N-1)
 add_constraint!(cons, obs, 2:N-1)
 add_constraint!(cons, goal, N)
 
@@ -35,7 +35,7 @@ obj = LQRObjective(Q, R, Qf, xf, N)
 prob = Problem(model, obj, x0, tf, xf = xf, constraints=cons)
 
 # Initialize the solver
-t = @elapsed altrosolver = ALTROSolver(prob, dynamics_funsig=RD.InPlace())
+t = @elapsed altrosolver = ALTROSolver2(prob, dynamics_funsig=RD.InPlace())
 @test t < 60  # it should finish initializing the solver in under a minute (usually about 8 seconds on a desktop)
 t
 
@@ -50,8 +50,19 @@ conset = get_constraints(solver)
 J_prev = cost(solver)
 
 ilqr = Altro.get_ilqr(altrosolver)
-E = ilqr.E
-t_step = @elapsed Altro.step!(ilqr, J_prev)
+# t_step = @elapsed Altro.step!(ilqr, J_prev)
+t_step = @elapsed let solver = ilqr
+    J_prev = cost(solver)
+    Altro.errstate_jacobians!(solver.model, solver.G, solver.Z)
+    Altro.dynamics_expansion!(solver)
+    Altro.error_expansion!(solver.model, solver.D, solver.G)
+    Altro.cost_expansion!(solver.obj, solver.Efull, solver.Z)
+    Altro.error_expansion!(solver.model, solver.Eerr, solver.Efull, solver.G, solver.Z)
+
+    # Get next iterate
+    Altro.backwardpass!(solver)
+    Jnew = Altro.forwardpass!(solver, J_prev)
+end
 @test t_step < 45*10  # Should be about 45 seconds.
 
 ##

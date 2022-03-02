@@ -17,21 +17,21 @@ function rollout!(solver::iLQRSolver{T,Q,n}, α) where {T,Q,n}
         ū = control(Z[k]) + δu
         RobotDynamics.setcontrol!(Z̄[k], ū)
 
-        # Z̄[k].z = [state(Z̄[k]); control(Z[k]) + δu]
-        # if solver.opts.dynamics_funsig == StaticReturn()
-        #     Z̄[k+1].z = [RD.discrete_dynamics(solver.model, Z̄[k]);
-        #         control(Z[k+1])]
-        # else
+        Z̄[k].z = [state(Z̄[k]); control(Z[k]) + δu]
+        if solver.opts.dynamics_funsig == StaticReturn()
+            Z̄[k+1].z = [RD.discrete_dynamics(solver.model, Z̄[k]);
+                control(Z[k+1])]
+        else
             RD.discrete_dynamics!(solver.model, xdot, Z̄[k])
             RD.setstate!(Z̄[k+1], xdot)
-        # end
+        end
 
         max_x = norm(state(Z̄[k+1]),Inf)
         if max_x > solver.opts.max_state_value || isnan(max_x)
             solver.stats.status = STATE_LIMIT
             return false
         end
-        max_u = norm(control(Z̄[k+1]),Inf)
+        max_u = norm(control(Z̄[k]),Inf)
         if max_u > solver.opts.max_control_value || isnan(max_u)
             solver.stats.status = CONTROL_LIMIT 
             return false

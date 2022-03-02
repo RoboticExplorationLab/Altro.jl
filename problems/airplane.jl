@@ -21,8 +21,8 @@ function YakProblems(;
     )
 
     s = RD.LieState(model)
-    n,m = size(model)
-    rsize = size(model)[1] - 9
+    n,m = RD.dims(model)
+    rsize = RD.state_dim(model) - 9
     vinds = SA[1,2,3,8,9,10,11,12,13]
 
     # Discretization
@@ -92,7 +92,7 @@ function YakProblems(;
         if termcon == :goal
             rotgoal = GoalConstraint(xf, SA[4,5,6,7])
         elseif termcon == :quatvec
-            rotgoal = QuatVecEq{Float64}(n, UnitQuaternion(pf), SA[4,5,6,7])
+            rotgoal = QuatVecEq(n, m, pf)
             rot_diffmethod = RD.ForwardAD()
         elseif termcon == :quaterr
             rotgoal = QuatErr(n, UnitQuaternion(pf), SA[4,5,6,7])
