@@ -13,7 +13,7 @@ initial_controls!(prob, U)
 rollout!(prob)
 states(prob)[end]
 
-solver = ALTROSolver2(prob, opts, save_S=true)
+solver = ALTROSolver(prob, opts, save_S=true)
 n,m,N = RD.dims(solver)
 ilqr = Altro.get_ilqr(solver)
 Altro.initialize!(ilqr)

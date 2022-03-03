@@ -47,7 +47,7 @@ opts = SolverOptions(
     penalty_scaling=10.,
     penalty_initial=1.0
 )
-altro = ALTROSolver2(prob, opts)
+altro = ALTROSolver(prob, opts)
 solve!(altro)
 
 # Get some info on the solve

@@ -210,7 +210,7 @@ statuses = [TO.cone_status(TO.SecondOrderCone(), λ) for λ in λbar]
 @test :below ∈ statuses
 
 # E = TO.QuadraticObjective(n,m,N)
-E0 = Altro.CostExpansion2{Float64}(n,m,N)
+E0 = Altro.CostExpansion{Float64}(n,m,N)
 E = Altro.get_ilqr(solver).Efull
 let solver = solver.ilqr
     Altro.cost_expansion!(solver.obj, E, solver.Z)
@@ -234,6 +234,16 @@ z = rand.(length.(di_soc(x0)))
 z .*= 100
 λbar = z .- μ .* di_soc(x0)
 statuses = [TO.cone_status(TO.SecondOrderCone(), λ) for λ in λbar]
+for i = 1:20
+    if :outside in statuses && :in in statuses
+        break
+    else
+        z .= rand.(length.(di_soc(x0)))
+        z .*= 100
+        λbar .= z .- μ .* di_soc(x0)
+        statuses .= [TO.cone_status(TO.SecondOrderCone(), λ) for λ in λbar]
+    end
+end
 @test :outside ∈ statuses
 @test :in ∈ statuses
 for i = 1:N-1
@@ -244,7 +254,7 @@ end
 LA(x) = auglag(di_obj, di_soc, x, z, μ)
 
 # E = TO.QuadraticObjective(n,m,N)
-# E = Altro.CostExpansion2{Float64}(n,m,N)
+# E = Altro.CostExpansion{Float64}(n,m,N)
 E = Altro.get_ilqr(solver).Efull
 @test LA(x0) ≈ cost(solver, Z0)
 Altro.cost_expansion!(alobj, E, Z0)
@@ -261,7 +271,7 @@ hess = cat(hess_blocks..., dims=(1,2))[1:end-m, 1:end-m]
 
 ## Solve it 
 prob = Problem(model, obj, zero(SVector{n}), tf, xf=xf, constraints=cons, integration=RD.Euler(model))
-solver = Altro.AugmentedLagrangianSolver(prob, verbose=0, show_summary=false, 
+solver = Altro.ALSolver(prob, verbose=0, show_summary=false, 
 	projected_newton=true, penalty_initial=100.0, penalty_scaling=50, 
 	cost_tolerance_intermediate=1e-1)
 initial_controls!(solver, [rand(D) for k = 1:N])

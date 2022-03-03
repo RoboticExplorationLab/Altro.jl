@@ -35,7 +35,6 @@ bnd = BoundConstraint(n,m, x_min=xmin, x_max=xmax, u_min=umin, u_max=umax)
 
 # Dynamics Constraint
 dmodel = RD.DiscretizedDynamics{RD.RK4}(model)
-dyn = TO.DynamicsConstraint(dmodel)
 
 ##--- Create the Constraint List
 cons = ConstraintList(n,m,N)
@@ -43,13 +42,12 @@ add_constraint!(cons, cir, 1:N)
 add_constraint!(cons, goal, N)
 add_constraint!(cons, lin, 2:N-1)
 add_constraint!(cons, bnd, 1:N-1)
-# add_constraint!(cons, dyn, 1:N-1)
 
 prob, = Problems.Cartpole(N=N)
 
 ##--- Create an ALConstraintSet
-ilqr = Altro.iLQRSolver2(prob)
-conset = Altro.ALConstraintSet2{Float64}()
+ilqr = Altro.iLQRSolver(prob)
+conset = Altro.ALConstraintSet{Float64}()
 Altro.initialize!(conset, cons, ilqr.Z, ilqr.opts, ilqr.obj.J, ilqr.Efull)
 Altro.reset!(conset)
 
@@ -70,14 +68,6 @@ cval.jac[2] .= 1
 cval.jac[2][:,n+1:end] .= 2
 @test cval.jac[2] ≈ [ones(RD.output_dim(lin), n) 2*ones(RD.output_dim(lin),m)]
 
-# cval = conset.convals[end]
-# @test cval isa Altro.ALConVal{typeof(dyn)}
-# @test cval.inds == cons.inds[end]
-# @test size(cval.jac[1]) == (n, n+m)
-# @test size(cval.jac) == (N,2)
-# @test cval.iserr == false
-# @test cval.jac[3,2] == zeros(n,n+m)
-
 # Test iteration
 @test all([con.con for con in conset] .=== [con for con in cons])
 @test length(conset) == length(cons)
@@ -85,16 +75,10 @@ cval.jac[2][:,n+1:end] .= 2
 ##--- Test evaluation
 Z = SampledTrajectory{n,m}([rand(n) for k = 1:N], [rand(m) for k = 1:N-1], dt=fill(dt,N-1)) 
 Altro.evaluate_constraints!(conset, Z)
-# @test conset[end].vals[1] ≈ RD.discrete_dynamics(dmodel, Z[1]) - RD.state(Z[2])
 @test conset[3].vals[2] ≈ RD.evaluate(lin, Z[3])
 @test conset[2].vals[1] ≈ RD.evaluate(goal, Z[end])
 
 Altro.constraint_jacobians!(conset, Z)
-∇c = TO.gen_jacobian(dyn)
-xn = zeros(n)
-RD.jacobian!(RD.StaticReturn(), RD.ForwardAD(), dmodel, ∇c, xn, Z[1])
-# @test conset[end].jac[1] ≈ ∇c
-# @test conset[end].jac[1,2] ≈ [-I(n) zeros(n,m)]
 @test conset[2].jac[1] ≈ I(n)
 ∇c = TO.gen_jacobian(lin)
 c = zeros(RD.output_dim(lin))

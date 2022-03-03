@@ -46,7 +46,7 @@ xf = SA[0,pi,0,0]
 
 # Solve w/ iLQR
 prob = Problem(model, obj, x0, tf, xf=xf)
-ilqr = Altro.iLQRSolver2(prob, 
+ilqr = Altro.iLQRSolver(prob, 
     cost_tolerance=1e-3, gradient_tolerance=1e-2, use_static=Val(false))
 ilqr.opts.verbose = 2
 b = benchmark_solve!(ilqr)
@@ -60,7 +60,7 @@ err = states(ilqr)[end] - xf
 cons = ConstraintList(4,1,N)
 add_constraint!(cons, GoalConstraint(xf), N)
 prob = Problem(model, obj, x0, tf, xf=xf, constraints=cons)
-solver = ALTROSolver2(prob, cost_tolerance_intermediate=1e-2, show_summary=false, use_static=Val(false))
+solver = ALTROSolver(prob, cost_tolerance_intermediate=1e-2, show_summary=false, use_static=Val(false))
 pn = solver.solver_pn
 solver.opts.ρ_primal = 1e-3
 solver.opts.projected_newton = true 

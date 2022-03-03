@@ -1,7 +1,7 @@
 using Altro
 using TrajectoryOptimization
 using Test
-using Altro: ALTROSolver2
+using Altro: ALTROSolver
 using RobotDynamics
 const RD = RobotDynamics
 const TO = TrajectoryOptimization
@@ -14,7 +14,8 @@ ci = haskey(ENV, "CI")
 
 ## Double Integrator
 v && println("Double Integrator")
-solver = ALTROSolver2(Problems.DoubleIntegrator()...)
+solver = ALTROSolver(Problems.DoubleIntegrator()...)
+solve!(solver)
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time / 1e6 < 1 
 @test max_violation(solver) < 1e-6
@@ -24,7 +25,7 @@ TEST_TIME && @test minimum(b).time / 1e6 < 1
 
 ## Pendulum
 v && println("Pendulum")
-solver = ALTROSolver2(Problems.Pendulum()..., verbose=2)
+solver = ALTROSolver(Problems.Pendulum()..., verbose=2)
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time / 1e6 < 2
 @test max_violation(solver) < 1e-6
@@ -34,7 +35,7 @@ TEST_TIME && @test minimum(b).time / 1e6 < 2
 
 ## Cartpole
 v && println("Cartpole")
-solver = ALTROSolver2(Problems.Cartpole()..., save_S=true, verbose=2, use_static=Val(true))
+solver = ALTROSolver(Problems.Cartpole()..., save_S=true, verbose=2, use_static=Val(true))
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time / 1e6 <  10 
 @test max_violation(solver) < 1e-6
@@ -43,7 +44,7 @@ TEST_TIME && @test minimum(b).time / 1e6 <  10
 @test status(solver) == Altro.SOLVE_SUCCEEDED 
 
 ##
-solver = ALTROSolver2(Problems.Cartpole()..., projected_newton=false)
+solver = ALTROSolver(Problems.Cartpole()..., projected_newton=false)
 b = benchmark_solve!(solver)
 iters = iterations(solver)
 J = cost(solver)
@@ -52,7 +53,7 @@ if !Sys.iswindows() && VERSION > v"1.5"
 end
 
 # Use Static arrays
-solver = ALTROSolver2(Problems.Cartpole()..., projected_newton=false, use_static=Val(true))
+solver = ALTROSolver(Problems.Cartpole()..., projected_newton=false, use_static=Val(true))
 b = benchmark_solve!(solver)
 @test iterations(solver) == iters
 @test cost(solver) ≈ J
@@ -60,7 +61,7 @@ if !Sys.iswindows() && VERSION > v"1.5"
     @test b.allocs == 0
 end
 
-solver = Altro.iLQRSolver2(Problems.Cartpole()...)
+solver = Altro.iLQRSolver(Problems.Cartpole()...)
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time /1e6 < 10 
 !Sys.iswindows() && (@test b.allocs == 0)
@@ -70,7 +71,7 @@ TEST_TIME && @test minimum(b).time /1e6 < 10
 ## Acrobot
 if !ci
     v && println("Acrobot")
-    solver = ALTROSolver2(Problems.Acrobot()...)
+    solver = ALTROSolver(Problems.Acrobot()...)
     b = benchmark_solve!(solver)
     TEST_TIME && @test minimum(b).time / 1e6 < 15
     @test max_violation(solver) < 1e-6
@@ -82,7 +83,7 @@ end
 ## Parallel Park
 if !ci
     v && println("Parallel Park")
-    solver = ALTROSolver2(Problems.DubinsCar(:parallel_park)...)
+    solver = ALTROSolver(Problems.DubinsCar(:parallel_park)...)
     b =  benchmark_solve!(solver)
     TEST_TIME && @test minimum(b).time /1e6 < 10 
     @test max_violation(solver) < 1e-6
@@ -91,7 +92,7 @@ if !ci
     @test status(solver) == Altro.SOLVE_SUCCEEDED 
 
     ## Three Obstacles
-    solver = ALTROSolver2(Problems.DubinsCar(:three_obstacles)...)
+    solver = ALTROSolver(Problems.DubinsCar(:three_obstacles)...)
     b = benchmark_solve!(solver)
     TEST_TIME && @test minimum(b).time /1e6 < 6 
     @test max_violation(solver) < 1e-6
@@ -99,7 +100,7 @@ if !ci
     @test solver.stats.gradient[end] < 1e-1  # 1e-2
     @test status(solver) == Altro.SOLVE_SUCCEEDED 
 
-    solver = ALTROSolver2(Problems.DubinsCar(:three_obstacles)..., projected_newton=false)
+    solver = ALTROSolver(Problems.DubinsCar(:three_obstacles)..., projected_newton=false)
     @test solver.opts.projected_newton == false 
     @test solver.stats.gradient[end] < 1e-1
     b = benchmark_solve!(solver)
@@ -111,7 +112,7 @@ end
 
 ## Escape
 v && println("Escape")
-solver = ALTROSolver2(Problems.DubinsCar(:escape)..., infeasible=true, R_inf=0.1)
+solver = ALTROSolver(Problems.DubinsCar(:escape)..., infeasible=true, R_inf=0.1)
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time / 1e6 < 35  # was 25
 @test max_violation(solver) < 1e-5
@@ -121,7 +122,7 @@ TEST_TIME && @test minimum(b).time / 1e6 < 35  # was 25
 
 ## Zig-zag
 v && println("Quadrotor")
-solver = ALTROSolver2(Problems.Quadrotor(:zigzag)...)
+solver = ALTROSolver(Problems.Quadrotor(:zigzag)...)
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time / 1e6 < 60
 @test max_violation(solver) < 1e-6
@@ -131,7 +132,7 @@ TEST_TIME && @test minimum(b).time / 1e6 < 60
 
 if !ci
     v && println("Quadrotor (no pn)")
-    solver = ALTROSolver2(Problems.Quadrotor(:zigzag)..., projected_newton=false)
+    solver = ALTROSolver(Problems.Quadrotor(:zigzag)..., projected_newton=false)
     b = benchmark_solve!(solver)
     @test iterations(solver) - 60 <= 2 # 60
     @test status(solver) == Altro.SOLVE_SUCCEEDED
@@ -154,7 +155,7 @@ end
 # Barrell Roll
 if !ci
     v && println("Barrell Roll")
-    solver = ALTROSolver2(Problems.YakProblems(costfun=:QuatLQR, termcon=:quatvec)..., use_static=Val(true))
+    solver = ALTROSolver(Problems.YakProblems(costfun=:QuatLQR, termcon=:quatvec)..., use_static=Val(true))
     b = benchmark_solve!(solver)
     TEST_TIME && @test minimum(b).time / 1e6 < 100 
     @test max_violation(solver) < 1e-6

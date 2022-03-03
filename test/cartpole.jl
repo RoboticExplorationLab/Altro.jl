@@ -22,7 +22,7 @@ U = [[u] for u in U]
 initial_controls!(prob, U)
 rollout!(prob)
 
-solver2 = Altro.ALTROSolver2(prob, opts, save_S=true)
+solver2 = Altro.ALTROSolver(prob, opts, save_S=true)
 n,m,N = RD.dims(solver2)
 ilqr = Altro.get_ilqr(solver2)
 Altro.initialize!(ilqr)
@@ -220,7 +220,7 @@ end
 ## Projected Newton
 resfile_pn = joinpath(@__DIR__, "cartpole_pn.jld2")
 res_pn = load(resfile_pn)
-solver = Altro.ALTROSolver2(Problems.Cartpole()..., verbose=0)
+solver = Altro.ALTROSolver(Problems.Cartpole()..., verbose=0)
 solver.opts.constraint_tolerance = solver.opts.projected_newton_tolerance
 solve!(solver.solver_al)
 @test iterations(solver) == 39
@@ -275,9 +275,9 @@ cost_final = cost(pn)
 @test (cost_final - cost0) / cost0 * 100 < 0.1
 Zpn = copy(pn.Z̄data)
 @test dY2 ≈ res_pn["dY2"] atol=1e-6
-@test viol2 ≈ res_pn["viol2"]
-@test cost_final ≈ res_pn["cost_final"]
-@test Zpn ≈ res_pn["Zpn"]
+@test viol2 ≈ res_pn["viol2"] atol=1e-8
+@test cost_final ≈ res_pn["cost_final"] atol=1e-6
+@test Zpn ≈ res_pn["Zpn"] atol=1e-6
 
 if save_results
     @save resfile_pn viol0 viol1 viol2 dY1 dY2 Zpn cost_final A

@@ -4,7 +4,8 @@ getinputinds(::RD.StateOnly, n, m) = 1:n
 getinputinds(::RD.ControlOnly, n, m) = n .+ (1:m)
 
 """
-$(TYPEDEF)
+    ProjectedNewtonSolver
+
 Projected Newton Solver
 Direct method developed by the REx Lab at Stanford University
 Achieves machine-level constraint satisfaction by projecting onto the feasible subspace.
@@ -33,13 +34,7 @@ struct ProjectedNewtonSolver2{L<:DiscreteDynamics,O<:AbstractObjective,Nx,Nu,T} 
     nzval::Vector{T}
     d::Vector{T}               # constraints
     b::Vector{T}               # rhs vector
-    # H::SparseView{T,Int}
-    # g::VectorView{T,Int}
-    # D::SparseView{T,Int}
-    # d::VectorView{T,Int}
     active::BitVector
-    # Ireg::Diagonal{T,Vector{T}}  # dual regularization
-    # regblock::SparseBlockIndex
 
     # Trajectories
     Z::SampledTrajectory{Nx,Nu,T,KnotPoint{Nx,Nu,VectorView{T,Int},T}}
@@ -61,7 +56,6 @@ struct ProjectedNewtonSolver2{L<:DiscreteDynamics,O<:AbstractObjective,Nx,Nu,T} 
     ix::Vector{UnitRange{Int}}
     iu::Vector{UnitRange{Int}}
     iz::Vector{UnitRange{Int}}
-    # id::Vector{UnitRange{Int}}
     blocks::SparseBlocks
     hessblocks::Vector{SparseBlockIndex}
     ∇fblocks::Matrix{SparseBlockIndex}
@@ -82,7 +76,6 @@ function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOpti
 
     ix = [(1:n) .+ (k-1)*(n+m) for k = 1:N]
     iu = [n .+ (1:m) .+ (k-1)*(n+m) for k = 1:N-1]
-    # iz = [(1:n + (k == N ? 0 : m)) .+ (k-1)*(n+m) for k = 1:N]
     iz = [(1:n + m) .+ (k-1)*(n+m) for k = 1:N]
 
     _data = zeros(2Np + Nd + 2m)  # leave extra room for terminal control
@@ -92,10 +85,6 @@ function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOpti
     Atop = spzeros(T, Np, Np + Nd)
     d = zeros(T, Nd)
     b = zeros(T, Np + Nd)  # allocate maximum size
-    # H = view(A, 1:Np, 1:Np) 
-    # g = view(b, 1:Np) 
-    # D = view(A, Np .+ (1:Nd), 1:Np) 
-    # d = view(b, Np .+ (1:Nd)) 
     active = trues(Np + Nd)
     Ireg = Diagonal(fill(-one(T), Nd))
 
@@ -112,7 +101,6 @@ function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOpti
         addblock!(blocks, i, i, isdiag)
     end
     id = Np .+ (1:Nd)  # dual indices
-    # addblock!(blocks, id, id, true)  # duals regularization
 
     # Create the constraint set
     # NOTE: this initializes the sparsity structure in Atop
@@ -164,14 +152,6 @@ function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOpti
         Z, Z̄, hess, hessdiag, grad, ∇f, f, e, Iinit, Ireg, ix, iu, iz, blocks, hessblocks, 
         ∇fblocks, qdldl,
     )
-
-    # ProjectedNewtonSolver2(prob.model, prob.obj, Vector(prob.x0), conset, opts, stats, 
-    #     _data, Zdata, Z̄data, Ydata, A, b, H, g, D, d, active, Z, Z̄, hess, 
-    #     grad, ∇f, f, e,
-    #     Iinit, ix, iu, iz, blocks, hessblocks, ∇fblocks)
-
-    # ProjectedNewtonSolver2(prob.model, prob.obj, prob.x0, opts, stats, Zdata, Ydata, H, g, 
-    #                        hess, grad, Z, ∇f, f, e, ix, iu, iz ,id)
 end
 
 # Getters
@@ -218,8 +198,6 @@ end
 
 function dynamics_expansion!(pn::ProjectedNewtonSolver2{<:Any,<:Any,Nx,Nu}, 
         Z::SampledTrajectory=pn.Z̄, ∇f=pn.∇f) where {Nx,Nu}
-    # sig = pn.opts.dynamics_funsig
-    # sig = function_signature(pn)
     diff = pn.opts.dynamics_diffmethod
     model = pn.model
     n,_,N = RD.dims(pn)
@@ -275,7 +253,7 @@ function constraint_jacobians!(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=
     constraint_jacobians!(pn.conset, Z)
 end
 
-function TO.max_violation(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=pn.Z̄)
+function max_violation(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=pn.Z̄)
     evaluate_constraints!(pn, Z)
     update_active_set!(pn)
     max_violation(pn, nothing)
@@ -285,7 +263,7 @@ function norm_violation(pn::ProjectedNewtonSolver2, p=1)
     return norm(pn.d[pn.active], p)
 end
 
-function TO.max_violation(pn::ProjectedNewtonSolver2, Z::Nothing)
+function max_violation(pn::ProjectedNewtonSolver2, Z::Nothing)
     Np = num_primals(pn)
     c_max = zero(eltype(pn.d))
     for i in eachindex(pn.d)
@@ -294,7 +272,6 @@ function TO.max_violation(pn::ProjectedNewtonSolver2, Z::Nothing)
         end
     end
     return c_max
-    # norm(view(pn.d, pn.active), Inf)  # TODO: update this for inequality constraints
 end
 
 

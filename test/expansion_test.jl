@@ -25,7 +25,7 @@ const RD = RobotDynamics
         @test size(E.u) == (m,)
         @test eltype(E.data) == T
 
-        Eerr = Altro.CostExpansion2{T}(e,m,N)
+        Eerr = Altro.CostExpansion{T}(e,m,N)
         Efull = Altro.FullStateExpansion(Eerr, dmodel)
         if model isa RobotZoo.Cartpole
             @test Efull === E
@@ -45,11 +45,11 @@ const RD = RobotDynamics
         @test_throws UndefRefError S.u
         @test eltype(S.data) == T
 
-        Z = RD.Traj(map(1:N) do k
+        Z = SampledTrajectory(map(1:N) do k
             x,u = rand(model)
             RD.KnotPoint{n,m}(Vector(x),Vector(u),(k-1)*dt,dt)
         end)
-        D = [Altro.DynamicsExpansion2{T}(n, e, m) for k = 1:N-1]
+        D = [Altro.DynamicsExpansion{T}(n, e, m) for k = 1:N-1]
 
         for d in D
             if model isa RobotZoo.Cartpole
@@ -76,7 +76,7 @@ const RD = RobotDynamics
         Altro.errstate_jacobians!(dmodel,G,Z)
         for k = 1:N-1
             Gk = zeros(T,n,e)
-            RD.state_diff_jacobian!(RD.RotationState(), model, Gk, Z[k])
+            RD.errstate_jacobian!(RD.RotationState(), model, Gk, Z[k])
             G[k] ≈ Gk
         end
 

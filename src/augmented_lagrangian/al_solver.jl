@@ -1,6 +1,5 @@
-
 @doc raw""" ```julia
-struct AugmentedLagrangianSolver <: ConstrainedSolver{T}
+struct ALSolver <: ConstrainedSolver{T}
 ```
 Augmented Lagrangian (AL) is a standard tool for constrained optimization. For a trajectory optimization problem of the form:
 ```math
@@ -22,79 +21,63 @@ This function is then minimized with respect to the primal variables using any u
     After a local minima is found, the AL method updates the Lagrange multipliers λ and the penalty terms μ and repeats the unconstrained minimization.
     AL methods have superlinear convergence as long as the penalty term μ is updated each iteration.
 """
-struct AugmentedLagrangianSolver{T,S<:AbstractSolver} <: ConstrainedSolver{T}
+struct ALSolver{T,S} <: ConstrainedSolver{T}
     opts::SolverOptions{T}
     stats::SolverStats{T}
-    solver_uncon::S
+    ilqr::S
 end
 
-
-"""$(TYPEDSIGNATURES)
-Form an augmented Lagrangian cost function from a Problem and AugmentedLagrangianSolver.
-    Does not allocate new memory for the internal arrays, but points to the arrays in the solver.
-"""
-function AugmentedLagrangianSolver(
+function ALSolver(
         prob::Problem{T}, 
         opts::SolverOptions=SolverOptions(), 
-        stats::SolverStats=SolverStats(parent=solvername(AugmentedLagrangianSolver));
-        solver_uncon=iLQRSolver,
+        stats::SolverStats=SolverStats(parent=solvername(ALSolver));
+        use_static=Val(false), 
         kwarg_opts...
     ) where {T}
     set_options!(opts; kwarg_opts...)
 
     # Build Augmented Lagrangian Objective
-    alobj = ALObjective(prob)
+    alobj = ALObjective{T}(prob.obj)
     prob_al = Problem(prob.model, alobj, ConstraintList(dims(prob)...),
         prob.x0, prob.xf, prob.Z, prob.N, prob.t0, prob.tf)
 
-    # Instantiate the unconstrained solver
-    solver_uncon = solver_uncon(prob_al, opts, stats)
-    rollout!(solver_uncon)
+    
+    # Instantiate the iLQR solver
+    ilqr = iLQRSolver(prob_al, opts, stats, use_static=use_static)
+    initialize!(alobj.conset, prob.constraints, ilqr.Z, ilqr.opts, alobj.alcost, ilqr.Efull)
+    # settraj!(alobj.conset, get_trajectory(ilqr))
 
-    # Build solver
-    solver = AugmentedLagrangianSolver(opts, stats, solver_uncon)
+    # Build the solver
+    solver = ALSolver(opts, stats, ilqr)
     reset!(solver)
-    # set_options!(solver; opts...)
     return solver
 end
 
 # Getters
-RD.dims(solver::AugmentedLagrangianSolver) = RD.dims(solver.solver_uncon)
-import Base.size
-@deprecate size(solver::AugmentedLagrangianSolver) dims(solver)
-@inline TO.cost(solver::AugmentedLagrangianSolver) = TO.cost(solver.solver_uncon)
-@inline TO.get_trajectory(solver::AugmentedLagrangianSolver) = get_trajectory(solver.solver_uncon)
-@inline TO.get_objective(solver::AugmentedLagrangianSolver) = get_objective(solver.solver_uncon)
-@inline TO.get_model(solver::AugmentedLagrangianSolver) = get_model(solver.solver_uncon)
-@inline get_initial_state(solver::AugmentedLagrangianSolver) = get_initial_state(solver.solver_uncon)
-solvername(::Type{<:AugmentedLagrangianSolver}) = :AugmentedLagrangian
-get_ilqr(solver::AugmentedLagrangianSolver) = solver.solver_uncon
+for method in (:(RD.dims), :(RD.state_dim), :(RD.errstate_dim), :(RD.control_dim), 
+              :(TO.get_trajectory), :(TO.get_objective), :(TO.get_model), 
+              :(TO.get_initial_state), :getlogger)
+    @eval $method(solver::ALSolver) = $method(solver.ilqr)
+end
+solvername(::Type{<:ALSolver}) = :AugmentedLagrangian
+get_ilqr(solver::ALSolver) = solver.ilqr
+TO.get_constraints(solver::ALSolver) = solver.ilqr.obj.conset
+stats(solver::ALSolver) = solver.stats
+options(solver::ALSolver) = solver.opts
 
-function TO.get_constraints(solver::AugmentedLagrangianSolver{T}) where T
-    obj = get_objective(solver)::ALObjective{T}
-    obj.constraints
+# Methods
+function reset!(solver::ALSolver)
+    # reset_solver!(solver)
+    opts = options(solver)::SolverOptions
+    reset!(stats(solver), opts.iterations, solvername(solver))
+    reset!(solver.ilqr)
+
+    # Reset constraints
+    conset = get_constraints(solver)
+    reset!(conset)
 end
 
-# Options methods
-function set_verbosity!(solver::AugmentedLagrangianSolver)
-    llevel = log_level(solver) 
-    if is_verbose(solver)
-        set_logger()
-        Logging.disable_logging(LogLevel(llevel.level-1))
-        logger = global_logger()
-        if is_verbose(solver.solver_uncon) 
-            freq = 1
-        else
-            freq = 5
-        end
-        logger.leveldata[llevel].freq = freq
-    else
-        Logging.disable_logging(llevel)
-    end
-end
-
-
-function reset!(solver::AugmentedLagrangianSolver)
-    reset_solver!(solver)
-    reset!(solver.solver_uncon)
+function max_violation(solver::ALSolver)
+    evaluate_constraints!(get_constraints(solver), get_trajectory(solver))
+    max_violation(get_constraints(solver))
 end

@@ -85,12 +85,6 @@ function evaluate_convergence(solver::ALSolver)
     iter = solver.stats.iterations
     isconverged = false
     if solver.stats.c_max[iter] < solver.opts.constraint_tolerance
-        # if (solver.stats.gradient[iter] < solver.opts.gradient_tolerance) && 
-        #     @log lg "info" "Optimality conditions satisfied."
-        #    (solver.stats.dJ[iter] < solver.opts.cost_tolerance)
-        #     solver.stats.status = SOLVE_SUCCEEDED
-        #     isconverged = true
-        # end
         @log lg "info" "Constraint tolerance met."
         solver.stats.status = SOLVE_SUCCEEDED
         isconverged = true

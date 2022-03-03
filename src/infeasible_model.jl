@@ -1,4 +1,44 @@
 
+# Infeasible methods
+function InfeasibleProblem(prob::Problem{RK}, Z0::SampledTrajectory, R_inf::Real) where RK
+    @assert !isnan(sum(sum.(states(Z0))))
+
+    n,m,N = dims(prob)  # original sizes
+
+    # Create model with augmented controls
+    model_inf = InfeasibleModel(prob.model)
+
+    # Get a trajectory that is dynamically feasible for the augmented problem
+    #   and matches the states and controls of the original guess
+    Z = infeasible_trajectory(model_inf, Z0)
+
+    # Convert constraints so that they accept new dimensions
+    conSet = TO.change_dimension(get_constraints(prob), n, m+n, 1:n, 1:m)
+
+    # Constrain additional controls to be zero
+    inf = InfeasibleConstraint(model_inf)
+    TO.add_constraint!(conSet, inf, 1:N-1)
+
+    # Infeasible Objective
+    obj = infeasible_objective(prob.obj, R_inf)
+
+    # Create new problem
+    Problem(model_inf, obj, conSet, prob.x0, prob.xf, Z, N, prob.t0, prob.tf)
+end
+
+function infeasible_objective(obj::Objective, regularizer)
+    n,m = TO.state_dim(obj.cost[1]), TO.control_dim(obj.cost[1])
+    Rd = [@SVector zeros(m); @SVector fill(regularizer,n)]
+    R = Diagonal(Rd)
+    cost_inf = TO.DiagonalCost(Diagonal(@SVector zeros(n)), R, checks=false)
+    costs = map(obj.cost) do cost
+        cost_idx = TO.change_dimension(cost, n, n+m, 1:n, 1:m)
+        cost_idx + cost_inf
+    end
+    TO.Objective(costs)
+end
+
+
 ############################################################################################
 #                               INFEASIBLE MODELS                                          #
 ############################################################################################
@@ -13,7 +53,9 @@ RD.@autodiff struct InfeasibleModel{Nx,Nu,D<:DiscreteDynamics} <: DiscreteDynami
     end
 end
 
-""" $(TYPEDEF)
+"""
+    InfeasibleModel
+
 An infeasible model is an augmented dynamics model that makes the system artifically fully
 actuated by augmenting the control vector with `n` additional controls. The dynamics are
 handled explicitly in discrete time:
@@ -30,25 +72,10 @@ InfeasibleModel(model::AbstractModel)
 """
 InfeasibleModel
 
-# struct InfeasibleLie{N,M,D<:AbstractModel} <: RobotDynamics.LieGroupModel 
-#     model::D
-#     _u::SVector{M,Int}  # inds to original controls
-#     _ui::SVector{N,Int} # inds to infeasible controls
-# end
-
-# const InfeasibleModel{N,M,D} = Union{Infeasible{N,M,D},InfeasibleLie{N,M,D}} where {N,M,D}
-
 function InfeasibleModel(model::AbstractModel)
     n,m = RD.dims(model)
     InfeasibleModel{n,m}(model)
 end
-
-# function InfeasibleModel(model::RobotDynamics.LieGroupModel)
-#     n,m = size(model)
-#     _u  = SVector{m}(1:m)
-#     _ui = SVector{n}((1:n) .+ m)
-#     InfeasibleLie(model, _u, _ui)
-# end
 
 RD.statevectortype(::Type{<:InfeasibleModel{<:Any,<:Any,D}}) where D = RD.statevectortype(D)
 RD.LieState(model::InfeasibleModel) = RD.LieState(model.model)
@@ -58,9 +85,6 @@ RD.LieState(model::InfeasibleModel) = RD.LieState(model.model)
 @inline RD.state_dim(model::InfeasibleModel{n}) where n = n
 @inline RD.control_dim(model::InfeasibleModel{n,m}) where {n,m} = n+m
 @inline RD.errstate_dim(model::InfeasibleModel) = RD.errstate_dim(model.model)
-
-# RD.dynamics(::InfeasibleModel, x, u) =
-#     throw(ErrorException("Cannot evaluate continuous dynamics on an infeasible model"))
 
 function RD.discrete_dynamics(model::InfeasibleModel,
         x, u, t, dt)
@@ -77,41 +101,6 @@ function RD.discrete_dynamics!(model::InfeasibleModel{Nx,Nu}, xn,
     xn .+= ui
     return
 end
-
-# @generated function RobotDynamics.discrete_jacobian!(::Type{Q}, ∇f, model::InfeasibleModel{N,M},
-#         z::AbstractKnotPoint{T,N}, cache=nothing) where {T,N,M,Q<:Explicit}
-
-#     ∇ui = [(@SMatrix zeros(N,N+M)) Diagonal(@SVector ones(N)) @SVector zeros(N)]
-#     _x = SVector{N}(1:N)
-#     _u = SVector{M}((1:M) .+ N)
-#     _z = SVector{N+M}(1:N+M)
-#     _ui = SVector{N}((1:N) .+ (N+M))
-#     zi = [:(z.z[$i]) for i = 1:N+M]
-#     NM1 = N+M+1
-# 	NM = N+M
-#     ∇u0 = @SMatrix zeros(N,N)
-
-#     quote
-#         # Build KnotPoint for original model
-#         s0 = SVector{$NM1}($(zi...), z.dt)
-
-#         u0 = z.z[$_u]
-#         ui = z.z[$_ui]
-# 		z_ = StaticKnotPoint(z.z[$_z], $_x, $_u, z.dt, z.t)
-# 		∇f_ = uview(∇f, 1:N, 1:$NM)
-#         discrete_jacobian!($Q, ∇f_, model.model, z_)
-# 		# ∇f[$_x, N+NM] .= ∇f_[$_x, N+M] # ∇dt
-# 		∇f[$_x, $_ui] .= Diagonal(@SVector ones(N))
-# 		return
-# 		# ∇f[$_x,$_ui]
-#         # [∇f[$_x, $_z] $∇u0 ∇dt] + $∇ui
-#     end
-# end
-# function RD._discrete_jacobian!(::RD.ForwardAD, ::Type{Q}, ∇f, model::InfeasibleModel{N,M},
-#         z::AbstractKnotPoint{T,N}, cache=nothing) where {T,N,M,Q<:Explicit}
-#     RD.discrete_jacobian!(Q, ∇f, model, z, cache)
-# end
-
 
 @inline RD.state_diff(model::InfeasibleModel, x::SVector, x0::SVector) = 
     RD.state_diff(model.model, x, x0)
@@ -148,7 +137,10 @@ end
 ############################################################################################
 #  								INFEASIBLE CONSTRAINT 									   #
 ############################################################################################
-""" $(TYPEDEF) Constraints additional ``infeasible'' controls to be zero.
+"""
+    InfeasibleConstraint
+
+Constraints additional ``infeasible'' controls to be zero.
 Constructors: ```julia
 InfeasibleConstraint(model::InfeasibleModel)
 InfeasibleConstraint(n,m)

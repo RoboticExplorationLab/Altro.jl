@@ -1,6 +1,6 @@
 @testset "Solves" begin
 # Test max iterations
-solver = ALTROSolver2(Problems.Pendulum()...)
+solver = ALTROSolver(Problems.Pendulum()...)
 set_options!(solver, 
     iterations=100,
     cost_tolerance_intermediate=1e-10, 
@@ -26,7 +26,7 @@ prob = Problem(model, obj, x0, tf, xf=xf)
 U0 = [u0*1e1 for k = 1:N-1]
 initial_controls!(prob, U0)
 
-solver = ALTROSolver2(prob, show_summary=false)
+solver = ALTROSolver(prob, show_summary=false)
 Altro.is_constrained(solver)
 solve!(solver)
 @test iterations(solver) == 1
@@ -49,7 +49,7 @@ initial_controls!(prob, U0)
 rollout!(prob)
 cost(prob)
 
-solver = ALTROSolver2(prob, show_summary=false)
+solver = ALTROSolver(prob, show_summary=false)
 cost(solver)
 set_options!(solver, max_state_value=100)
 @test Altro.is_constrained(solver) == false
@@ -59,7 +59,7 @@ solve!(solver)
 ## Max outer iterations
 prob, opts = Problems.DubinsCar(:parallel_park, N=N)
 opts.projected_newton = false
-solver = ALTROSolver2(prob, opts, show_summary=false)
+solver = ALTROSolver(prob, opts, show_summary=false)
 solve!(solver)
 @test max_violation(solver) > opts.constraint_tolerance
 status(solver) == Altro.MAX_ITERATIONS_OUTER

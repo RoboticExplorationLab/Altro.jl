@@ -108,7 +108,7 @@ struct ALConstraint{T, C<:TO.StageConstraint, R<:SampledTrajectory}
     ∇proj::Vector{Matrix{T}}   # Jacobian of projection
     ∇proj_scaled::Vector{Matrix{T}}
     ∇²proj::Vector{Matrix{T}}  # Second-order derivative of projection
-    cost::Vector{T}            # (N,) vector of costs (aliased to the one in ALObjective2)
+    cost::Vector{T}            # (N,) vector of costs (aliased to the one in ALObjective)
     grad::Vector{Vector{T}}    # gradient of Augmented Lagrangian
     hess::Vector{Matrix{T}}    # Hessian of Augmented Lagrangian
     tmp_jac::Matrix{T}
@@ -118,13 +118,13 @@ struct ALConstraint{T, C<:TO.StageConstraint, R<:SampledTrajectory}
     # The trajectory is stored in a vector so it can be mutated
     # NOTE: tried to use Refs but it ended up allocating
     Z::Vector{R}
-    E::CostExpansion2{T}
+    E::CostExpansion{T}
 
     opts::ConstraintOptions{T}
     function ALConstraint{T}(Z::R, con::TO.StageConstraint, 
                              inds::AbstractVector{<:Integer}, 
                              costs::Vector{T},
-                             E=CostExpansion2{T}(RD.dims(Z)...); 
+                             E=CostExpansion{T}(RD.dims(Z)...); 
 			                 sig::FunctionSignature=StaticReturn(), 
                              diffmethod::DiffMethod=UserDefined(),
                              kwargs...
@@ -260,7 +260,7 @@ function alcost(alcon::ALConstraint{T}) where T
             # Special-case on the cone
             J = alcost(cone, alcon, i)
         end
-        # Add to the vector of AL penalty costs stored in the ALObjective2
+        # Add to the vector of AL penalty costs stored in the ALObjective
         # Hack to avoid allocation
         alcon.cost[k] += J
     end
@@ -526,11 +526,6 @@ function alhess!(alcon::ALConstraint, i::Integer)
     # hess = ∇c'Iμ*(∇²proj(λs) + ∇proj'Iμ\∇proj)*Iμ*∇c
     matmul!(tmp, ∇²proj, ∇c)
     matmul!(hess, ∇c', tmp)
-    # hess .= ∇c'*(∇²proj)*∇c
-    # tmp_scaled = Iμ\tmp
-    # mul!(hess, tmp', tmp_scaled)
-    # mul!(tmp, ∇²proj, ∇c)
-    # mul!(alcon.hess[i], ∇c', tmp, 1.0, 1.0)
     return nothing
 end
 

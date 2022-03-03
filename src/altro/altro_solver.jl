@@ -1,5 +1,6 @@
+"""
+    ALTROSolver
 
-"""$(TYPEDEF)
 Augmented Lagrangian Trajectory Optimizer (ALTRO) is a solver developed by the Robotic Exploration Lab at Stanford University.
     The solver is special-cased to solve Markov Decision Processes by leveraging the internal problem structure.
 
@@ -25,21 +26,18 @@ as additional keyword arguments and will be set in the solver.
 
 # Other methods
 * `Base.size`: returns `(n,m,N)`
-* `TO.integration`
 * `TO.is_constrained`
 """
-struct ALTROSolver{T,S} <: ConstrainedSolver{T}
+struct ALTROSolver{T,S,P} <: ConstrainedSolver{T}
     opts::SolverOptions{T}
     stats::SolverStats{T}
-    solver_al::AugmentedLagrangianSolver{T,S}
-    solver_pn::ProjectedNewtonSolver{Nx,Nu,Nxu,T} where {Nx,Nu,Nxu}
+    solver_al::ALSolver{T,S}
+    solver_pn::P
 end
 
 function ALTROSolver(prob::Problem{T}, opts::SolverOptions=SolverOptions();
         infeasible::Bool=false,
         R_inf::Real=1.0,
-        use_static=Val(false), 
-        solver_uncon=iLQRSolver,
         kwarg_opts...
     ) where {Q,T}
     if infeasible
@@ -54,130 +52,43 @@ function ALTROSolver(prob::Problem{T}, opts::SolverOptions=SolverOptions();
     end
     set_options!(opts; kwarg_opts...)
     stats = SolverStats{T}(parent=solvername(ALTROSolver))
-    solver_al = AugmentedLagrangianSolver(
-        prob, opts, stats; solver_uncon=solver_uncon, use_static=use_static
-    )
-    solver_pn = ProjectedNewtonSolver(prob, opts, stats)
-    link_constraints!(get_constraints(solver_pn), get_constraints(solver_al))
-    S = typeof(solver_al.solver_uncon)
-    solver = ALTROSolver{T,S}(opts, stats, solver_al, solver_pn)
+    solver_al = ALSolver(prob, opts, stats)
+    solver_pn = ProjectedNewtonSolver2(prob, opts, stats)
+    S = typeof(solver_al.ilqr)
+    solver = ALTROSolver{T,S,typeof(solver_pn)}(opts, stats, solver_al, solver_pn)
     reset!(solver)
     # set_options!(solver; opts...)
     solver
 end
 
+
 # Getters
-@inline RD.dims(solver::ALTROSolver) = RD.dims(solver.solver_pn)
-@inline TO.get_trajectory(solver::ALTROSolver)::SampledTrajectory = get_trajectory(solver.solver_al)
-@inline TO.get_objective(solver::ALTROSolver) = get_objective(solver.solver_al)
-@inline TO.get_model(solver::ALTROSolver) = get_model(solver.solver_al)
-@inline get_initial_state(solver::ALTROSolver) = get_initial_state(solver.solver_al)
-solvername(::Type{<:ALTROSolver}) = :ALTRO
+get_ilqr(solver::ALTROSolver) = get_ilqr(solver.solver_al)
+for method in (:(RD.dims), :(RD.state_dim), :(RD.errstate_dim), :(RD.control_dim), 
+              :(TO.get_trajectory), :(TO.get_objective), :(TO.get_model), 
+              :(TO.get_initial_state), :getlogger)
+    @eval $method(solver::ALTROSolver) = $method(get_ilqr(solver))
+end
+TO.get_constraints(solver::ALTROSolver) = get_constraints(solver.solver_al)
+stats(solver::ALTROSolver) = solver.stats
+options(solver::ALTROSolver) = solver.opts
+
 is_constrained(solver::ALTROSolver) = !isempty(get_constraints(solver.solver_al))
-@inline get_ilqr(solver::ALTROSolver) = solver.solver_al.solver_uncon
+solvername(::Type{<:ALTROSolver}) = :ALTRO
 
-function TO.get_constraints(solver::ALTROSolver)
-    if solver.opts.projected_newton
-        get_constraints(solver.solver_pn)
-    else
-        get_constraints(solver.solver_al)
-    end
+# Methods
+function max_violation(solver::ALTROSolver)
+    return max(max_violation(solver.solver_al), max_violation(solver.solver_pn))
 end
 
-# Solve Methods
-function solve!(solver::ALTROSolver)
-    reset!(solver)
-    conSet = get_constraints(solver.solver_al)
+function reset!(solver::ALTROSolver)
+    # reset_solver!(solver)
+    opts = options(solver)::SolverOptions
+    reset!(stats(solver), opts.iterations, solvername(solver))
+    reset!(solver.solver_al)
+    # reset!(solver.solver_pn)
 
-    if isempty(conSet) 
-        ilqr = solver.solver_al.solver_uncon
-        solve!(ilqr)
-        terminate!(solver)
-        return solver
-    end
-
-    # Set terminal condition if using projected newton
-    opts = solver.opts
-    ϵ_con = solver.opts.constraint_tolerance
-    if opts.projected_newton
-        opts_al = solver.solver_al.opts
-        if opts.projected_newton_tolerance >= 0
-            opts_al.constraint_tolerance = opts.projected_newton_tolerance
-        else
-            opts_al.constraint_tolerance = 0
-            opts_al.kickout_max_penalty = true
-        end
-    end
-
-    # Solve with AL
-    solve!(solver.solver_al)
-
-    if status(solver) <= SOLVE_SUCCEEDED || opts.force_pn
-        # Check convergence
-        i = solver.solver_al.stats.iterations
-        if i > 1
-            c_max = solver.solver_al.stats.c_max[i]
-        else
-            c_max = TO.max_violation(solver.solver_al)
-        end
-
-        opts.constraint_tolerance = ϵ_con
-        if (opts.projected_newton && c_max > opts.constraint_tolerance && 
-                (status(solver) <= SOLVE_SUCCEEDED || status(solver) == MAX_ITERATIONS_OUTER)) ||
-                opts.force_pn
-            solve!(solver.solver_pn)
-        end
-
-        # Back-up check
-        if status(solver) <= SOLVE_SUCCEEDED 
-            # TODO: improve this check
-            if TO.max_violation(solver) < solver.opts.constraint_tolerance
-                solver.stats.status = SOLVE_SUCCEEDED
-            end
-        end
-    end
-
-    terminate!(solver)
-    solver
+    # Reset constraints
+    conset = get_constraints(solver)
+    reset!(conset)
 end
-
-
-# Infeasible methods
-function InfeasibleProblem(prob::Problem{RK}, Z0::SampledTrajectory, R_inf::Real) where RK
-    @assert !isnan(sum(sum.(states(Z0))))
-
-    n,m,N = dims(prob)  # original sizes
-
-    # Create model with augmented controls
-    model_inf = InfeasibleModel(prob.model)
-
-    # Get a trajectory that is dynamically feasible for the augmented problem
-    #   and matches the states and controls of the original guess
-    Z = infeasible_trajectory(model_inf, Z0)
-
-    # Convert constraints so that they accept new dimensions
-    conSet = TO.change_dimension(get_constraints(prob), n, m+n, 1:n, 1:m)
-
-    # Constrain additional controls to be zero
-    inf = InfeasibleConstraint(model_inf)
-    TO.add_constraint!(conSet, inf, 1:N-1)
-
-    # Infeasible Objective
-    obj = infeasible_objective(prob.obj, R_inf)
-
-    # Create new problem
-    Problem(model_inf, obj, conSet, prob.x0, prob.xf, Z, N, prob.t0, prob.tf)
-end
-
-function infeasible_objective(obj::Objective, regularizer)
-    n,m = TO.state_dim(obj.cost[1]), TO.control_dim(obj.cost[1])
-    Rd = [@SVector zeros(m); @SVector fill(regularizer,n)]
-    R = Diagonal(Rd)
-    cost_inf = TO.DiagonalCost(Diagonal(@SVector zeros(n)), R, checks=false)
-    costs = map(obj.cost) do cost
-        cost_idx = TO.change_dimension(cost, n, n+m, 1:n, 1:m)
-        cost_idx + cost_inf
-    end
-    TO.Objective(costs)
-end
-

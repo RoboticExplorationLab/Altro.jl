@@ -3,11 +3,8 @@ module Altro
 import TrajectoryOptimization
 import RobotDynamics
 using StaticArrays
-using Parameters
-using DocStringExtensions
 using BenchmarkTools
 using Interpolations
-using UnsafeArrays
 using SolverLogging
 using Crayons
 
@@ -27,19 +24,20 @@ using TrajectoryOptimization:
     num_constraints, get_trajectory
 
 import TrajectoryOptimization: rollout!, get_constraints, get_model, get_objective, 
-    max_violation, evaluate_constraints!, constraint_jacobians!
+    evaluate_constraints!, constraint_jacobians!
 import RobotDynamics: discrete_dynamics, dynamics, dynamics!, evaluate, evaluate!
 
 using TrajectoryOptimization:
     Problem,
     ConstraintList,
     AbstractObjective, Objective, #QuadraticObjective,
-    SampledTrajectory,
-    DynamicsExpansion, # TODO: Move to ALTRO
+    # SampledTrajectory,
+    # DynamicsExpansion, # TODO: Move to ALTRO
     # ALConstraintSet,
-    DynamicsConstraint,
+    # DynamicsConstraint,
     states, controls,
-    Equality, Inequality, SecondOrderCone
+    Equality, Inequality, SecondOrderCone,
+    cost
 
 using RobotDynamics:
     AbstractModel, DiscreteDynamics, DiscreteLieDynamics,
@@ -53,9 +51,9 @@ using RobotDynamics:
 
 # types
 export
+    ALTROSolverOld,
     ALTROSolver,
-    ALTROSolver2,
-    # iLQRSolver,
+    # iLQRSolverOld,
     # AugmentedLagrangianSolver,
     SolverStats,
     SolverOptions
@@ -65,6 +63,7 @@ export
     benchmark_solve!,
     iterations,
     set_options!,
+    max_violation,
     status
 
 # modules
@@ -83,57 +82,43 @@ else
     const matmul! = mul!
 end
 
-include("logging/SolverLogging.jl")
-using .SolverLogging_v1
-
+# Include the QDLDL wrapper
 include("qdldl.jl")
 using .Cqdldl
 
-# include("linalg.jl")
+# High level structs
 include("utils.jl")
 include("infeasible_model.jl")
 include("solvers.jl")
 include("solver_opts.jl")
 
+# iLQR Solver
 include("ilqr/cost_expansion.jl")
 include("ilqr/dynamics_expansion.jl")
-include("ilqr/ilqr2.jl")
-include("ilqr/backwardpass2.jl")
-include("ilqr/forwardpass.jl")
-include("ilqr/ilqr_solve2.jl")
-
-include("ilqr/ilqr.jl")
-include("ilqr/ilqr_solve.jl")
+include("ilqr/ilqr_solver.jl")
 include("ilqr/backwardpass.jl")
-include("ilqr/rollout.jl")
-# include("augmented_lagrangian/conic_penalties.jl")
-include("augmented_lagrangian/alconval.jl")
-include("augmented_lagrangian/ALconset.jl")
-include("augmented_lagrangian/alcosts.jl")
-include("augmented_lagrangian/al_solver.jl")
-include("augmented_lagrangian/al_objective.jl")
-include("augmented_lagrangian/al_methods.jl")
+include("ilqr/forwardpass.jl")
+include("ilqr/ilqr_solve.jl")
+
+# Augmented Lagrangian Solver
 include("augmented_lagrangian/alcon.jl")
 include("augmented_lagrangian/alconset.jl")
-include("augmented_lagrangian/al_objective2.jl")
-include("augmented_lagrangian/alilqr.jl")
+include("augmented_lagrangian/al_objective.jl")
+include("augmented_lagrangian/al_solver.jl")
 include("augmented_lagrangian/al_solve.jl")
 include("direct/sparseblocks.jl")
-include("direct/primals.jl")
-include("direct/pn.jl")
-include("direct/pn_methods.jl")
+
+# Projected Newton Solver
 include("direct/pncon.jl")
 include("direct/pnconset.jl")
 include("direct/pn_solver.jl")
 include("direct/pn_solve.jl")
+
+# ALTRO Solver
 include("altro/altro_solver.jl")
-include("altro/altro2.jl")
 include("altro/altro_solve.jl")
 
-include("direct/copy_blocks.jl")
-include("direct/direct_constraints.jl")
-
+# Example problems submodule
 include("problems.jl")
-# include("deprecated.jl")
 
 end # module

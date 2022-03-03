@@ -1,319 +1,177 @@
-function initialize!(solver::iLQRSolver)
-	reset!(solver)
-    set_verbosity!(solver)
-    clear_cache!(solver)
+"""
+    initialize!(solver::iLQRSolver)
 
-    solver.ρ[1] = solver.opts.bp_reg_initial
-    solver.dρ[1] = 0.0
+Resets the solver statistics, regularization, and performs the initial 
+rollout.
+
+The initial rollout uses the feedback gains store in `solver.K`. These default to 
+zero, but if `solve!` is called again it will use the previously cached gains 
+to provide better stability.
+
+To reset the gains to zero, you can use [`reset_gains!`](@ref).
+"""
+function initialize!(solver::iLQRSolver)
+    reset!(solver)  # resets the stats
+
+    # Reset regularization
+    solver.reg.ρ = solver.opts.bp_reg_initial
+    solver.reg.dρ = 0.0
+
+    # Set the verbosity level
+    SolverLogging.setlevel!(solver.logger, solver.opts.verbose)
 
     # Initial rollout
-    rollout!(solver)
-    TO.cost!(solver.obj, solver.Z)
+    if solver.opts.closed_loop_initial_rollout
+        # Use a closed-loop rollout, using feedback gains only
+        # If the solver was just initialized, this is equivalent to a forward simulation
+        # without feedback since the gains are all zero
+        rollout!(solver, 0.0)
+    else
+        RD.rollout!(dynamics_signature(solver), solver.model, solver.Z, solver.x0)
+    end
+
+    # Copy the trajectory to Zbar
+    # We'll try to always evaluate our constraint information on the Zbar trajectory
+    # since the constraints cache the trajectory and incur an allocation when the 
+    # cache entry changed
+    copyto!(solver.Z̄, solver.Z)
+    return nothing
 end
 
-function mysolve(solver)
-    Altro.initialize!(solver)
-end
-
-# Generic solve methods
-"iLQR solve method (non-allocating)"
 function solve!(solver::iLQRSolver)
     initialize!(solver)
+    lg = solver.logger
+    for iter = 1:solver.opts.iterations
+        # Calculate the cost
+        J_prev = TO.cost(solver, solver.Z̄)
 
-    Z = solver.Z; Z̄ = solver.Z̄;
+        # Calculate expansions
+        # TODO: do this in parallel
+        errstate_jacobians!(solver.model, solver.G, solver.Z̄)
+        dynamics_expansion!(solver, solver.Z̄)
+        cost_expansion!(solver.obj, solver.Efull, solver.Z̄)
+        error_expansion!(solver.model, solver.Eerr, solver.Efull, solver.G, solver.Z̄)
 
-    n,m,N = dims(solver)
-    J = Inf
-    _J = TO.get_J(solver.obj)
-    J_prev = sum(_J)
+        # Get next iterate
+        backwardpass!(solver)
+        Jnew = forwardpass!(solver, J_prev)
 
-    grad_only = false
-    for i = 1:solver.opts.iterations
-        J = step!(solver, J_prev, grad_only)
+        # Accept the step and update the current trajectory
+        # This is kept out of the forward pass function to make it easier to 
+        # benchmark the forward pass
+        copyto!(solver.Z, solver.Z̄)
 
-        # check for a change in solver status
-        status(solver) > SOLVE_SUCCEEDED && break
+        # Calculate the gradient of the new trajectory
+        dJ = J_prev - Jnew
+        grad = gradient!(solver)
 
-        copy_trajectories!(solver)
+        # Record the iteration
+        record_iteration!(solver, Jnew, dJ, grad) 
 
-        dJ = abs(J - J_prev)
-        J_prev = copy(J)
-        gradient_todorov!(solver)
-
-        # Record iteration and evaluate convergence
-        record_iteration!(solver, J, dJ)
+        # Check convergence
         exit = evaluate_convergence(solver)
 
-        # check if the cost function is quadratic
-        if !grad_only && solver.opts.reuse_jacobians && TO.is_quadratic(solver.E)
-            @logmsg InnerLoop "Gradient-only LQR"
-            grad_only = true  # skip updating feedback gain matrix (feedforward only)
+        # Print log
+        if solver.opts.verbose >= 3 
+            printlog(lg)
+            @log lg "info" ""  # clear the info field
         end
 
-        # check for cost blow up
-
-        # Print iteration
-        if is_verbose(solver) 
-            print_level(InnerLoop, global_logger())
-        end
+        # Exit
         exit && break
-
-        if J > solver.opts.max_cost_value
-            # @warn "Cost exceeded maximum cost"
-            solver.stats.status = MAXIMUM_COST
-            break
-        end
     end
     terminate!(solver)
     return solver
 end
 
-# function step!(solver::iLQRSolver, J)
-#     TO.state_diff_jacobian!(solver.G, solver.model, solver.Z)
-# 	TO.dynamics_expansion!(integration(solver), solver.D, solver.model, solver.Z)
-# 	TO.error_expansion!(solver.D, solver.model, solver.G)
-#     TO.cost_expansion!(solver.quad_obj, solver.obj, solver.Z, true, true)
-#     TO.error_expansion!(solver.E, solver.quad_obj, solver.model, solver.Z, solver.G)
-# 	if solver.opts.static_bp
-#     	ΔV = static_backwardpass!(solver)
-# 	else
-# 		ΔV = backwardpass!(solver)
-#     end
-#     forwardpass!(solver, ΔV, J)
-# end
-
-function step!(solver::iLQRSolver{<:Any,<:Any,L}, J, grad_only::Bool=false) where L
-    to = solver.stats.to
-    init = !solver.opts.reuse_jacobians  # force recalculation if not reusing
-    # sig = StaticReturn()
-    # diff = ForwardAD()
-    @timeit_debug to "diff jac"     state_diff_jacobian!(solver.model, solver.G, solver.Z)
-    if !solver.opts.reuse_jacobians || !(L <: RD.LinearModel) || !grad_only
-        @timeit_debug to "dynamics jac" dynamics_jacobians!(solver)
+function gradient!(solver::iLQRSolver, Z=solver.Z)
+    m = RD.control_dim(solver)
+    avggrad = 0.0
+    for k in eachindex(solver.d)
+        umax = -Inf
+        d = solver.d[k]
+        u = control(Z[k])
+        for i = 1:m
+            umax = max(umax, abs(d[i]) / (abs(u[i]) + 1))
+        end
+        solver.grad[k] = umax
+        avggrad += umax
     end
-	@timeit_debug to "err jac"      TO.error_expansion!(solver.D, solver.model, 
-                                                        solver.G)
-    @timeit_debug to "cost exp"     TO.cost_expansion!(solver.quad_obj, solver.obj, 
-                                                       solver.Z, 
-                                                       init=init, rezero=true)
-    @timeit_debug to "cost err"     TO.error_expansion!(solver.E, solver.quad_obj, 
-                                                        solver.model, solver.Z, 
-                                                        solver.G)
-    ΔV = backwardpass!(solver)
-    # return
-	# @timeit_debug to "backward pass" if solver.opts.static_bp
-    # 	ΔV = static_backwardpass!(solver, grad_only)::SVector{2,Float64}
-	# else
-	# 	ΔV = backwardpass!(solver)::SVector{2,Float64}
-    # end
-    @timeit_debug to "forward pass" forwardpass!(solver, ΔV, J)
+    return avggrad / length(solver.d)
 end
 
-function dynamics_jacobians!(solver::iLQRSolver)
-    sig = solver.opts.dynamics_funsig
-    diff = solver.opts.dynamics_diffmethod
-    D = solver.D
-    Z = solver.Z
-    model = solver.model
-    for k in eachindex(D)
-        RobotDynamics.jacobian!(sig, diff, model, D[k].∇f, D[k].f, Z[k])
-    end
-end
-
-"""
-$(SIGNATURES)
-Simulate the system forward using the optimal feedback gains from the backward pass,
-projecting the system on the dynamically feasible subspace. Performs a line search to ensure
-adequate progress on the nonlinear problem.
-"""
-function forwardpass!(solver::iLQRSolver, ΔV, J_prev)
-    Z = solver.Z; Z̄ = solver.Z̄
-    obj = solver.obj
-
-    _J = TO.get_J(obj)
-    J::Float64 = Inf
-    α = 1.0
-    iter = 0
-    z = -1.0
-    expected = 0.0
-    flag = true
-
-    solver.stats.ls_failed = false
-
-    while (z ≤ solver.opts.line_search_lower_bound || z > solver.opts.line_search_upper_bound) && J >= J_prev
-
-        # Check that maximum number of line search decrements has not occured
-        if iter >= solver.opts.iterations_linesearch
-            for k in eachindex(Z)
-                Z̄[k].z = copy(Z[k].z)
-            end
-            TO.cost!(obj, Z̄)
-            J = sum(_J)
-
-            z = 0
-            α = 0.0
-            @logmsg InnerLoop "Max Line Search Iterations."
-            solver.stats.ls_failed = true
-
-            # solver.stats.status = LINESEARCH_FAIL
-            regularization_update!(solver, :increase)
-            solver.ρ[1] += solver.opts.bp_reg_fp
-            break
-        end
-
-
-        # Otherwise, rollout a new trajectory for current alpha
-        flag = rollout!(solver, α)
-
-        # Check if rollout completed
-        if ~flag
-            # Reduce step size if rollout returns non-finite values (NaN or Inf)
-            # @logmsg InnerIters "Non-finite values in rollout"
-            iter += 1
-            α /= 2.0
-            continue
-        end
-
-        # Calcuate cost
-        TO.cost!(obj, Z̄)
-        J = sum(_J)
-
-        expected::Float64 = -α*(ΔV[1] + α*ΔV[2])
-        if 0.0 < expected < solver.opts.expected_decrease_tolerance 
-            α = 0.0
-            z = Inf 
-            for k in eachindex(Z)
-                Z̄[k].z = copy(Z[k].z)
-            end
-            TO.cost!(obj, Z̄)
-            J = sum(_J)
-            @logmsg InnerLoop "Expected cost decrease under tolerance. Skipping step"
-            regularization_update!(solver, :increase)
-            solver.ρ[1] += solver.opts.bp_reg_fp
-            break
-        end
-        if expected > 0.0
-            z::Float64  = (J_prev - J)/expected
-        else
-            z = -1.0
-        end
-
-        iter += 1
-        α /= 2.0
-    end
-
-    if J > J_prev
-        # error("Error: Cost increased during Forward Pass")
-        # println("Got a cost increase of $(J - J_prev)")
-        solver.stats.status = COST_INCREASE
-        return NaN
-    end
-
-    @logmsg InnerLoop :expected value=expected
-    @logmsg InnerLoop :z value=z
-    @logmsg InnerLoop :α value=2*α
-    @logmsg InnerLoop :ρ value=solver.ρ[1]
-    @logmsg InnerLoop :dJ_zero value=solver.stats.dJ_zero_counter
-
-    return J
-
-end
-
-function copy_trajectories!(solver::iLQRSolver)
-    for k = 1:solver.N
-        solver.Z[k].z = solver.Z̄[k].z
-    end
-end
-
-"""
-Stash iteration statistics
-"""
-function record_iteration!(solver::iLQRSolver, J, dJ)
-    gradient = mean(solver.grad)
-    record_iteration!(solver.stats, cost=J, dJ=dJ, gradient=gradient)
-    i = solver.stats.iterations::Int
-    
+function record_iteration!(solver::iLQRSolver{<:Any,O}, J, dJ, grad) where O
+    lg = solver.logger
+    record_iteration!(solver.stats, cost=J, dJ=dJ, gradient=grad)
+    iter = solver.stats.iterations
     if dJ ≈ 0
         solver.stats.dJ_zero_counter += 1
     else
         solver.stats.dJ_zero_counter = 0
     end
-
-    @logmsg InnerLoop :iter value=i
-    @logmsg InnerLoop :cost value=J
-    @logmsg InnerLoop :dJ   value=dJ
-    @logmsg InnerLoop :grad value=gradient
-    # @logmsg InnerLoop :zero_count value=solver.stats[:dJ_zero_counter][end]
+    @log lg "cost" J
+    @log lg iter
+    @log lg dJ
+    @log lg grad
+    @log lg "dJ_zero" solver.stats.dJ_zero_counter
+    @log lg "ρ" solver.reg.ρ
+    if O <: ALObjective
+        conset = solver.obj.conset
+        @log lg "||v||" max_violation(conset)
+    end
     return nothing
 end
 
-"""
-$(SIGNATURES)
-    Calculate the problem gradient using heuristic from iLQG (Todorov) solver
-"""
-function gradient_todorov!(solver::iLQRSolver)
-	tmp = solver.S[end].r
-    for k in eachindex(solver.d)
-		tmp .= abs.(solver.d[k])
-		u = abs.(control(solver.Z[k])) .+ 1
-		tmp ./= u
-		solver.grad[k] = maximum(tmp)
-    end
-end
+# function addlogs(solver::iLQRSolver)
+#     lg = solver.logger
+#     iter = -10
+#     @log lg "cost" 10
+#     @log lg iter 
+#     @log lg "grad" -0.02
+#     @log lg "α" 0.5
+#     SolverLogging.resetcount!(lg)
+#     printlog(lg)
+# end
 
-
-"""
-$(SIGNATURES)
-Check convergence conditions for iLQR
-"""
 function evaluate_convergence(solver::iLQRSolver)
+    lg = solver.logger
+
     # Get current iterations
     i = solver.stats.iterations
     grad = solver.stats.gradient[i]
     dJ = solver.stats.dJ[i]
+    J = solver.stats.cost[i]
 
     # Check for cost convergence
     # must satisfy both 
     if (0.0 <= dJ < solver.opts.cost_tolerance) && (grad < solver.opts.gradient_tolerance) && !solver.stats.ls_failed
-        @logmsg InnerLoop "Cost criteria satisfied."
+        # @logmsg InnerLoop "Cost criteria satisfied."
+        @log lg "info" "Cost criteria satisfied" :append
         solver.stats.status = SOLVE_SUCCEEDED
         return true
     end
 
     # Check total iterations
     if i >= solver.opts.iterations
-        @logmsg InnerLoop "Hit max iterations. Terminating."
+        # @logmsg InnerLoop "Hit max iterations. Terminating."
+        @log lg "info" "Hit max iteration. Terminating" :append
         solver.stats.status = MAX_ITERATIONS
         return true
     end
 
     # Outer loop update if forward pass is repeatedly unsuccessful
     if solver.stats.dJ_zero_counter > solver.opts.dJ_counter_limit
-        @logmsg InnerLoop "dJ Counter hit max. Terminating."
+        # @logmsg InnerLoop "dJ Counter hit max. Terminating."
+        @log lg "info" "dJ Counter hit max. Terminating" :append
         solver.stats.status = NO_PROGRESS
         return true
     end
 
-    return false
-end
-
-"""
-$(SIGNATURES)
-Update the regularzation for the iLQR backward pass
-"""
-function regularization_update!(solver::iLQRSolver,status::Symbol=:increase)
-    # println("reg $(status)")
-    if status == :increase # increase regularization
-        # @logmsg InnerLoop "Regularization Increased"
-        solver.dρ[1] = max(solver.dρ[1]*solver.opts.bp_reg_increase_factor, solver.opts.bp_reg_increase_factor)
-        solver.ρ[1] = max(solver.ρ[1]*solver.dρ[1], solver.opts.bp_reg_min)
-        # if solver.ρ[1] > solver.opts.bp_reg_max
-        #     @warn "Max regularization exceeded"
-        # end
-    elseif status == :decrease # decrease regularization
-        # TODO: Avoid divides by storing the decrease factor (divides are 10x slower)
-        solver.dρ[1] = min(solver.dρ[1]/solver.opts.bp_reg_increase_factor, 1.0/solver.opts.bp_reg_increase_factor)
-        # solver.ρ[1] = solver.ρ[1]*solver.dρ[1]*(solver.ρ[1]*solver.dρ[1]>solver.opts.bp_reg_min)
-        solver.ρ[1] = max(solver.opts.bp_reg_min, solver.ρ[1]*solver.dρ[1])
+    if J > solver.opts.max_cost_value
+        @log lg "info" "Hit maximum cost. Terminating" :append
+        solver.stats.status = MAXIMUM_COST
+        return true
     end
+
+    return false
 end

@@ -35,7 +35,7 @@ obj = LQRObjective(Q, R, Qf, xf, N)
 prob = Problem(model, obj, x0, tf, xf = xf, constraints=cons)
 
 # Initialize the solver
-t = @elapsed altrosolver = ALTROSolver2(prob, dynamics_funsig=RD.InPlace())
+t = @elapsed altrosolver = ALTROSolver(prob, dynamics_funsig=RD.InPlace())
 @test t < 60  # it should finish initializing the solver in under a minute (usually about 8 seconds on a desktop)
 t
 

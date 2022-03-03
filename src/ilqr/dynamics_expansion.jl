@@ -12,7 +12,7 @@ both the full state and error state. The full state Jacobians are accessed via
 where `n` is the state dimension, `e` is the error state dimension, and `m` is 
 the control dimension.
 """
-struct DynamicsExpansion2{T}
+struct DynamicsExpansion{T}
     f::Vector{T}   # (Nx,)
     ∇f::Matrix{T}  # (Nx, Nx+Nu)
     A::SubArray{T,2,Matrix{T},Tuple{ColonSlice, UnitRange{Int}}, true}
@@ -21,7 +21,7 @@ struct DynamicsExpansion2{T}
     fx::SubArray{T,2,Matrix{T},Tuple{ColonSlice, UnitRange{Int}}, true}
     fu::SubArray{T,2,Matrix{T},Tuple{ColonSlice, UnitRange{Int}}, true}
     tmp::Matrix{T}  # (Nx,Ne)
-    function DynamicsExpansion2{T}(n, e, m; errstate::Bool=n!=e) where T
+    function DynamicsExpansion{T}(n, e, m; errstate::Bool=n!=e) where T
         f = zeros(T,n)
         ∇f = zeros(T,n,n+m)
         A = view(∇f, :, 1:n)
@@ -39,13 +39,13 @@ struct DynamicsExpansion2{T}
 end
 
 @inline function RD.jacobian!(sig::InPlace, diff::DiffMethod, model::DiscreteDynamics,
-    D::DynamicsExpansion2, z::KnotPoint{n,m}
+    D::DynamicsExpansion, z::KnotPoint{n,m}
 ) where {n,m}
     RD.jacobian!(sig, diff, model, D.∇f, D.f, z)
 end
 
 @inline function RD.jacobian!(sig::StaticReturn, diff::DiffMethod, model::DiscreteDynamics,
-    D::DynamicsExpansion2, z::KnotPoint{n,m}
+    D::DynamicsExpansion, z::KnotPoint{n,m}
 ) where {n,m}
     _z = SVector{n+m}(RD.getdata(z))
     RD.jacobian!(sig, diff, model, D.∇f, D.f, RD.StaticKnotPoint(z, _z))
@@ -79,7 +79,7 @@ end
 # result in `D`.
 # """
 # function dynamics_expansion!(sig::FunctionSignature, diff::DiffMethod, 
-#                              model::DiscreteDynamics, D::Vector{<:DynamicsExpansion2}, Z::Traj)
+#                              model::DiscreteDynamics, D::Vector{<:DynamicsExpansion}, Z::Traj)
 #     for k in eachindex(D)
 #         RobotDynamics.jacobian!(sig, diff, model, D[k].∇f, D[k].f, Z[k])
 #     end
@@ -93,13 +93,13 @@ have already been calculated using [`errstate_jacobians!`](@ref) and that the
 full state Jacobians have been calculated and stored in `D` using 
 [`dynamics_expansion`](@ref).
 """
-error_expansion!(model::DiscreteDynamics, D::Vector{<:DynamicsExpansion2}, G) = 
+error_expansion!(model::DiscreteDynamics, D::Vector{<:DynamicsExpansion}, G) = 
     _error_expansion!(RD.statevectortype(model), D, model, G)
 
-_error_expansion!(::RD.EuclideanState, D::Vector{<:DynamicsExpansion2}, 
+_error_expansion!(::RD.EuclideanState, D::Vector{<:DynamicsExpansion}, 
                  model::DiscreteDynamics, G) = nothing
 
-function _error_expansion!(::RD.RotationState, D::Vector{<:DynamicsExpansion2}, 
+function _error_expansion!(::RD.RotationState, D::Vector{<:DynamicsExpansion}, 
     model::DiscreteDynamics, G
 )
     for k in eachindex(D)
