@@ -47,7 +47,7 @@ function iLQRSolver(
         prob::Problem{T}, 
         opts::SolverOptions=SolverOptions{T}(), 
         stats::SolverStats=SolverStats{T}(parent=solvername(iLQRSolver));
-        use_static::Val{USE_STATIC}=Val(false), 
+        use_static::Val{USE_STATIC}=usestaticdefault(get_model(prob)),
         kwarg_opts...
     ) where {T, USE_STATIC}
     set_options!(opts; kwarg_opts...)
@@ -138,6 +138,7 @@ RD.vectype(::iLQRSolver{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,V}) where V = V
 usestatic(obj) = RD.vectype(obj) <: SVector
 dynamics_signature(obj) = usestatic(obj) ? RD.StaticReturn() : RD.InPlace()
 function_signature(obj) = usestatic(obj) ? RD.StaticReturn() : RD.InPlace()
+usestaticdefault(model::RD.AbstractFunction) = Val(RD.default_signature(model) == RD.StaticReturn())
 
 log_level(::iLQRSolver) = InnerLoop
 

@@ -31,7 +31,7 @@ function ALSolver(
         prob::Problem{T}, 
         opts::SolverOptions=SolverOptions(), 
         stats::SolverStats=SolverStats(parent=solvername(ALSolver));
-        use_static=Val(false), 
+        use_static=usestaticdefault(get_model(prob)),
         kwarg_opts...
     ) where {T}
     set_options!(opts; kwarg_opts...)
