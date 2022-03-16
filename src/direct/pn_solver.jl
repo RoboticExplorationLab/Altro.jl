@@ -13,7 +13,7 @@ Achieves machine-level constraint satisfaction by projecting onto the feasible s
 This solver is to be used exlusively for solutions that are close to the optimal solution.
     It is intended to be used as a "solution polishing" method for augmented Lagrangian methods.
 """
-struct ProjectedNewtonSolver2{L<:DiscreteDynamics,O<:AbstractObjective,Nx,Nu,T} <: ConstrainedSolver{T}
+struct ProjectedNewtonSolver2{L<:DiscreteDynamics,O<:AbstractObjective,Nx,Nu,T,F} <: ConstrainedSolver{T}
     # Problem Info
     model::L
     obj::O
@@ -21,6 +21,7 @@ struct ProjectedNewtonSolver2{L<:DiscreteDynamics,O<:AbstractObjective,Nx,Nu,T} 
     conset::PNConstraintSet{T}
     opts::SolverOptions{T}
     stats::SolverStats{T}
+    funsig::F
 
     # Data
     _data::Vector{T}  # storage for primal and dual variables
@@ -63,7 +64,9 @@ struct ProjectedNewtonSolver2{L<:DiscreteDynamics,O<:AbstractObjective,Nx,Nu,T} 
 end
 
 function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOptions{T}(), 
-                                stats::SolverStats=SolverStats(parent=solvername(ProjectedNewtonSolver2)); kwargs...) where T
+                                stats::SolverStats=SolverStats(parent=solvername(ProjectedNewtonSolver2)); 
+                                use_static::Val{USE_STATIC}=usestaticdefault(get_model(prob)),
+                                kwargs...) where {T,USE_STATIC}
     n,m,N = RD.dims(prob)
     Nc = sum(num_constraints(prob.constraints))  # stage constraints
     Np = N*n + (N)*m  # number of primals
@@ -147,7 +150,9 @@ function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOpti
     Ireg = Diagonal(ones(n+m))
     qdldl = QDLDLSolver{T}(Np + Nd, nnz_A, 2*nnz_A)
 
-    ProjectedNewtonSolver2(prob.model, prob.obj, Vector(prob.x0), conset, opts, stats, 
+    funsig = USE_STATIC ? RD.StaticReturn() : RD.InPlace()
+
+    ProjectedNewtonSolver2(prob.model, prob.obj, Vector(prob.x0), conset, opts, stats, funsig,
         _data, Zdata, Z̄data, dY, Ydata, Atop, colptr, rowval, nzval, d, b, active,
         Z, Z̄, hess, hessdiag, grad, ∇f, f, e, Iinit, Ireg, ix, iu, iz, blocks, hessblocks, 
         ∇fblocks, qdldl,
@@ -202,7 +207,7 @@ function dynamics_expansion!(pn::ProjectedNewtonSolver2{<:Any,<:Any,Nx,Nu},
     model = pn.model
     n,_,N = RD.dims(pn)
     for k = 1:N - 1
-        RD.jacobian!(RD.InPlace(), diff, model, ∇f[k,1], pn.f[k], Z[k])
+        RD.jacobian!(pn.funsig, diff, model, ∇f[k,1], pn.f[k], Z[k])
 
         # Copy to Sparse Array
         ∇fview1 = pn.Atop[pn.∇fblocks[k+1,1]]'
@@ -214,11 +219,10 @@ function dynamics_expansion!(pn::ProjectedNewtonSolver2{<:Any,<:Any,Nx,Nu},
 end
 
 function dynamics_error!(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=pn.Z̄)
-    sig = pn.opts.dynamics_funsig
     model = pn.model
     N = length(Z)
     for k = 1:N - 1
-        RD.evaluate!(sig, model, pn.f[k], Z[k])
+        RD.evaluate!(pn.funsig, model, pn.f[k], Z[k])
         RD.state_diff!(model, pn.e[k], pn.f[k], RD.state(Z[k+1]))
     end
 end
