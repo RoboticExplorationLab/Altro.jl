@@ -1,22 +1,22 @@
 
 # Infeasible methods
-function InfeasibleProblem(prob::Problem{RK}, Z0::SampledTrajectory, R_inf::Real) where RK
+function InfeasibleProblem(prob::Problem, Z0::SampledTrajectory, R_inf::Real)
     @assert !isnan(sum(sum.(states(Z0))))
 
-    n,m,N = dims(prob)  # original sizes
+    nx,nu,N = dims(prob)  # original sizes
 
     # Create model with augmented controls
-    model_inf = InfeasibleModel(prob.model)
+    model_inf = InfeasibleModel.(prob.model)
 
     # Get a trajectory that is dynamically feasible for the augmented problem
     #   and matches the states and controls of the original guess
     Z = infeasible_trajectory(model_inf, Z0)
 
     # Convert constraints so that they accept new dimensions
-    conSet = TO.change_dimension(get_constraints(prob), n, m+n, 1:n, 1:m)
+    conSet = TO.change_dimension(get_constraints(prob), nx[1], nu[1]+nx[1], 1:nx[1], 1:nu[1])
 
     # Constrain additional controls to be zero
-    inf = InfeasibleConstraint(model_inf)
+    inf = InfeasibleConstraint(model_inf[1])  # TODO: handle multiple sizes
     TO.add_constraint!(conSet, inf, 1:N-1)
 
     # Infeasible Objective
@@ -117,13 +117,16 @@ RobotDynamics.orientation(model::InfeasibleModel, x::SVector) = orientation(mode
 
 "Calculate a dynamically feasible initial trajectory for an infeasible problem, given a
 desired trajectory"
-function infeasible_trajectory(model::InfeasibleModel{n,m}, Z0::SampledTrajectory) where {T,n,m}
-    x,u = zeros(model)
-    ui = @SVector zeros(n)
-    Z = [KnotPoint(state(z), [control(z); ui], z.t, z.dt) for z in Z0]
+function infeasible_trajectory(models::Vector{<:InfeasibleModel}, Z0::SampledTrajectory)
+    Z = map(Z0) do z
+        n = state_dim(z)
+        ui = @SVector zeros(n)
+        KnotPoint(state(z), [control(z); ui], z.t, z.dt)
+    end
     N = length(Z0)
     for k = 1:N-1
-        RD.propagate_dynamics!(RD.default_signature(model), model, Z[k+1], Z[k])
+        n = state_dim(models[k])
+        RD.propagate_dynamics!(RD.default_signature(models[k]), models[k], Z[k+1], Z[k])
         x′ = state(Z[k+1])
         u_slack = state(Z0[k+1]) - x′
         u = [control(Z0[k]); u_slack]

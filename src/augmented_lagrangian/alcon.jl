@@ -87,8 +87,8 @@ The following methods can be used with an `ALConstraint` object:
 """
 
 struct ALConstraint{T, C<:TO.StageConstraint, R<:SampledTrajectory}
-    n::Int  # state dimension
-    m::Int  # control dimension
+    nx::Vector{Int}  # state dimension     # TODO: remove these?
+    nu::Vector{Int}  # control dimension
     con::C
     sig::FunctionSignature
     diffmethod::DiffMethod
@@ -131,35 +131,35 @@ struct ALConstraint{T, C<:TO.StageConstraint, R<:SampledTrajectory}
     ) where {T,R<:SampledTrajectory}
         opts = ConstraintOptions{T}(;kwargs...)
 
-        n,m = RD.dims(Z)
+        nx,nu = RD.dims(Z)
         p = RD.output_dim(con)
         P = length(inds)
         w = RD.input_dim(con)
-        nm = n + m
+        nz = nx + nu 
 
-        vals = [zeros(T, p) for i = 1:P]
-        jac = [zeros(T, p, w) for i = 1:P]
-        jac_scaled = [zeros(T, p, w) for i = 1:P]
-        λ = [zeros(T, p) for i = 1:P]
-        μ = [fill(opts.penalty_initial, p) for i = 1:P]
+        vals = [zeros(T, p) for k in inds]
+        jac = [zeros(T, p, w) for k in inds]
+        jac_scaled = [zeros(T, p, w) for k in inds]
+        λ = [zeros(T, p) for k in inds]
+        μ = [fill(opts.penalty_initial, p) for k in inds]
         μinv = [inv.(μi) for μi in μ]
-        λbar = [zeros(T, p) for i = 1:P]
-        λproj = [zeros(T, p) for i = 1:P]
-        λscaled = [zeros(T, p) for i = 1:P]
-        viol = [zeros(T, p) for i = 1:P]
+        λbar = [zeros(T, p) for k in inds]
+        λproj = [zeros(T, p) for k in inds]
+        λscaled = [zeros(T, p) for k in inds]
+        viol = [zeros(T, p) for k in inds]
         c_max = zeros(T, length(Z))
 
-        ∇proj = [zeros(T, p, p) for i = 1:P]
-        ∇proj_scaled = [zeros(T, p, p) for i = 1:P]
-        ∇²proj = [zeros(T, p, p) for i = 1:P]
+        ∇proj = [zeros(T, p, p) for k in inds]
+        ∇proj_scaled = [zeros(T, p, p) for k in inds]
+        ∇²proj = [zeros(T, p, p) for k in inds]
         
-        grad = [zeros(T, nm) for i = 1:P]
-        hess = [zeros(T, nm, nm) for i = 1:P]
+        grad = [zeros(T, nz[k]) for k in inds]
+        hess = [zeros(T, nz[k], nz[k]) for k in inds]
 
         tmp_jac = zeros(T, p, w)
 
         new{T, typeof(con), R}(
-            n, m, con, sig, diffmethod, inds, vals, jac, jac_scaled, λ, μ, μinv, λbar, 
+            nx[inds], nu[inds], con, sig, diffmethod, inds, vals, jac, jac_scaled, λ, μ, μinv, λbar, 
             λproj, λscaled, viol, c_max, ∇proj, ∇proj_scaled, ∇²proj, costs, grad, hess, tmp_jac, 
             [Z], E, opts
         )
@@ -178,8 +178,8 @@ Get the indices of the input to the constraint, determined by the output of
 `RobotDynamics.functioninputs`. Returns `1:n+m` for generic stage constraints,
 `1:n` for state constraints, and `n+1:n+m` for control constraints.
 """
-function getinputinds(alcon::ALConstraint)
-    n,m = alcon.n, alcon.m
+function getinputinds(alcon::ALConstraint, i::Integer)
+    n,m = alcon.nx[i], alcon.nu[i]
     inputtype = RD.functioninputs(alcon.con)
     if inputtype == RD.StateOnly() 
         inds = 1:n
@@ -196,7 +196,7 @@ end
 Get the view of the entire cost gradient corresponding to the inputs for the constraint.
 """
 function getgrad(alcon::ALConstraint, i::Integer)
-    inds = getinputinds(alcon)
+    inds = getinputinds(alcon, i)
     return view(alcon.grad[i], inds)
 end
 
@@ -206,7 +206,7 @@ end
 Get the view of the entire cost Hessian corresponding to the inputs for the constraint.
 """
 function gethess(alcon::ALConstraint, i::Integer)
-    inds = getinputinds(alcon)
+    inds = getinputinds(alcon,i)
     return view(alcon.hess[i], inds, inds)
 end
 

@@ -57,16 +57,19 @@ end
 Calculate the error state Jacobians for the trajectory `Z`, storing the 
     result in `G`.
 """
-function errstate_jacobians!(model::DiscreteDynamics, G, Z)
-    errstate_jacobians!(RD.statevectortype(model), model, G, Z)
+function errstate_jacobians!(model::Vector{<:DiscreteDynamics}, G, Z)
+    # NOTE: assumes all models have the same statevectortype
+    errstate_jacobians!(RD.statevectortype(model[1]), model, G, Z)
 end
 
-function errstate_jacobians!(::RD.EuclideanState, model::DiscreteDynamics, G, Z)
+function errstate_jacobians!(::RD.EuclideanState, model::Vector{<:DiscreteDynamics}, G, Z)
     return nothing
 end
 
-function errstate_jacobians!(::RD.StateVectorType, model::DiscreteDynamics, G, Z)
+function errstate_jacobians!(::RD.StateVectorType, models::Vector{<:DiscreteDynamics}, G, Z)
+    N = length(Z)
 	for k in eachindex(Z)
+        model = models[min(k, N-1)]
 		G[k] .= 0
 		RD.errstate_jacobian!(RD.statevectortype(model), model, G[k], Z[k])
 	end
@@ -93,14 +96,14 @@ have already been calculated using [`errstate_jacobians!`](@ref) and that the
 full state Jacobians have been calculated and stored in `D` using 
 [`dynamics_expansion`](@ref).
 """
-error_expansion!(model::DiscreteDynamics, D::Vector{<:DynamicsExpansion}, G) = 
-    _error_expansion!(RD.statevectortype(model), D, model, G)
+error_expansion!(model::Vector{<:DiscreteDynamics}, D::Vector{<:DynamicsExpansion}, G) = 
+    _error_expansion!(RD.statevectortype(model[1]), D, model, G)
 
 _error_expansion!(::RD.EuclideanState, D::Vector{<:DynamicsExpansion}, 
-                 model::DiscreteDynamics, G) = nothing
+                 model::Vector{<:DiscreteDynamics}, G) = nothing
 
 function _error_expansion!(::RD.RotationState, D::Vector{<:DynamicsExpansion}, 
-    model::DiscreteDynamics, G
+    model::Vector{<:DiscreteDynamics}, G
 )
     for k in eachindex(D)
         _error_expansion!(D[k], G[k], G[k+1])

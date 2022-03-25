@@ -6,6 +6,9 @@ struct ALObjective{T,O<:AbstractObjective} <: TO.AbstractObjective
         new{T,typeof(obj)}(obj, ALConstraintSet{T}(), zeros(T, length(obj)))
     end
 end
+RD.state_dim(alobj::ALObjective, k::Integer) = RD.state_dim(alobj.obj, k)
+RD.control_dim(alobj::ALObjective, k::Integer) = RD.state_dim(alobj.obj, k)
+RD.dims(alobj::ALObjective) = RD.dims(alobj.obj)
 
 function TO.cost(alobj::ALObjective, Z::SampledTrajectory)
     # Calculate unconstrained cost

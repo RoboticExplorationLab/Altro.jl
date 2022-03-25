@@ -8,7 +8,7 @@ end
 function PNConstraintSet(cons::TO.ConstraintList, Z::SampledTrajectory, 
                          opts::SolverOptions, A, d, a, blocks)
     # NOTE: blocks needs to already have all of the blocks for the objective Hessian added
-    n,m = cons.n, cons.m
+    n,m = cons.nx[1], cons.nu[1]
     ncon = length(cons)
     N = length(cons.p)
     cinds = [[1:0 for j in eachindex(inds)] for inds in cons.inds]

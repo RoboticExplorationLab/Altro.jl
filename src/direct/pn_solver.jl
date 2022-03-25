@@ -65,35 +65,44 @@ end
 
 function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOptions{T}(), 
                                 stats::SolverStats=SolverStats(parent=solvername(ProjectedNewtonSolver2)); 
-                                use_static::Val{USE_STATIC}=usestaticdefault(get_model(prob)),
+                                use_static::Val{USE_STATIC}=usestaticdefault(get_model(prob)[1]),
                                 kwargs...) where {T,USE_STATIC}
-    n,m,N = RD.dims(prob)
+    nx,nu,N = RD.dims(prob)
     Nc = sum(num_constraints(prob.constraints))  # stage constraints
-    Np = N*n + (N)*m  # number of primals
-    Nd = N*n + Nc       # number of duals (no constraints)
+    @assert length(nx) == N
+    @assert length(nu) == N
+    Np = sum(nx) + sum(nu)
+    Nd = sum(nx) + Nc       # number of duals (no constraints)
 
     set_options!(opts; kwargs...)
     if stats.parent == solvername(ProjectedNewtonSolver2) 
         reset!(stats, opts.iterations)
     end
 
-    ix = [(1:n) .+ (k-1)*(n+m) for k = 1:N]
-    iu = [n .+ (1:m) .+ (k-1)*(n+m) for k = 1:N-1]
-    iz = [(1:n + m) .+ (k-1)*(n+m) for k = 1:N]
+    nn = [[0;0] reshape(cumsum(vec([nx'; nu'])), 2, :)]
+    ix = map(2:N+1) do k
+        nn[2,k-1] + 1 : nn[1,k]
+    end
+    iu = map(2:N) do k
+        nn[1,k] + 1 : nn[2,k]
+    end
+    iz = map(2:N+1) do k
+        nn[2,k-1] + 1 : nn[2,k]
+    end
 
-    _data = zeros(2Np + Nd + 2m)  # leave extra room for terminal control
+    _data = zeros(2Np + Nd + 2nu[1])  # leave extra room for terminal control
     Zdata = view(_data, 1:Np)
     Z̄data = view(_data, Np .+ (1:Np)) 
-    Ydata = view(_data, 2Np + 2m .+ (1:Nd)) 
+    Ydata = view(_data, 2Np + 2nu[1] .+ (1:Nd)) 
     Atop = spzeros(T, Np, Np + Nd)
     d = zeros(T, Nd)
     b = zeros(T, Np + Nd)  # allocate maximum size
     active = trues(Np + Nd)
     Ireg = Diagonal(fill(-one(T), Nd))
 
-    Z = SampledTrajectory([KnotPoint{n,m}(view(_data, iz[k]), prob.Z[k].t, prob.Z[k].dt) for k = 1:N])
+    Z = SampledTrajectory([KnotPoint{nx[k],nu[k]}(view(_data, iz[k]), prob.Z[k].t, prob.Z[k].dt) for k = 1:N])
     Z[end].dt = Inf 
-    Z̄ = SampledTrajectory([KnotPoint{n,m}(view(_data, Np .+ iz[k]), prob.Z[k].t, prob.Z[k].dt) for k = 1:N])
+    Z̄ = SampledTrajectory([KnotPoint{nx[k],nu[k]}(view(_data, Np .+ iz[k]), prob.Z[k].t, prob.Z[k].dt) for k = 1:N])
     Z̄[end].dt = Inf 
     dY = zeros(T, Np + Nd)
 
@@ -118,14 +127,14 @@ function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOpti
     nzval = zeros(T, nnz_A)
 
     # Storage for the dynamics expansion
-    ∇f = [j == 1 ? zeros(T, n, n+m) : zeros(T, n, n) for k = 1:N-1, j = 1:2]
-    f = [zeros(T,n) for k = 1:N-1]
+    ∇f = [j == 1 ? zeros(T, nx[k], nx[k]+nu[k]) : zeros(T, nx[k], nx[k]) for k = 1:N-1, j = 1:2]
+    f = [zeros(T,nx[k]) for k = 1:N-1]
     e = [view(d, conset.cinds[end][k+1]) for k = 1:N-1]
 
     # Cache the sparse view blocks for the dynamics Jacobians
     izk(k,j) = j == 1 ? iz1(k) : iz2(k)
-    iz1(k) = (k-1) * (n + m) .+ (1:n+m)
-    iz2(k) = (k) * (n + m) .+ (1:n)
+    iz1(k) = iz[k]    #(k-1) * (n + m) .+ (1:n+m)
+    iz2(k) = ix[k+1]  #(k) * (n + m) .+ (1:n)
     ci(k) = conset.cinds[end][k+1] .+ Np
     ∇fblocks = [
         begin blocks[izk(k,j), ci(k)] end for k = 1:N-1, j = 1:2
@@ -146,13 +155,13 @@ function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOpti
         blocks[i, i]
     end
 
-    Iinit = -Diagonal(ones(n))
-    Ireg = Diagonal(ones(n+m))
+    Iinit = -Diagonal(ones(nx[1]))
+    Ireg = Diagonal(ones(nx[1]+nu[1]))  # TODO: allow varying sizes
     qdldl = QDLDLSolver{T}(Np + Nd, nnz_A, 2*nnz_A)
 
     funsig = USE_STATIC ? RD.StaticReturn() : RD.InPlace()
 
-    ProjectedNewtonSolver2(prob.model, prob.obj, Vector(prob.x0), conset, opts, stats, funsig,
+    ProjectedNewtonSolver2(prob.model[1], prob.obj, Vector(prob.x0), conset, opts, stats, funsig,
         _data, Zdata, Z̄data, dY, Ydata, Atop, colptr, rowval, nzval, d, b, active,
         Z, Z̄, hess, hessdiag, grad, ∇f, f, e, Iinit, Ireg, ix, iu, iz, blocks, hessblocks, 
         ∇fblocks, qdldl,

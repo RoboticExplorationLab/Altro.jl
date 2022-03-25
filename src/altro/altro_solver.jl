@@ -38,7 +38,7 @@ end
 function ALTROSolver(prob::Problem{T}, opts::SolverOptions=SolverOptions();
         infeasible::Bool=false,
         R_inf::Real=1.0,
-        use_static=usestaticdefault(get_model(prob)),
+        use_static=usestaticdefault(get_model(prob)[1]),
         kwarg_opts...
     ) where {Q,T}
     if infeasible

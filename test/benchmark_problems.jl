@@ -34,22 +34,25 @@ TEST_TIME && @test minimum(b).time / 1e6 < 2
 
 ## Cartpole
 v && println("Cartpole")
-solver = ALTROSolver(Problems.Cartpole()..., save_S=true, verbose=2, use_static=Val(true))
+solver = ALTROSolver(Problems.Cartpole()..., save_S=true, verbose=2)
 b = benchmark_solve!(solver)
 TEST_TIME && @test minimum(b).time / 1e6 <  10 
 @test max_violation(solver) < 1e-6
 @test iterations(solver) == 41 # 40
 @test solver.stats.gradient[end] < 1e-1
 @test status(solver) == Altro.SOLVE_SUCCEEDED 
+@test Altro.usestatic(Altro.get_ilqr(solver)) == true
 
 ##
-solver = ALTROSolver(Problems.Cartpole()..., projected_newton=false)
+solver = ALTROSolver(Problems.Cartpole()..., projected_newton=false, use_static=Val(false))
 b = benchmark_solve!(solver)
 iters = iterations(solver)
 J = cost(solver)
 if !Sys.iswindows() && VERSION > v"1.5"
     @test b.allocs == 0
 end
+@test Altro.usestatic(Altro.get_ilqr(solver)) == false 
+@test get_trajectory(solver) isa SampledTrajectory{Any,Any}
 
 # Use Static arrays
 solver = ALTROSolver(Problems.Cartpole()..., projected_newton=false, use_static=Val(true))

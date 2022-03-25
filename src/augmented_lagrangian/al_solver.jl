@@ -38,7 +38,8 @@ function ALSolver(
 
     # Build Augmented Lagrangian Objective
     alobj = ALObjective{T}(prob.obj)
-    prob_al = Problem(prob.model, alobj, ConstraintList(dims(prob)...),
+    nx,nu = dims(prob)
+    prob_al = Problem(prob.model, alobj, ConstraintList(nx,nu),
         prob.x0, prob.xf, prob.Z, prob.N, prob.t0, prob.tf)
 
     
