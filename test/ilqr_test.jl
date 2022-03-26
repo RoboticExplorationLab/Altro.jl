@@ -1,31 +1,39 @@
+function ilqrallocs(solver)
+    allocs = @allocated J_prev = TO.cost(solver, solver.Z̄)
 
-# @testset "iLQR Solver" begin
-solver = Altro.iLQRSolver(Problems.Cartpole()...)
+    # Calculate expansions
+    # TODO: do this in parallel
+    allocs += @allocated Altro.errstate_jacobians!(solver.model, solver.G, solver.Z̄)
+    allocs += @allocated Altro.dynamics_expansion!(solver, solver.Z̄)
+    allocs += @allocated Altro.cost_expansion!(solver.obj, solver.Efull, solver.Z̄)
+    allocs += @allocated Altro.error_expansion!(solver.model, solver.Eerr, solver.Efull, solver.G, solver.Z̄)
 
-@test (@ballocated Altro.initialize!($solver) evals=1 samples=1) == 0
-@test (@ballocated TO.state_diff_jacobian!(
-    $solver.model, $solver.G, $solver.Z
-) evals=1 samples=1) == 0
-@test (@ballocated TO.dynamics_expansion!(
-    $(solver.opts.dynamics_funsig), $(solver.opts.dynamics_diffmethod), 
-    $solver.model, $solver.D, $solver.Z
-) evals=1 samples=1) == 0
-@test (@ballocated TO.error_expansion!(
-    $solver.D, $solver.model, $solver.G
-) evals=1 samples=1) == 0
-@test (@ballocated TO.error_expansion!(
-    $solver.D, $solver.model, $solver.G
-) evals=1 samples=1) == 0
-@test (@ballocated TO.cost_expansion!(
-    $solver.quad_obj, $solver.obj, $solver.Z, init=true, rezero=true
-) evals=1 samples=1) == 0
-@test (@ballocated TO.error_expansion!(
-    $solver.E, $solver.quad_obj, $solver.model, $solver.Z, $solver.G
-) evals=1 samples=1) == 0
-@test (@ballocated Altro.backwardpass!($solver) evals=1 samples=1) == 0
-ΔV = Altro.backwardpass!(solver)
-J = cost(solver)
-@test (@ballocated Altro.forwardpass!($solver, $ΔV, $J) evals=1 samples=1) == 0
+    # Get next iterate
+    allocs += @allocated Altro.backwardpass!(solver)
+    allocs += @allocated Jnew = Altro.forwardpass!(solver, J_prev)
 
-@test (@ballocated Altro.step!($solver, $J) evals=1 samples=1) == 0
-# end
+    # Accept the step and update the current trajectory
+    # This is kept out of the forward pass function to make it easier to 
+    # benchmark the forward pass
+    allocs += @allocated copyto!(solver.Z, solver.Z̄)
+
+    # Calculate the gradient of the new trajectory
+    dJ = J_prev - Jnew
+    grad = Altro.gradient!(solver)
+
+    # Record the iteration
+    Altro.record_iteration!(solver, Jnew, dJ, grad) 
+
+    # Check convergence
+    exit = Altro.evaluate_convergence(solver)
+    return allocs
+end
+
+@testset "iLQR Solver Allocations" begin
+solver = Altro.iLQRSolver(Problems.Cartpole()..., use_static=Val(true))
+ilqrallocs(solver)
+@test ilqrallocs(solver) == 0
+solver = Altro.iLQRSolver(Problems.Cartpole()..., use_static=Val(false))
+ilqrallocs(solver)
+@test ilqrallocs(solver) == 0
+end

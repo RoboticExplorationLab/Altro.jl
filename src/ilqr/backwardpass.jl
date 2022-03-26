@@ -11,7 +11,7 @@ end
 
 function backwardpass!(solver::iLQRSolver)
     # Extract Variables
-    _,nu,N = RD.dims(solver)
+    N = solver.N
     D = solver.D     # dynamics expansion
     E = solver.Eerr  # cost expansion
     S = solver.S     # quadratic cost-to-go
@@ -32,6 +32,7 @@ function backwardpass!(solver::iLQRSolver)
     while k > 0
         A = D[k].fx
         B = D[k].fu
+        m = RD.control_dim(solver.model[k])
 
         # Action-value expansion
         matmul!(Q[k].x, A', S[k+1].x)
@@ -62,7 +63,7 @@ function backwardpass!(solver::iLQRSolver)
             matmul!(Qux_reg, A', A, ρ, 1.0)
         elseif solver.opts.bp_reg_type == :control
             Quu_reg .= Q[k].uu
-            for i = 1:nu[k]
+            for i = 1:m
                 Quu_reg[i,i] += ρ
             end
             Qux_reg .= Q[k].ux
