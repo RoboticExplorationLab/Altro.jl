@@ -95,7 +95,7 @@ if !ci
 
     ## Three Obstacles
     solver = ALTROSolver(Problems.DubinsCar(:three_obstacles)...)
-    b = benchmark_solve!(solver)
+    b = benchmark_solve!(solver)  # TODO: figure out why the projected newton allocates here
     TEST_TIME && @test minimum(b).time /1e6 < 6 
     @test max_violation(solver) < 1e-6
     @test iterations(solver) == 20 # 20
@@ -106,7 +106,7 @@ if !ci
     @test solver.opts.projected_newton == false 
     @test solver.stats.gradient[end] < 1e-1
     b = benchmark_solve!(solver)
-    if !Sys.iswindows() && VERSION < v"1.5"   # not sure why this fails on Windows?
+    if !Sys.iswindows()  # not sure why this fails on Windows?
         @test b.allocs == 0
         @test status(solver) == Altro.SOLVE_SUCCEEDED 
     end
