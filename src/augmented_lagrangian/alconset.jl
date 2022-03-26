@@ -20,7 +20,7 @@ end
 
 function initialize!(conset::ALConstraintSet{T}, cons::TO.ConstraintList, 
                      Z::SampledTrajectory, opts::SolverOptions,
-                     costs, E=CostExpansion{T}(RD.dims(Z)...)) where T
+                     costs, E=CostExpansion{T}(RD.dims(Z)[1:2]...)) where T
     N = length(Z)
     nx,nu = cons.nx, cons.nu
     @assert all(k->RD.state_dim(Z,k) == nx[k], 1:N)

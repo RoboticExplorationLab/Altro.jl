@@ -124,7 +124,7 @@ struct ALConstraint{T, C<:TO.StageConstraint, R<:SampledTrajectory}
     function ALConstraint{T}(Z::R, con::TO.StageConstraint, 
                              inds::AbstractVector{<:Integer}, 
                              costs::Vector{T},
-                             E=CostExpansion{T}(RD.dims(Z)...); 
+                             E=CostExpansion{T}(RD.dims(Z)[1:2]...); 
 			                 sig::FunctionSignature=StaticReturn(), 
                              diffmethod::DiffMethod=UserDefined(),
                              kwargs...

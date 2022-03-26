@@ -80,7 +80,7 @@ struct CostExpansion{T} <: AbstractVector{StateControlExpansion{T}}
     end
 end
 @inline CostExpansion(n,m,N) = CostExpansion{Float64}(n,m,N)
-@inline CostExpansion{T}(n,m,N) where T = CostExpansion{Float64}(fill(n,N), fill(m,N))
+@inline CostExpansion{T}(n,m,N) where T = CostExpansion{T}(fill(n,N), fill(m,N))
 
 # Array interface
 Base.size(E::CostExpansion) = size(E.data) 

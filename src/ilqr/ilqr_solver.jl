@@ -65,9 +65,9 @@ function iLQRSolver(
         Nu = nu[1]
         Ne = ne[1]
     else
-        Nx = Any
-        Ne = Any
-        Nu = Any
+        Nx = samestatedim ? nx[1] : Any
+        Ne = samestatedim ? ne[1] : Any
+        Nu = samecontroldim ? nu[1] : Any
     end
     V = USE_STATIC ? SVector{nx[1]+nu[1],T} : Vector{T}
     Z = SampledTrajectory(map(enumerate(prob.Z)) do (k,z)

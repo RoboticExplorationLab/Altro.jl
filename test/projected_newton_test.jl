@@ -34,12 +34,12 @@ copyto!(pn.Z̄data, pn.Zdata)
 @test pn.Z̄ ≈ Zsol
 
 # Check sizes
-n,m,N = RD.dims(prob)
+nx,nu,N = RD.dims(prob)
 Np = Altro.num_primals(pn)
-@test Np == N*(n+m)
+@test Np == sum(nx) + sum(nu)
 
-@test size(pn.hess[end]) == (n+m, n+m)
-@test size(pn.grad[end]) == (n+m,)
+@test size(pn.hess[end]) == (nx[end]+nu[end], nx[end]+nu[end])
+@test size(pn.grad[end]) == (nx[end]+nu[end],)
 
 # Check Hessian and regularization
 Altro.cost_hessian!(pn)

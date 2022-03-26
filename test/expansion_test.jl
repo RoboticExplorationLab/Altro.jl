@@ -73,14 +73,15 @@ const RD = RobotDynamics
         end
 
         G = [zeros(T,n,e) for k = 1:N]
-        Altro.errstate_jacobians!(dmodel,G,Z)
+        models = [dmodel for k = 1:length(Z)-1]
+        Altro.errstate_jacobians!(models,G,Z)
         for k = 1:N-1
             Gk = zeros(T,n,e)
             RD.errstate_jacobian!(RD.RotationState(), model, Gk, Z[k])
             G[k] ≈ Gk
         end
 
-        Altro.error_expansion!(dmodel, D, G)
+        Altro.error_expansion!(models, D, G)
         for k = 1:N-1
             A = D[k].A
             B = D[k].B

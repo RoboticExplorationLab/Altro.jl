@@ -49,14 +49,7 @@ ilqr = Altro.get_ilqr(al)
 @testset "ALiLQR Allocation test" begin
     solver = Altro.ALSolver(Problems.Quadrotor()...)
     solver.opts.verbose = 0
+    alilqr_allocs(solver)
     !Sys.iswindows() && @test alilqr_allocs(solver) == 0
 end
 end
-
-solver = Altro.ALSolver(Problems.DubinsCar(:three_obstacles)...)
-b = benchmark_solve!(solver)
-b.allocs
-solver = ALTROSolver(Problems.DubinsCar(:three_obstacles)..., projected_newton=false)
-b = benchmark_solve!(solver, samples=1, evals=1)
-b.allocs
-alilqr_allocs(solver)
