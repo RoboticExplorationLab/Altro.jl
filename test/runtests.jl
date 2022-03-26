@@ -37,7 +37,6 @@ end
 end
 
 @testset "Solvers" begin
-    # include("ilqr_test.jl")
     include("constructors.jl")
     include("augmented_lagrangian_tests.jl")
     include("alilqr_test.jl")

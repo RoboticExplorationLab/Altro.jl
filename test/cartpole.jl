@@ -23,7 +23,9 @@ initial_controls!(prob, U)
 rollout!(prob)
 
 solver2 = Altro.ALTROSolver(prob, opts, save_S=true)
-n,m,N = RD.dims(solver2)
+nx,nu,N = RD.dims(solver2)
+n = nx[1]
+m = nu[1]
 ilqr = Altro.get_ilqr(solver2)
 Altro.initialize!(ilqr)
 X = states(ilqr)
@@ -80,20 +82,20 @@ Qz = [Vector([E.x; E.u]) for E in ilqr.Q]
 J = cost(ilqr)
 TO.rollout!(ilqr, 1.0)
 @test cost(ilqr.obj, ilqr.Z̄) ≈ 42918.1164958687
-δx = RD.state_diff(ilqr.model, RD.state(ilqr.Z̄[1]), RD.state(ilqr.Z[1]))
+δx = RD.state_diff(ilqr.model[1], RD.state(ilqr.Z̄[1]), RD.state(ilqr.Z[1]))
 δu = d[1]
 RD.setcontrol!(ilqr.Z̄[1], RD.control(ilqr.Z[1]) + δu)
-RD.setstate!(ilqr.Z̄[2], RD.discrete_dynamics(ilqr.model, ilqr.Z̄[1]))
-RD.discrete_dynamics(ilqr.model, ilqr.Z̄[1])
+RD.setstate!(ilqr.Z̄[2], RD.discrete_dynamics(ilqr.model[1], ilqr.Z̄[1]))
+RD.discrete_dynamics(ilqr.model[1], ilqr.Z̄[1])
 @test δx ≈ zeros(n)
 @test RD.control(ilqr.Z̄[1]) ≈ [-13.987381820157527]
 @test RD.state(ilqr.Z̄[2]) ≈ [-0.017484227275196912, 0.034968454550393824, -0.6980029115441456, 1.3840172471758034]
 
-δx = RD.state_diff(ilqr.model, RD.state(ilqr.Z̄[2]), RD.state(ilqr.Z[2]))
+δx = RD.state_diff(ilqr.model[1], RD.state(ilqr.Z̄[2]), RD.state(ilqr.Z[2]))
 δu = d[2] + K[2] * δx
 # RD.control(ilqr.Z[2]) + δu
 RD.setcontrol!(ilqr.Z̄[2], RD.control(ilqr.Z[2]) + δu)
-RD.setstate!(ilqr.Z̄[3], RD.discrete_dynamics(ilqr.model, ilqr.Z̄[2]))
+RD.setstate!(ilqr.Z̄[3], RD.discrete_dynamics(ilqr.model[1], ilqr.Z̄[2]))
 @test δx ≈ res["dx2"]
 @test δu ≈ res["du2"]
 
