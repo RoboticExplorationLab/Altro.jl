@@ -47,6 +47,7 @@ end
     include("socp_test.jl")
     include("projected_newton_test.jl")
     include("expansion_test.jl")
+    include("infeasible_problem.jl")
 end
 
 @testset "Solver Options" begin
