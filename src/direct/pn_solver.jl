@@ -47,7 +47,7 @@ struct ProjectedNewtonSolver2{L<:DiscreteDynamics,O<:AbstractObjective,Nx,Nu,T,F
     grad::Vector{VectorView{T,Int}}
 
     # Dynamics
-    ∇f::Matrix{Matrix{T}}  # dynamics Jacobians
+    ∇f::Matrix{Matrix{T}}          # dynamics Jacobians
     f::Vector{Vector{T}}           # dynamics values 
     e::Vector{VectorView{T,Int}}   # dynamics residuals
     Iinit::Diagonal{T,Vector{T}}
@@ -65,7 +65,7 @@ end
 
 function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOptions{T}(), 
                                 stats::SolverStats=SolverStats(parent=solvername(ProjectedNewtonSolver2)); 
-                                use_static::Val{USE_STATIC}=usestaticdefault(get_model(prob)[1]),
+                                use_static::Val{USE_STATIC}=Val(false),
                                 kwargs...) where {T,USE_STATIC}
     nx,nu,N = RD.dims(prob)
     Nc = sum(num_constraints(prob.constraints))  # stage constraints
@@ -159,7 +159,19 @@ function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOpti
     Ireg = Diagonal(ones(nx[1]+nu[1]))  # TODO: allow varying sizes
     qdldl = QDLDLSolver{T}(Np + Nd, nnz_A, 2*nnz_A)
 
-    funsig = USE_STATIC ? RD.StaticReturn() : RD.InPlace()
+    # Check if in-place method works
+    if !USE_STATIC
+        try 
+            RD.discrete_dynamics!(prob.model[1], f[1], Z[1])
+            f[1] .= 0
+            funsig = RD.InPlace()
+        catch
+            @warn "In-place dynamics not found. Using StaticReturn. May allocate in ProjectedNewtonSolver."
+            funsig = RD.StaticReturn()
+        end
+    else
+        funsig = RD.StaticReturn()
+    end
 
     ProjectedNewtonSolver2(prob.model[1], prob.obj, Vector(prob.x0), conset, opts, stats, funsig,
         _data, Zdata, Z̄data, dY, Ydata, Atop, colptr, rowval, nzval, d, b, active,
@@ -214,7 +226,7 @@ function dynamics_expansion!(pn::ProjectedNewtonSolver2{<:Any,<:Any,Nx,Nu},
         Z::SampledTrajectory=pn.Z̄, ∇f=pn.∇f) where {Nx,Nu}
     diff = pn.opts.dynamics_diffmethod
     model = pn.model
-    n,_,N = RD.dims(pn)
+    N = length(pn.ix)
     for k = 1:N - 1
         RD.jacobian!(pn.funsig, diff, model, ∇f[k,1], pn.f[k], Z[k])
 
@@ -252,7 +264,7 @@ end
 
 function constraint_jacobians!(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=pn.Z̄)
     ix = pn.ix
-    n = RD.state_dim(pn.model)
+    # n = RD.state_dim(pn.model)
 
     # Initial condition
     # TODO: skip this since it's constant

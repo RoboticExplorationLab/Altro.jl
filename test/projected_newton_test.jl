@@ -25,7 +25,6 @@ max_violation(al)
 
 pn = Altro.ProjectedNewtonSolver2(prob, opts)
 copyto!(pn.Z, Zsol)
-pn.Z[end].dt = Inf
 copyto!(pn.Z̄data, pn.Zdata)
 @test max_violation(pn) ≈ max_violation(al)
 
@@ -44,11 +43,12 @@ Np = Altro.num_primals(pn)
 # Check Hessian and regularization
 Altro.cost_hessian!(pn)
 iz = pn.iz
-@test pn.Atop[iz[end], iz[end]] ≈ cat(prob.obj[end].Q, prob.obj[end].R, dims=(1,2))
+@test pn.Atop[iz[end], iz[end]] ≈ cat(prob.obj[end].Q, prob.obj[end].R*0, dims=(1,2))
+pn.Atop[iz[end],iz[end]]
 Altro.primalregularization!(pn)
 ρ_primal = opts.ρ_primal
 @test pn.Atop[iz[end], iz[end]] ≈ 
-    cat(prob.obj[end].Q, prob.obj[end].R, dims=(1,2)) + I * ρ_primal
+    cat(prob.obj[end].Q, prob.obj[end].R*0, dims=(1,2)) + I * ρ_primal
 
 # Compute the factorization
 Altro.evaluate_constraints!(pn)
@@ -111,10 +111,11 @@ end samples=1 evals=1
 #################################
 
 # Create a trajectory with views into a single array
-n,m,N = RD.dims(prob)
+nx,nu,N = RD.dims(prob)
 h = 0.1
-NN = N*n + (N-1)*m
-Zdata = zeros(NN + m)
+NN = N*nx[1] + (N-1)*nu[1]
+Zdata = zeros(NN + nu[1])
+n,m = nx[1], nu[1]
 ix = [(1:n) .+ (k-1)*(n+m) for k = 1:N]
 iu = [n .+ (1:m) .+ (k-1)*(n+m) for k = 1:N-1]
 iz = [(1:n+m) .+ (k-1)*(n+m) for k = 1:N]
@@ -202,7 +203,7 @@ end
 # Dynamics error
 Altro.dynamics_error!(pn)
 for k = 1:N-1
-    @test pn.e[k] ≈ RD.discrete_dynamics(prob.model, prob.Z[k]) - RD.state(prob.Z[k+1])
+    @test pn.e[k] ≈ RD.discrete_dynamics(prob.model[1], prob.Z[k]) - RD.state(prob.Z[k+1])
 end
 
 # Update everything
