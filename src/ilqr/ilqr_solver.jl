@@ -47,52 +47,65 @@ function iLQRSolver(
         prob::Problem{T}, 
         opts::SolverOptions=SolverOptions{T}(), 
         stats::SolverStats=SolverStats{T}(parent=solvername(iLQRSolver));
-        use_static::Val{USE_STATIC}=usestaticdefault(get_model(prob)),
+        use_static::Val{USE_STATIC}=usestaticdefault(get_model(prob)[1]),
         kwarg_opts...
     ) where {T, USE_STATIC}
     set_options!(opts; kwarg_opts...)
 
-    n,m,N = dims(prob)
-    e = RD.errstate_dim(prob.model)
+    nx,nu,N = dims(prob)
+    ne = RD.errstate_dim.(prob.model)
+    push!(ne,ne[end])
 
     x0 = copy(prob.x0)
-    V = USE_STATIC ? SVector{n+m,T} : Vector{T}
-    Z = SampledTrajectory(map(prob.Z) do z
-        Nx = state_dim(z)
-        Nu = control_dim(z)
-        RD.KnotPoint{Nx,Nu}(V(RD.getdata(z)), RD.getparams(z)...)
+    samestatedim = all(x->x == nx[1], nx)
+    samecontroldim = all(u->u == nu[1], nu)
+    if USE_STATIC
+        @assert  samestatedim && samecontroldim "Cannot use StaticArrays with varying state or control dimension."
+        Nx = nx[1]
+        Nu = nu[1]
+        Ne = ne[1]
+    else
+        Nx = samestatedim ? nx[1] : Any
+        Ne = samestatedim ? ne[1] : Any
+        Nu = samecontroldim ? nu[1] : Any
+    end
+    V = USE_STATIC ? SVector{nx[1]+nu[1],T} : Vector{T}
+    Z = SampledTrajectory(map(enumerate(prob.Z)) do (k,z)
+        RD.KnotPoint{Nx,Nu}(nx[k], nu[k], V(RD.getdata(z)), RD.getparams(z)...)
     end)
     Z̄ = copy(Z)
 
     # Rollout out dynamics if initial state contains NaN values
     if any(isnan, state(Z[1]))
-        RD.rollout!(opts.dynamics_funsig, prob.model, Z, prob.x0)
+        RD.rollout!(opts.dynamics_funsig, prob.model[1], Z, prob.x0)
     end
     RD.setstate!(Z[1], prob.x0)  # set initial state
 
-    dx = [zeros(T,e) for k = 1:N]
-    du = [zeros(T,m) for k = 1:N-1]
+    dx = [zeros(T,ne[k]) for k = 1:N]
+    du = [zeros(T,nu[k]) for k = 1:N-1]
 
-    gains = [zeros(T,m,e+1) for k = 1:N-1]
-    K = [view(gain,:,1:e) for gain in gains]
-    d = [view(gain,:,e+1) for gain in gains]
+    gains = [zeros(T,nu[k],ne[k]+1) for k = 1:N-1]
+    K = [view(gain,:,1:ne[k]) for (k,gain) in enumerate(gains)]
+    d = [view(gain,:,ne[k]+1) for (k,gain) in enumerate(gains)]
 
-    D = [DynamicsExpansion{T}(n,e,m) for k = 1:N-1]
-    G = [Matrix(one(T)*I,n,e) for k = 1:N+1]
+    D = [DynamicsExpansion{T}(nx[k],ne[k],nu[k]) for k = 1:N-1]
+    G = [Matrix(one(T)*I,nx[k],ne[k]) for k = 1:N]
+    push!(G, copy(G[end]))
 
-    Eerr = CostExpansion{T}(e,m,N)
-    Efull = FullStateExpansion(Eerr, prob.model)
-    Q = [StateControlExpansion{T}(e,m) for k = 1:N] 
-    S = [StateControlExpansion{T}(e) for k = 1:N] 
+    Eerr = CostExpansion{T}(ne,nu)
+    Efull = FullStateExpansion(Eerr, prob.model[1])
+    Q = [StateControlExpansion{T}(ne[k],nu[k]) for k = 1:N] 
+    S = [StateControlExpansion{T}(ne[k]) for k = 1:N] 
     ΔV = zeros(T,2)
-    
-    Qtmp = StateControlExpansion{T}(e,m)
-    Quu_reg = zeros(T,m,m)
-    Qux_reg = zeros(T,m,e)
+
+    # TODO: Change this to accept multiple sizes
+    Qtmp = StateControlExpansion{T}(ne[1],nu[1])
+    Quu_reg = zeros(T,nu[1],nu[1])  
+    Qux_reg = zeros(T,nu[1],ne[1])
     reg = DynamicRegularization{T}(opts.bp_reg_initial, 0)
 
     grad = zeros(T,N-1)
-    xdot = zeros(T,n)
+    xdot = zeros(T,nx[1])  # TODO: change this to support multiple sizes
 
     # logger = SolverLogging_v1.default_logger(opts.verbose >= 2)
     lg = SolverLogging.Logger()
@@ -114,7 +127,7 @@ function iLQRSolver(
 
 	L = typeof(prob.model)
 	O = typeof(prob.obj)
-    solver = iLQRSolver{L,O,n,e,m,T,V}(
+    solver = iLQRSolver{L,O,Nx,Ne,Nu,T,V}(
         prob.model, prob.obj, x0, prob.tf, N, opts, stats, Z, Z̄, dx, du,
         gains, K, d, D, G, Efull, Eerr, Q, S, ΔV, Qtmp, Quu_reg, Qux_reg, reg, grad, xdot, 
         lg,
@@ -123,10 +136,13 @@ function iLQRSolver(
 end
 
 # Getters
-RD.dims(solver::iLQRSolver{<:Any,<:Any,n,<:Any,m}) where {n,m} = n,m,solver.N
+RD.dims(solver::iLQRSolver) = RD.dims(solver.Z) 
 RD.state_dim(::iLQRSolver{<:Any,<:Any,n}) where n = n
 RD.errstate_dim(::iLQRSolver{<:Any,<:Any,<:Any,e}) where e = e
 RD.control_dim(::iLQRSolver{<:Any,<:Any,<:Any,<:Any,m}) where m = m
+RD.state_dim(solver::iLQRSolver, k::Integer) = RD.state_dim(solver.model[k])
+RD.errstate_dim(solver::iLQRSolver, k::Integer) = RD.errstate_dim(solver.model[k])
+RD.control_dim(solver::iLQRSolver, k::Integer) = RD.control_dim(solver.model[k])
 @inline TO.get_trajectory(solver::iLQRSolver) = solver.Z
 @inline TO.get_objective(solver::iLQRSolver) = solver.obj
 @inline TO.get_model(solver::iLQRSolver) = solver.model
@@ -157,7 +173,7 @@ function dynamics_expansion!(solver::iLQRSolver, Z=solver.Z)
 
     # Dynamics Jacobians
     for k in eachindex(D)
-        RobotDynamics.jacobian!(dynamics_signature(solver), diff, model, D[k], Z[k])
+        RobotDynamics.jacobian!(dynamics_signature(solver), diff, model[k], D[k], Z[k])
     end
 
     # Calculate the expansion on the error state

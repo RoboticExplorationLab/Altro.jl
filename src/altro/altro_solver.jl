@@ -38,7 +38,7 @@ end
 function ALTROSolver(prob::Problem{T}, opts::SolverOptions=SolverOptions();
         infeasible::Bool=false,
         R_inf::Real=1.0,
-        use_static=usestaticdefault(get_model(prob)),
+        use_static=usestaticdefault(get_model(prob)[1]),
         kwarg_opts...
     ) where {Q,T}
     if infeasible
@@ -73,6 +73,7 @@ end
 TO.get_constraints(solver::ALTROSolver) = get_constraints(solver.solver_al)
 stats(solver::ALTROSolver) = solver.stats
 options(solver::ALTROSolver) = solver.opts
+usestatic(solver::ALTROSolver) = usestatic(get_ilqr(solver))
 
 is_constrained(solver::ALTROSolver) = !isempty(get_constraints(solver.solver_al))
 solvername(::Type{<:ALTROSolver}) = :ALTRO

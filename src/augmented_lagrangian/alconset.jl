@@ -20,10 +20,11 @@ end
 
 function initialize!(conset::ALConstraintSet{T}, cons::TO.ConstraintList, 
                      Z::SampledTrajectory, opts::SolverOptions,
-                     costs, E=CostExpansion{T}(RD.dims(Z)...)) where T
-    n,m = cons.n, cons.m
-    @assert RD.state_dim(Z) == n
-    @assert RD.control_dim(Z) == m
+                     costs, E=CostExpansion{T}(RD.dims(Z)[1:2]...)) where T
+    N = length(Z)
+    nx,nu = cons.nx, cons.nu
+    @assert all(k->RD.state_dim(Z,k) == nx[k], 1:N)
+    @assert all(k->RD.control_dim(Z,k) == nu[k], 1:N)
     @assert length(Z) == length(cons.p)
     ncon = length(cons)
     for i = 1:ncon

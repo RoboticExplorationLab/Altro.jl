@@ -37,16 +37,17 @@ end
 end
 
 @testset "Solvers" begin
-    # include("ilqr_test.jl")
     include("constructors.jl")
     include("augmented_lagrangian_tests.jl")
     include("alilqr_test.jl")
+    include("ilqr_test.jl")
     include("alcon_test.jl")
     include("alconset_test.jl")
     include("solve_tests.jl")
     include("socp_test.jl")
     include("projected_newton_test.jl")
     include("expansion_test.jl")
+    include("infeasible_problem.jl")
 end
 
 @testset "Solver Options" begin

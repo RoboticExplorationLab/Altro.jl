@@ -96,8 +96,8 @@ alcon = Altro.ALConstraint{T}(Z, con, inds, costs, solveropts=opts)
 # Test that it got filled in correctly
 p = TO.output_dim(alcon.con)
 P = length(inds) 
-@test alcon.n == n
-@test alcon.m == m
+@test alcon.nx[1] == n
+@test alcon.nu[1] == m
 @test alcon.inds == inds 
 for field in (:vals, :λ, :μ, :μinv, :λbar, :λproj, :λscaled, :viol)
     @test all(x->length(x)==p, getfield(alcon, field))
@@ -168,7 +168,7 @@ for i = 1:P
     # Get Gauss-Newton approximation
     z = Z[inds[i]]
     _z = RD.StaticKnotPoint{n,m}(MVector{n+m}(z.z), z.t, z.dt)
-    ix = Altro.getinputinds(alcon)
+    ix = Altro.getinputinds(alcon, i)
     jac = ForwardDiff.jacobian(
         x->algrad(cone, alcon.con, SVector{p}(λ[i]), SVector{p}(μ[i]), alcon.jac[i], x), 
         _z
@@ -207,7 +207,7 @@ let i = P
     jac = ForwardDiff.jacobian(x->algrad(alcon.con, SVector{p}(λ[i]), SVector{p}(μ[i]), 
         alcon.jac[i], x), _z
     )
-    iz = Altro.getinputinds(alcon)
+    iz = Altro.getinputinds(alcon, i)
     hess[iz,:] .= jac
     @test alcon.hess[i] ≈ hess
 end

@@ -71,14 +71,16 @@ struct CostExpansion{T} <: AbstractVector{StateControlExpansion{T}}
     data::Vector{StateControlExpansion{T}}
     const_hess::BitVector
     const_grad::BitVector
-    function CostExpansion{T}(n, m, N) where T
-        data = [StateControlExpansion{T}(n,m) for k = 1:N]
+    function CostExpansion{T}(nx::Vector{<:Integer}, nu::Vector{<:Integer}) where T
+        N = length(nx)
+        data = [StateControlExpansion{T}(nx[k],nu[k]) for k = 1:N]
         const_hess = BitVector(undef, N)
         const_grad = BitVector(undef, N)
         new{T}(data, const_hess, const_grad)
     end
 end
 @inline CostExpansion(n,m,N) = CostExpansion{Float64}(n,m,N)
+@inline CostExpansion{T}(n,m,N) where T = CostExpansion{T}(fill(n,N), fill(m,N))
 
 # Array interface
 Base.size(E::CostExpansion) = size(E.data) 
@@ -131,18 +133,20 @@ Evaluate the error state expansion for the cost function about the trajectory `Z
     The result is stored in `Eerr`.
 """
 function error_expansion!(
-    model::DiscreteDynamics, Eerr::CostExpansion, Efull::CostExpansion, G, Z
+    models::Vector{<:DiscreteDynamics}, Eerr::CostExpansion, Efull::CostExpansion, G, Z
 )
-    _error_expansion!(RD.statevectortype(model), model, Eerr, Efull, G, Z)
+    _error_expansion!(RD.statevectortype(models[1]), models, Eerr, Efull, G, Z)
 end
 
-function _error_expansion!(::RD.EuclideanState, model, Eerr, Efull, G, Z) 
+function _error_expansion!(::RD.EuclideanState, models, Eerr, Efull, G, Z) 
     @assert Eerr === Efull
     return nothing
 end
 
-function _error_expansion!(::RD.RotationState, model, Eerr, Efull, G, Z)
+function _error_expansion!(::RD.RotationState, models, Eerr, Efull, G, Z)
+    N = length(Z)
     for k in eachindex(Eerr)
+        model = models[min(k, N-1)]
         _error_expansion!(model, Eerr[k], Efull[k], G[k], G[end], Z[k])
     end
 end

@@ -260,7 +260,6 @@ E = Altro.get_ilqr(solver).Efull
 Altro.cost_expansion!(alobj, E, Z0)
 # TO.cost_expansion!(E, alobj, Z0)
 alcon = conSet[1]
-Altro.getinputinds(alcon)
 grad = vcat([e.grad for e in E]...)[1:end-m]
 @test grad ≈ FiniteDiff.finite_difference_gradient(LA, x0) atol=1e-6
 [grad FiniteDiff.finite_difference_gradient(LA, x0)]

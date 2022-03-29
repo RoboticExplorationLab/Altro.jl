@@ -27,7 +27,7 @@ function initialize!(solver::iLQRSolver)
         # without feedback since the gains are all zero
         rollout!(solver, 0.0)
     else
-        RD.rollout!(dynamics_signature(solver), solver.model, solver.Z, solver.x0)
+        RD.rollout!(dynamics_signature(solver), solver.model[1], solver.Z, solver.x0)
     end
 
     # Copy the trajectory to Zbar
@@ -85,9 +85,9 @@ function solve!(solver::iLQRSolver)
 end
 
 function gradient!(solver::iLQRSolver, Z=solver.Z)
-    m = RD.control_dim(solver)
     avggrad = 0.0
     for k in eachindex(solver.d)
+        m = RD.control_dim(solver,k)
         umax = -Inf
         d = solver.d[k]
         u = control(Z[k])

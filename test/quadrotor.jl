@@ -7,14 +7,15 @@ res = load(joinpath(@__DIR__,"quadrotor.jld2"))
 # Set up problem and solver
 prob, opts = Problems.Quadrotor()
 times = TO.gettimes(prob)
-u0 = zeros(prob.model)[2]
+u0 = zeros(prob.model[1])[2]
 U = [u0 + 0.1*SA[sin(t), sin(t), -sin(t), -sin(t)] for t in times] 
 initial_controls!(prob, U)
 rollout!(prob)
 states(prob)[end]
 
 solver = ALTROSolver(prob, opts, save_S=true)
-n,m,N = RD.dims(solver)
+N = RD.dims(solver)[3]
+n,m = RD.dims(prob.model[1])
 ilqr = Altro.get_ilqr(solver)
 Altro.initialize!(ilqr)
 X = states(ilqr)

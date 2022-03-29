@@ -21,8 +21,8 @@ end
 
 
 struct PNConstraint{T, C<:TO.StageConstraint, R<:SampledTrajectory}
-    n::Int  # state dimension
-    m::Int  # control dimension
+    nx::Vector{Int}  # state dimension    # TODO: can we get rid of these fields?
+    nu::Vector{Int}  # control dimension
     con::C
     sig::FunctionSignature
     diffmethod::DiffMethod
@@ -43,10 +43,9 @@ function PNConstraint(Z::R, con::TO.StageConstraint,
                       solveropts::SolverOptions=SolverOptions()
     ) where {R<:SampledTrajectory}
     T = eltype(d)
-    n,m,N = RD.dims(Z)
+    nx,nu,N = RD.dims(Z)
     p = RD.output_dim(con)
     P = length(inds)
-    nm = n + m
     Np = RD.num_vars(Z)
     cinds = [view.block.block.i2 for view in jacviews]
 
@@ -63,7 +62,7 @@ function PNConstraint(Z::R, con::TO.StageConstraint,
 
     conopts = PNConstraintParams(solveropts=solveropts)
     reset!(conopts)
-    PNConstraint(n, m, con, sig, diffmethod, collect(inds), vals, jac, jacviews, active, conopts, [Z])
+    PNConstraint(nx[inds], nu[inds], con, sig, diffmethod, collect(inds), vals, jac, jacviews, active, conopts, [Z])
 end
 
 function evaluate_constraints!(pncon::PNConstraint)

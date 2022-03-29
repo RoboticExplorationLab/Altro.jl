@@ -31,14 +31,15 @@ function ALSolver(
         prob::Problem{T}, 
         opts::SolverOptions=SolverOptions(), 
         stats::SolverStats=SolverStats(parent=solvername(ALSolver));
-        use_static=usestaticdefault(get_model(prob)),
+        use_static=usestaticdefault(get_model(prob)[1]),
         kwarg_opts...
     ) where {T}
     set_options!(opts; kwarg_opts...)
 
     # Build Augmented Lagrangian Objective
     alobj = ALObjective{T}(prob.obj)
-    prob_al = Problem(prob.model, alobj, ConstraintList(dims(prob)...),
+    nx,nu = dims(prob)
+    prob_al = Problem(prob.model, alobj, ConstraintList(nx,nu),
         prob.x0, prob.xf, prob.Z, prob.N, prob.t0, prob.tf)
 
     
