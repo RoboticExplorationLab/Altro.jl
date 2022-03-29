@@ -73,6 +73,7 @@ end
 TO.get_constraints(solver::ALTROSolver) = get_constraints(solver.solver_al)
 stats(solver::ALTROSolver) = solver.stats
 options(solver::ALTROSolver) = solver.opts
+usestatic(solver::ALTROSolver) = usestatic(get_ilqr(solver))
 
 is_constrained(solver::ALTROSolver) = !isempty(get_constraints(solver.solver_al))
 solvername(::Type{<:ALTROSolver}) = :ALTRO
