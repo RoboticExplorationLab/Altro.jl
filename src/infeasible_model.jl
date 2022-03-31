@@ -80,6 +80,8 @@ end
 RD.statevectortype(::Type{<:InfeasibleModel{<:Any,<:Any,D}}) where D = RD.statevectortype(D)
 RD.LieState(model::InfeasibleModel) = RD.LieState(model.model)
 @inline RD.rotation_type(model::InfeasibleModel) where D = rotation_type(model.model)
+RD.default_diffmethod(model::InfeasibleModel) = RD.default_diffmethod(model.model)
+RD.default_signature(model::InfeasibleModel) = RD.default_signature(model.model)
 
 # Generic Infeasible Methods
 @inline RD.state_dim(model::InfeasibleModel{n}) where n = n
@@ -99,6 +101,22 @@ function RD.discrete_dynamics!(model::InfeasibleModel{Nx,Nu}, xn,
     ui = view(u, Nu+1:Nx+Nu)
     RobotDynamics.discrete_dynamics!(model.model, xn, x, u0, t, dt)
     xn .+= ui
+    return
+end
+
+function RD.jacobian!(::RD.InPlace, diffmethod::DiffMethod, model::InfeasibleModel{Nx,Nu}, 
+                      J, y, z) where {Nx,Nu}
+    n,m = RD.dims(model.model)
+
+    # Evaluate original Jacobian
+    J0 = view(J, :, 1:n+m)
+    z0 = RD.StaticKnotPoint{Nx,Nu}(n,m, view(z.z, 1:n+m), z.t, z.dt)
+    RD.jacobian!(RD.InPlace(), diffmethod, model.model, J0, y, z0)
+
+    # Fill in the rest manually
+    for i = 1:n
+        J[i, n+m+i] = 1
+    end
     return
 end
 
