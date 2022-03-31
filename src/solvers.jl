@@ -180,7 +180,7 @@ end
 
 # Default getters
 @inline RobotDynamics.gettimes(solver::AbstractSolver) = 
-    RobotDynamics.get_times(get_trajectory(solver))
+    RobotDynamics.gettimes(get_trajectory(solver))
 
 # Constrained solver
 TO.num_constraints(solver::AbstractSolver) = num_constraints(get_constraints(solver))
