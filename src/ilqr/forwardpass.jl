@@ -109,7 +109,7 @@ function forwardpass!(solver::iLQRSolver, J_prev)
             J = J_prev
 
             # TODO: Add log message
-            @log lg "info" "Max linesearch iters" :append
+            solver.opts.verbose >= 3 && @log lg "info" "Max linesearch iters" :append
             increaseregularization!(solver)
             solver.reg.ρ += solver.opts.bp_reg_fp
             solver.stats.ls_failed = true
