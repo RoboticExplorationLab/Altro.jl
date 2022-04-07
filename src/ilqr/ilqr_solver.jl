@@ -77,7 +77,7 @@ function iLQRSolver(
 
     # Rollout out dynamics if initial state contains NaN values
     if any(isnan, state(Z[1]))
-        RD.rollout!(opts.dynamics_funsig, prob.model[1], Z, prob.x0)
+        RD.rollout!(dynamics_signature(Z), prob.model[1], Z, prob.x0)
     end
     RD.setstate!(Z[1], prob.x0)  # set initial state
 

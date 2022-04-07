@@ -6,7 +6,7 @@ function rollout!(solver::iLQRSolver, α)
     δx = solver.dx; δu = solver.du
 
     RD.setstate!(Z̄[1], solver.x0)
-    sig = solver.opts.dynamics_funsig
+    sig = dynamics_signature(solver)
     for k = 1:N-1
         RD.state_diff!(solver.model[k], δx[k], state(Z̄[k]), state(Z[k]))
         δu[k] .= d[k] .* α 
