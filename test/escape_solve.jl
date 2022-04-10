@@ -1,4 +1,4 @@
-@testset "Escape Solve" begin
+# @testset "Escape Solve" begin
 ##
 res = load(joinpath(@__DIR__, "escape_solve.jld2"))
 prob,opts = Problems.DubinsCar(:escape)
@@ -44,8 +44,8 @@ hess = [Matrix.(cv.hess) for cv in conset]
 @test [jac[:,1:3] for jac in jacs[1]] ≈ res["jacs"][1]    # circle constraint
 @test jacs[2] ≈ res["jacs"][2]                            # bound constraint
 @test [jac[:,1:3] for jac in jacs[3]] ≈ res["jacs"][3]    # goal constraint
-@test [jac[:,4:end] for jac in jacs[4]] ≈ res["jacs"][4]  # infeasible constraint
-@test norm([jac[:,1:3] for jac in jacs[4]]) ≈ 0.0 
+@test [jac for jac in jacs[4]] ≈ res["jacs"][4]           # infeasible constraint
+@test norm([jac[:,1:2] for jac in jacs[4]]) ≈ 0.0 
 
 @test [grad[1:3] for grad in grad[1]] ≈ res["grad"][1]    # circle constraint
 @test grad[2] ≈ res["grad"][2]                            # bound constraint
@@ -73,4 +73,4 @@ end
 J = cost(ilqr)
 J_new = Altro.forwardpass!(ilqr, J)
 @test J_new ≈ res["J_new"]
-end
+# end

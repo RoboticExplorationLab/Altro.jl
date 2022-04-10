@@ -40,7 +40,7 @@ function ALSolver(
     alobj = ALObjective{T}(prob.obj)
     nx,nu = dims(prob)
     prob_al = Problem(prob.model, alobj, ConstraintList(nx,nu),
-        prob.x0, prob.xf, prob.Z, prob.N, prob.t0, prob.tf)
+        prob.x0, prob.xf, prob.Z, prob.N, TO.get_initial_time(prob), TO.get_final_time(prob))
 
     
     # Instantiate the iLQR solver

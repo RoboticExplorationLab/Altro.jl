@@ -52,7 +52,8 @@ function iLQRSolver(
     ) where {T, USE_STATIC}
     set_options!(opts; kwarg_opts...)
 
-    nx,nu,N = dims(prob)
+    nx,nu = dims(prob)
+    N = TO.horizonlength(prob)
     ne = RD.errstate_dim.(prob.model)
     push!(ne,ne[end])
 
@@ -128,8 +129,8 @@ function iLQRSolver(
 	L = typeof(prob.model)
 	O = typeof(prob.obj)
     solver = iLQRSolver{L,O,Nx,Ne,Nu,T,V}(
-        prob.model, prob.obj, x0, prob.tf, N, opts, stats, Z, Z̄, dx, du,
-        gains, K, d, D, G, Efull, Eerr, Q, S, ΔV, Qtmp, Quu_reg, Qux_reg, reg, grad, xdot, 
+        prob.model, prob.obj, x0, TO.get_final_time(prob), N, opts, stats, Z, Z̄, dx, du,
+        gains, K, d, D, G, Efull, Eerr, Q, S, ΔV, Qtmp, Quu_reg, Qux_reg, reg, grad, xdot,
         lg,
     )
     reset!(solver)

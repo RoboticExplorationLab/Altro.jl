@@ -67,7 +67,8 @@ function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOpti
                                 stats::SolverStats=SolverStats(parent=solvername(ProjectedNewtonSolver2)); 
                                 use_static::Val{USE_STATIC}=Val(false),
                                 kwargs...) where {T,USE_STATIC}
-    nx,nu,N = RD.dims(prob)
+    nx,nu = RD.dims(prob)
+    N = TO.horizonlength(prob) 
     Nc = sum(num_constraints(prob.constraints))  # stage constraints
     @assert length(nx) == N
     @assert length(nu) == N

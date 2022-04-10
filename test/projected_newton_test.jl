@@ -33,7 +33,8 @@ copyto!(pn.Z̄data, pn.Zdata)
 @test pn.Z̄ ≈ Zsol
 
 # Check sizes
-nx,nu,N = RD.dims(prob)
+nx,nu = RD.dims(prob)
+N = TO.horizonlength(prob) 
 Np = Altro.num_primals(pn)
 @test Np == sum(nx) + sum(nu)
 
@@ -111,7 +112,8 @@ end samples=1 evals=1
 #################################
 
 # Create a trajectory with views into a single array
-nx,nu,N = RD.dims(prob)
+nx,nu = RD.dims(prob)
+N = horizonlength(prob)
 h = 0.1
 NN = N*nx[1] + (N-1)*nu[1]
 Zdata = zeros(NN + nu[1])

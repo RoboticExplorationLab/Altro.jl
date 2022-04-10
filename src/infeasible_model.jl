@@ -3,7 +3,8 @@
 function InfeasibleProblem(prob::Problem, Z0::SampledTrajectory, R_inf::Real)
     @assert !isnan(sum(sum.(states(Z0))))
 
-    nx,nu,N = dims(prob)  # original sizes
+    nx,nu = dims(prob)  # original sizes
+    N = TO.horizonlength(prob)
 
     # Create model with augmented controls
     model_inf = InfeasibleModel.(prob.model)
@@ -23,7 +24,8 @@ function InfeasibleProblem(prob::Problem, Z0::SampledTrajectory, R_inf::Real)
     obj = infeasible_objective(prob.obj, R_inf)
 
     # Create new problem
-    Problem(model_inf, obj, conSet, prob.x0, prob.xf, Z, N, prob.t0, prob.tf)
+    Problem(model_inf, obj, conSet, prob.x0, prob.xf, Z, N, TO.get_initial_time(prob), 
+            TO.get_final_time(prob))
 end
 
 function infeasible_objective(obj::Objective, regularizer)
@@ -187,17 +189,17 @@ RobotDynamics.control_dim(con::InfeasibleConstraint{n,m}) where {n,m} = n+m
 @inline TO.sense(::InfeasibleConstraint) = TO.Equality()
 @inline RD.output_dim(::InfeasibleConstraint{n}) where n = n
 
-RD.evaluate(con::InfeasibleConstraint, x, u) = u[con.ui] # infeasible controls
-function RD.evaluate!(con::InfeasibleConstraint, c, x, u)
+RD.evaluate(con::InfeasibleConstraint, u::RD.DataVector) = u[con.ui] # infeasible controls
+function RD.evaluate!(con::InfeasibleConstraint, c, u::RD.DataVector)
     for (i,j) in enumerate(con.ui)
         c[i] = u[j]
     end
     return
 end
 
-function RD.jacobian!(con::InfeasibleConstraint{Nx}, ∇c, c, x, u) where {Nx}
+function RD.jacobian!(con::InfeasibleConstraint{Nx}, ∇c, c, u::RD.DataVector) where {Nx}
 	for (i,j) in enumerate(con.ui)
-		∇c[i,Nx+j] = 1
+		∇c[i,j] = 1
     end
     return
 end
