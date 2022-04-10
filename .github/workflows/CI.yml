@@ -26,7 +26,7 @@ jobs:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - name: Install Dependencies
-        run: julia --project=. -e 'using Pkg; pkg"""add TrajectoryOptimization#v0.7"""; Pkg.instantiate()'
+        run: julia --project=. -e 'using Pkg; pkg"""add TrajectoryOptimization#main"""; Pkg.instantiate()'
       - uses: julia-actions/julia-runtest@latest
       - uses: julia-actions/julia-uploadcodecov@latest
         env:
