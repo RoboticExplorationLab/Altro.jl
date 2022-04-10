@@ -27,7 +27,8 @@ the ALTRO constructor:
 ```@example infeasible
 using Altro
 prob,opts = Problems.DubinsCar(:escape)
-solver = ALTROSolver(prob, opts, infeasible=true, R_inf=0.1);
+solver = ALTROSolver(prob, opts, infeasible=true, R_inf=0.1)
+nothing  # hide
 ```
 where `R_inf` is the norm of the regularizer on the additional controls. Notice how
 the new control dimension is 5, since the original control and state dimensions were
@@ -85,6 +86,7 @@ solver = ALTROSolver(
     prob, 
     dynamics_diffmethod=RD.ImplicitFunctionTheorem(RD.ForwardAD())
 )
+nothing  # hide
 ```
 
 The key here is to specify the solver option `dynamics_diffmethod` to be
