@@ -28,6 +28,11 @@ function set_options!(opts::OPT; d...) where OPT <: AbstractSolverOptions
 end
 
 
+"""
+    SolverOptions
+
+Struct containing all of the options for the ALTRO solver.
+"""
 Base.@kwdef mutable struct SolverOptions{T} <: AbstractSolverOptions{T}
     # Optimality Tolerances
     constraint_tolerance::T = 1e-6
@@ -102,6 +107,12 @@ function Base.copy(opts::SolverOptions)
     SolverOptions([getfield(opts, fname) for fname in fieldnames(SolverOptions)]...)
 end
 
+"""
+    SolverStats
+
+Struct containing key statistics collected during the solve, such as histories of 
+the cost and constraint violations by time step, number of iterations, solve time, etc.
+"""
 Base.@kwdef mutable struct SolverStats{T}
     # Iteration counts
     iterations::Int = 0

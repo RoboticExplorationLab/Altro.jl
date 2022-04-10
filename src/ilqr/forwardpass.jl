@@ -1,4 +1,17 @@
 
+"""
+    rollout!(solver, α)
+
+Simulate the system forward using the local affine control policy stored in the 
+[`iLQRSolver`](@ref). The line search paramter `α` (typically less than 1.0) is 
+used to scale the feedforward control term:
+
+```math
+u = ū + K(x - x̄) + α d
+```
+Note the sign is positive due to our convention of computing the feedback gains 
+``K``.
+"""
 function rollout!(solver::iLQRSolver, α)
     N = solver.N
     Z = solver.Z; Z̄ = solver.Z̄
@@ -31,6 +44,17 @@ function rollout!(solver::iLQRSolver, α)
     return true
 end
 
+"""
+    forwardpass!(solver, J_prev)
+
+The "line search" of the iLQR algorithm. The system is simulated forward using the
+local affine feedback control policy computed by the backward pass, scaling the 
+feedforward terms until satisfactory progress is made.
+
+Returns the new cost after finding a line search step size that makes sufficient progress.
+The new trajectories are stored in `solver.Z̄`, and are copied in the main solve 
+step.
+"""
 function forwardpass!(solver::iLQRSolver, J_prev) 
     Z = solver.Z; Z̄ = solver.Z̄
     ΔV = solver.ΔV

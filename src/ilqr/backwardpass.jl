@@ -9,6 +9,14 @@ function foo(C,A,B)
     C
 end
 
+"""
+    backwardpass!(::iLQRSolver)
+
+Compute the backwardpass of iLQR, which forms a local quadratic approximation of the 
+cost-to-go and constructs a local affine control policy about the current trajectory
+using time-varying LQR. The expansions of the objective function and dynamics 
+should already be computed before calling this function.
+"""
 function backwardpass!(solver::iLQRSolver)
     # Extract Variables
     N = solver.N

@@ -100,6 +100,12 @@ function gradient!(solver::iLQRSolver, Z=solver.Z)
     return avggrad / length(solver.d)
 end
 
+"""
+    record_iteration!(solver, J, dJ, grad)
+
+Records the information on the current iteration of the solver, storing all of the 
+data in the [`SolverStats`](@ref) struct stored in the solver.
+"""
 function record_iteration!(solver::iLQRSolver{<:Any,O}, J, dJ, grad) where O
     lg = solver.logger
     record_iteration!(solver.stats, cost=J, dJ=dJ, gradient=grad)
