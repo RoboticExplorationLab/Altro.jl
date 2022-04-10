@@ -1,4 +1,3 @@
-
 stats = SolverStats(parent=:ALTRO)
 N = 10
 Altro.reset!(stats, N)
@@ -51,14 +50,15 @@ Altro.trim!(stats)
 
 solver = ALTROSolver(Problems.DoubleIntegrator()...)
 set_options!(solver, verbose=0, projected_newton=true, show_summary=false)
+# solver.opts.verbose = 2
+Z0 = copy(get_trajectory(solver))
 solve!(solver)
 
 # Check if final stats match output
-Z0 = copy(get_trajectory(solver))
 iters = iterations(solver)
 c_max = solver.stats.c_max[end]
 J = solver.stats.cost[end]
-@test c_max ≈ max_violation(solver)
+@test c_max ≈ max_violation(solver.solver_pn)
 @test J ≈ cost(solver)
 
 # Test stats to dictionary
@@ -66,19 +66,20 @@ J = solver.stats.cost[end]
 
 # Make sure ALTRO resets properly
 initial_trajectory!(solver, Z0)
+
 solve!(solver)
 @test iterations(solver) == iters
 @test cost(solver) ≈ J
-@test max_violation(solver) ≈ c_max
+@test max_violation(solver.solver_pn) ≈ c_max
 
 # Make sure AL solver resets properly
-solver = Altro.AugmentedLagrangianSolver(Problems.DoubleIntegrator()..., show_summary=false)
+solver = Altro.ALSolver(Problems.DoubleIntegrator()..., show_summary=false)
 Z0 = copy(get_trajectory(solver))
 solve!(solver)
 J = cost(solver)
 iters = iterations(solver)
 initial_trajectory!(solver, Z0)
-Altro.initialize!(solver)
+Altro.reset!(solver)
 solve!(solver)
 @test J ≈ cost(solver)
 @test iters == iterations(solver)

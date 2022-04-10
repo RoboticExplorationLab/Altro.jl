@@ -1,0 +1,5 @@
+[deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+LoopVectorization = "bdcacae8-1622-11e9-2a5c-532679323890"
+RecursiveFactorization = "f2c3362d-daeb-58d1-803e-2bc74f2840b4"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"

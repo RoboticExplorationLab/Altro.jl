@@ -36,7 +36,7 @@ function ParallelPark(method=:none)
 
     conSet = ConstraintSet(n,m,[con_bnd, con_goal], N)
 
-    prob = Problem(model, obj, xf, tf, constraints=conSet, x0=x0, U0=U)
+    prob = Problem(model, obj, x0, tf, constraints=conSet, xf=xf, U0=U)
 
     return prob, opts
 end

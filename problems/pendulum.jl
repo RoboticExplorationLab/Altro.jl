@@ -6,9 +6,10 @@ function Pendulum()
     )
 
     model = RobotZoo.Pendulum()
-    n,m = size(model)
+    n,m = RD.dims(model)
     tf = 3.0
     N = 51
+    dt = tf / (N-1)
 
     # cost
     Q = 1e-3*Diagonal(@SVector ones(n))
@@ -16,7 +17,7 @@ function Pendulum()
     Qf = 1e-0*Diagonal(@SVector ones(n))
     x0 = @SVector zeros(n)
     xf = @SVector [pi, 0.0]  # i.e. swing up
-    obj = LQRObjective(Q,R,Qf,xf,N)
+    obj = LQRObjective(Q*dt,R*dt,Qf,xf,N)
 
     # constraints
     conSet = ConstraintList(n,m,N)
@@ -28,7 +29,7 @@ function Pendulum()
 
     # problem
     U = [@SVector fill(0.1, m) for k = 1:N-1]
-    pendulum_static = Problem(model, obj, xf, tf, constraints=conSet, x0=x0)
+    pendulum_static = Problem(model, obj, x0, tf, constraints=conSet, xf=xf)
     initial_controls!(pendulum_static, U)
     rollout!(pendulum_static)
     return pendulum_static, opts

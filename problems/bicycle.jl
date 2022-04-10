@@ -12,6 +12,7 @@ function BicycleCar(scenario=:parallel_park, ;N=101)
 
         # Scenario
         tf = 3.0
+        dt = tf/(N-1)
         x0 = SA_F64[0,0,0,0]
         xf = SA[0,2,deg2rad(0),0]
 
@@ -19,7 +20,7 @@ function BicycleCar(scenario=:parallel_park, ;N=101)
         Q = Diagonal(SA[1,1,1e-2,1e-2])
         R = Diagonal(SA[1e0,1e0])
         Qf = Diagonal(SA_F64[1,1,1,10])
-        obj = LQRObjective(Q,R,Qf,xf,N)
+        obj = LQRObjective(Q*dt,R*dt,Qf,xf,N)
 
         # Constraints
         cons = ConstraintList(n,m,N)
@@ -30,7 +31,7 @@ function BicycleCar(scenario=:parallel_park, ;N=101)
         add_constraint!(cons, GoalConstraint(xf), N)
 
         # Problem
-        prob = Problem(model, obj, xf, tf, x0=x0, constraints=cons)
+        prob = Problem(model, obj, x0, tf, xf=xf, constraints=cons)
         initial_controls!(prob, SA[-0.1,0.0])
         rollout!(prob)
 
@@ -49,7 +50,7 @@ function BicycleCar(scenario=:parallel_park, ;N=101)
         Q = Diagonal(SA[1,1,1e-2,1e-2])
         R = Diagonal(SA[1e0,1e0])
         Qf = Diagonal(SA_F64[1,1,1,1])*100
-        obj = LQRObjective(Q,R,Qf,xf,N)
+        obj = LQRObjective(Q*dt,R*dt,Qf,xf,N)
 
         # Constraints
         cons = ConstraintList(n,m,N)
@@ -60,7 +61,7 @@ function BicycleCar(scenario=:parallel_park, ;N=101)
         add_constraint!(cons, GoalConstraint(xf), N)
 
         # Problem
-        prob = Problem(model, obj, xf, tf, x0=x0, constraints=cons)
+        prob = Problem(model, obj, x0, tf, xf=xf, constraints=cons)
         initial_controls!(prob, SA[-0.1,0.0])
         rollout!(prob)
 

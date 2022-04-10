@@ -9,7 +9,7 @@ Pages = ["options.md"]
 
 ## Solver Statistics
 ALTRO logs intermediate values during the course of the solve. These values are all
-stored in the `SolverStats` type, accessible via `solver.stats` or `Altro.stats(solver)`. This currently stores the following information:
+stored in the [`SolverStats`](@ref) type, accessible via `solver.stats` or `Altro.stats(solver)`. This currently stores the following information:
 
 | Field | Description |
 | ----- | ----------- |
@@ -28,6 +28,10 @@ The other fields are used interally by the solver and not important to the end u
 
 The vector fields of the `SolverStats` type can be converted to a dictionary via `Dict(stats::SolverStats)`,
 which can then be cast into a tabular format such as `DataFrame` from DataFrames.jl.
+
+```@docs
+SolverStats
+```
 
 ## Solver Options
 Like any nonlinear programming solver, ALTRO comes with a host of solver options.
@@ -52,6 +56,10 @@ Alternatively, solver options can be set using the `set_options!` command after 
 solver has been instantiated:
 ```julia
 set_options!(solver, reset_duals=true, penalty_initial=100, penalty_scaling=50)
+```
+
+```@docs
+set_options!
 ```
 
 ### Querying Solver Options
@@ -102,3 +110,7 @@ description:
 | `projected_newton` | Enable projected newton solve. If enabled, `projected_newton_solve` is used as the `constraint_tolerance` for the AL-iLQR solve. Projected newton solve is still a WIP and not very robust. | High | `true` |
 | `iterations` | Max number of total iterations (iLQR + projected newton). | Med | 1000 |
 | `verbose` | Controls output during solve. `0` is zero output, `1` outputs AL iterations, and `2` outputs both AL and iLQR iterations | Low | `0` |
+
+```@docs
+SolverOptions
+```

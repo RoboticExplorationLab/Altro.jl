@@ -18,10 +18,11 @@ nonlinear, constrained trajectory optimization problems of the form:
 \begin{aligned}
   \min_{x_{0:N},u_{0:N-1}} \quad & \ell_f(x_N) + \sum_{k=0}^{N-1} \ell_k(x_k, u_k, dt) \\
   \textrm{s.t.}            \quad & x_{k+1} = f(x_k, u_k), \\
-                                 & g_k(x_k,u_k) \leq 0, \\
+                                 & g_k(x_k,u_k) \in \mathcal{K}, \\
                                  & h_k(x_k,u_k) = 0.
 \end{aligned}
 ```
+where ``\mathcal{K}`` is either the negative orthant or the second-order cone.
 
 ALTRO uses iterative LQR (iLQR) as the primary solver, which is used to generate 
 locally-optimal linear feedback policies and satisfy the nonlinear dynamics 
@@ -45,15 +46,17 @@ The purpose of this documentation is to provide insight into the ALTRO
 algorithm, it's Julia implementation, and the options this solver provides.
 
 ## Key Features
-* State-of-the-art performance for both convex (linear) and nonlinear trajectory optimization problems
+* State-of-the-art performance for both convex (linear dynamics) and nonlinear trajectory optimization problems
 * Convenient interface for dynamics and problem definition via  [TrajectoryOptimization.jl](https://github.com/RoboticExplorationLab/TrajectoryOptimization.jl) and [RobotDynamics.jl](https://github.com/RoboticExplorationLab/RobotDynamics.jl).
 * Supports generic nonlinear state and control constraints at each time step.
 * Supports second-order-cone programs (SOCPs).
 * Allows initialization of both state and control trajectories.
 * Supports integration up to 4th-order Runge-Kutta methods. Higher-order methods are possible but not yet implemented.
+* Supports implicit integration schemes such as implicit midpoint.
 * Supports optimization on the space of 3D rotations.
 * Provides convenient methods for warm-starting MPC problems.
-* Provides efficient methods for auto-differentiation of costs, constraints, and dynamics via [ForwardDiff.jl](https://github.com/JuliaDiff/ForwardDiff.jl).
+* Provides efficient methods for auto-differentiation of costs, constraints, and dynamics via [ForwardDiff.jl](https://github.com/JuliaDiff/ForwardDiff.jl) and 
+[FiniteDiff.jl](https://github.com/JuliaDiff/FiniteDiff.jl).
 
 ## Installation
 Altro.jl can be installed via the Julia package manager. Within the Julia
@@ -64,11 +67,11 @@ REPL:
 ```
 A specific version can be specified using
 ```
-(v1.5) pkg> add Altro@0.3
+(v1.5) pkg> add Altro@0.5
 ```
-Or you can check out the master branch with
+Or you can check out the main branch with
 ```
-(v1.5) pkg> add Altro#master
+(v1.5) pkg> add Altro#main
 ```
 Lastly, if you want to clone the repo into your `.julia/dev/` directory for development, you can use
 ```

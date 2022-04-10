@@ -6,11 +6,12 @@ function Acrobot()
     )
     # model
     model = RobotZoo.Acrobot()
-    n,m = size(model)
+    n,m = RD.dims(model)
 
     # discretization
     tf = 5.0
     N = 101
+    dt = tf/(N-1)
 
     # initial and final conditions
     x0 = @SVector [-pi/2, 0, 0, 0]
@@ -18,9 +19,9 @@ function Acrobot()
 
     # objective
     Q = Diagonal(@SVector fill(1.0, n))
-    R = Diagonal(@SVector fill(0.01, m))
+    R = Diagonal(@SVector fill(0.01, m)) 
     Qf = 100*Q
-    obj = LQRObjective(Q,R,Qf,xf,N)
+    obj = LQRObjective(Q*dt,R*dt,Qf,xf,N)
 
     # constraints
     conSet = ConstraintList(n,m,N)
@@ -33,7 +34,7 @@ function Acrobot()
     u0 = @SVector fill(0.0,m)
 
     # set up problem
-    prob = Problem(model, obj, xf, tf, x0=x0, constraints=conSet)
+    prob = Problem(model, obj, x0, tf, xf=xf, constraints=conSet)
     rollout!(prob)
 
     return prob, opts

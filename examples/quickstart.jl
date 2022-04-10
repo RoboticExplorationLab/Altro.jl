@@ -3,10 +3,12 @@ using TrajectoryOptimization
 using Altro
 import RobotZoo.Cartpole
 using StaticArrays, LinearAlgebra
+using RobotDynamics
+const RD = RobotDynamics
 
 # Use the Cartpole model from RobotZoo
 model = Cartpole()
-n,m = size(model)
+n,m = RD.dims(model)
 
 # Define model discretization
 N = 101
@@ -18,9 +20,9 @@ x0 = @SVector zeros(n)
 xf = @SVector [0, pi, 0, 0]  # i.e. swing up
 
 # Set up
-Q = 1.0e-2*Diagonal(@SVector ones(n))
+Q = 1.0e-2*Diagonal(@SVector ones(n)) * dt
 Qf = 100.0*Diagonal(@SVector ones(n))
-R = 1.0e-1*Diagonal(@SVector ones(m))
+R = 1.0e-1*Diagonal(@SVector ones(m)) * dt
 obj = LQRObjective(Q,R,Qf,xf,N)
 
 # Add constraints
@@ -36,7 +38,7 @@ u0 = @SVector fill(0.01,m)
 U0 = [u0 for k = 1:N-1]
 
 # Define problem
-prob = Problem(model, obj, xf, tf, x0=x0, constraints=conSet)
+prob = Problem(model, obj, x0, tf, xf=xf, constraints=conSet)
 initial_controls!(prob, U0)
 
 # Solve with ALTRO
@@ -49,17 +51,17 @@ altro = ALTROSolver(prob, opts)
 solve!(altro)
 
 # Get some info on the solve
-max_violation(altro)  # 3.42e-9
-cost(altro)           # 1.55
-iterations(altro)     # 40
+max_violation(altro)  # 1.852e-7
+cost(altro)           # 1.539
+iterations(altro)     # 44
 
 # Extract the solution
 X = states(altro)
 U = controls(altro)
 
 # Extract the solver statistics
-stats = Altro.stats(altro)  # alternatively, solver.stats
-stats.iterations             # 40, equivalent to iterations(solver)
+stats = Altro.stats(altro)   # alternatively, solver.stats
+stats.iterations             # 44, equivalent to iterations(solver)
 stats.iterations_outer       # 4 (number of Augmented Lagrangian iterations)
 stats.iterations_pn          # 1 (number of projected newton iterations)
 stats.cost[end]              # terminal cost

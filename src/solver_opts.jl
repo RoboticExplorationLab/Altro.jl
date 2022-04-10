@@ -3,7 +3,6 @@ export
 
 
 abstract type AbstractSolverOptions{T<:Real} end
-abstract type DirectSolverOptions{T} <: AbstractSolverOptions{T} end
 
 """
     set_options!(opts::AbstractSolverOptions; kwargs...)
@@ -29,7 +28,12 @@ function set_options!(opts::OPT; d...) where OPT <: AbstractSolverOptions
 end
 
 
-@with_kw mutable struct SolverOptions{T} <: AbstractSolverOptions{T}
+"""
+    SolverOptions
+
+Struct containing all of the options for the ALTRO solver.
+"""
+Base.@kwdef mutable struct SolverOptions{T} <: AbstractSolverOptions{T}
     # Optimality Tolerances
     constraint_tolerance::T = 1e-6
     cost_tolerance::T = 1e-4
@@ -38,17 +42,20 @@ end
     gradient_tolerance_intermediate::T = 1.0
 
     # iLQR
+    expected_decrease_tolerance::Float64 = 1e-10
     iterations_inner::Int = 300
     dJ_counter_limit::Int = 10
     square_root::Bool = false
     line_search_lower_bound::T = 1e-8
     line_search_upper_bound::T = 10.0
+    line_search_decrease_factor::T = 0.5
     iterations_linesearch::Int = 20
     max_cost_value::T = 1.0e8
     max_state_value::T = 1.0e8
     max_control_value::T = 1.0e8
     static_bp::Bool = true
 	save_S::Bool = false
+    closed_loop_initial_rollout::Bool = false
 
     # Backward pass regularization
     bp_reg::Bool = false
@@ -60,11 +67,13 @@ end
     bp_reg_fp::T = 10.0
 
     # Augmented Lagrangian
+    use_conic_cost::Bool = false
     penalty_initial::T = 1.0 
     penalty_scaling::T = 10.0
-    active_set_tolerance_al::T = 1e-3
-    dual_max::T = 1e8 
     penalty_max::T = 1e8 
+    dual_max::T = 1e8 
+
+    active_set_tolerance_al::T = 1e-3
     iterations_outer::Int = 30
     kickout_max_penalty::Bool = false
     reset_duals::Bool = true
@@ -84,8 +93,11 @@ end
     r_threshold::T = 1.1
 
     # General options
+    dynamics_funsig::RobotDynamics.FunctionSignature = StaticReturn()
+    dynamics_diffmethod::RobotDynamics.DiffMethod = ForwardAD()
     projected_newton::Bool = true
     reuse_jacobians::Bool = false
+    trim_stats::Bool = true  # disable if you want to call methods after solve that add to history
     iterations::Int = 1000   # max number of iterations
     show_summary::Bool = true 
     verbose::Int = 0 
@@ -95,7 +107,13 @@ function Base.copy(opts::SolverOptions)
     SolverOptions([getfield(opts, fname) for fname in fieldnames(SolverOptions)]...)
 end
 
-@with_kw mutable struct SolverStats{T}
+"""
+    SolverStats
+
+Struct containing key statistics collected during the solve, such as histories of 
+the cost and constraint violations by time step, number of iterations, solve time, etc.
+"""
+Base.@kwdef mutable struct SolverStats{T}
     # Iteration counts
     iterations::Int = 0
     iterations_outer::Int = 0
@@ -113,6 +131,7 @@ end
 
     # iLQR
     dJ_zero_counter::Int = 0
+    ls_failed::Bool = false
 
     # Other
     tstart::Float64 = time()

@@ -9,7 +9,7 @@ function DubinsCar(scenario=:three_obstacles; N=101)
 
         #  Car w/ obstacles
         model = RobotZoo.DubinsCar()
-        n,m = size(model)
+        n,m = RD.dims(model)
 
         N = 101 # number of knot points
         tf = 5.0
@@ -21,7 +21,7 @@ function DubinsCar(scenario=:three_obstacles; N=101)
         Q = Diagonal(@SVector [1., 1., 1.])
         R = Diagonal(@SVector [0.5, 0.5])
         Qf = 10.0*Diagonal(@SVector ones(n))
-        obj = LQRObjective(Q,R,Qf,xf,N)
+        obj = LQRObjective(Q*dt,R*dt,Qf,xf,N)
 
         # create obstacle constraints
         r_circle_3obs = 0.25
@@ -41,7 +41,7 @@ function DubinsCar(scenario=:three_obstacles; N=101)
 
         # Create problem
         U = [@SVector fill(0.01,m) for k = 1:N-1]
-        car_3obs_static = Problem(model, obj, xf, tf, constraints=conSet, x0=x0)
+        car_3obs_static = Problem(model, obj, x0, tf, constraints=conSet, xf=xf)
         initial_controls!(car_3obs_static, U)
         rollout!(car_3obs_static)
         return car_3obs_static, opts
@@ -49,13 +49,14 @@ function DubinsCar(scenario=:three_obstacles; N=101)
     elseif scenario==:turn90
         opts = SolverOptions(
             cost_tolerance_intermediate=1e-3,
-            active_set_tolerance=1e-4
+            active_set_tolerance_al=1e-4
         )
 
         # model
         model = RobotZoo.DubinsCar()
-        n,m = size(model)
+        n,m = RD.dims(model)
         tf = 3.
+        dt = tf / (N-1)
 
         # cost
         d = 1.5
@@ -67,13 +68,13 @@ function DubinsCar(scenario=:three_obstacles; N=101)
 
         # problem
         U = [@SVector fill(0.1,m) for k = 1:N-1]
-        obj = LQRObjective(Q,R,Qf,xf,N)
+        obj = LQRObjective(Q*dt,R*dt,Qf,xf,N)
 
         # constraints
         cons = ConstraintList(n,m,N)
         add_constraint!(cons, GoalConstraint(xf), N)
 
-        prob = Problem(model, obj, xf, tf, x0=x0, U0=U)
+        prob = Problem(model, obj, x0, tf, xf=xf, U0=U)
         rollout!(prob)
 
         return prob, opts
@@ -86,8 +87,9 @@ function DubinsCar(scenario=:three_obstacles; N=101)
 
         # model
         model = RobotZoo.DubinsCar()
-        n,m = size(model)
+        n,m = RD.dims(model)
         tf = 3.
+        dt = tf / (N-1)
 
         # cost
         d = 1.5
@@ -114,9 +116,9 @@ function DubinsCar(scenario=:three_obstacles; N=101)
 
         # problem
         U = [@SVector fill(0.1,m) for k = 1:N-1]
-        obj = LQRObjective(Q,R,Qf,xf,N)
+        obj = LQRObjective(Q*dt,R*dt,Qf,xf,N)
 
-        prob = Problem(model, obj, xf, tf, constraints=conSet, x0=x0, U0=U)
+        prob = Problem(model, obj, x0, tf, constraints=conSet, xf=xf, U0=U)
         rollout!(prob)
 
         return prob, opts
@@ -136,17 +138,18 @@ function DubinsCar(scenario=:three_obstacles; N=101)
 
         # model
         model = RobotZoo.DubinsCar()
-        n,m = size(model)
+        n,m = RD.dims(model)
         x0 = @SVector [2.5,2.5,0.]
         xf = @SVector [7.5,2.5,0.]
         N = 101
         tf = 3.0
+        dt = tf / (N-1)
 
         # cost
         Q = (1e-3)*Diagonal(@SVector ones(n))
         R = (1e-2)*Diagonal(@SVector ones(m))
         Qf = 100.0*Diagonal(@SVector ones(n))
-        obj = LQRObjective(Q,R,Qf,xf,N)
+        obj = LQRObjective(Q*dt,R*dt,Qf,xf,N)
 
         # constraints
         r = 0.5
@@ -193,8 +196,8 @@ function DubinsCar(scenario=:three_obstacles; N=101)
         # Build problem
         U0 = [@SVector ones(m) for k = 1:N-1]
 
-        car_escape_static = Problem(model, obj, xf, tf;
-            constraints=conSet, x0=x0)
+        car_escape_static = Problem(model, obj, x0, tf;
+            constraints=conSet, xf=xf)
         initial_controls!(car_escape_static, U0);
 
         X_guess = [2.5 2.5 0.;

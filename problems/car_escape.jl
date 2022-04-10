@@ -63,8 +63,8 @@ conSet = ConstraintSet(n,m,[con_obs, con_bnd, con_xf], N)
 # Build problem
 U0 = [@SVector ones(m) for k = 1:N-1]
 
-car_escape_static = Problem(model, obj, xf, tf;
-    constraints=conSet, x0=x0)
+car_escape_static = Problem(model, obj, x0, tf;
+    constraints=conSet, xf=xf)
 initial_controls!(car_escape_static, U0);
 
 X_guess = [2.5 2.5 0.;

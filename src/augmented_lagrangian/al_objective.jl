@@ -1,47 +1,48 @@
-############################################################################################
-#                           AUGMENTED LAGRANGIAN OBJECTIVE                                 #
-############################################################################################
-
-struct ALObjective{T,O<:Objective} <: AbstractObjective
+struct ALObjective{T,O<:AbstractObjective} <: TO.AbstractObjective
     obj::O
-    constraints::ALConstraintSet{T}
+    conset::ALConstraintSet{T}
+    alcost::Vector{T}
+    function ALObjective{T}(obj::AbstractObjective) where T
+        new{T,typeof(obj)}(obj, ALConstraintSet{T}(), zeros(T, length(obj)))
+    end
 end
+RD.state_dim(alobj::ALObjective, k::Integer) = RD.state_dim(alobj.obj, k)
+RD.control_dim(alobj::ALObjective, k::Integer) = RD.state_dim(alobj.obj, k)
+RD.dims(alobj::ALObjective) = RD.dims(alobj.obj)
 
-function ALObjective(obj::Objective, cons::ConstraintList, model::AbstractModel)
-    ALObjective(obj, ALConstraintSet(cons, model))
-end
-@inline ALObjective(prob::Problem) = ALObjective(prob.obj, prob.constraints, prob.model)
-
-@inline TO.get_J(obj::ALObjective) = obj.obj.J
-@inline Base.length(obj::ALObjective) = length(obj.obj)
-@inline RobotDynamics.state_dim(obj::ALObjective) = RobotDynamics.state_dim(obj.obj)
-@inline RobotDynamics.control_dim(obj::ALObjective) = RobotDynamics.control_dim(obj.obj)
-@inline TO.ExpansionCache(obj::ALObjective) = TO.ExpansionCache(obj.obj)
-
-
-function Base.copy(obj::ALObjective)
-    ALObjective(obj.obj, ConstraintSet(copy(obj.constraints.constraints), length(obj.obj)))
-end
-
-function TO.cost!(obj::ALObjective, Z::AbstractTrajectory)
+function TO.cost(alobj::ALObjective, Z::SampledTrajectory)
     # Calculate unconstrained cost
-    TO.cost!(obj.obj, Z)
+    J = TO.cost(alobj.obj, Z)
 
-    # Calculate constrained cost
-    TO.evaluate!(obj.constraints, Z)
-    # update_active_set!(obj.constraints, Val(0.0))
-    TO.cost!(TO.get_J(obj), obj.constraints)
+    # Calculate constraints
+    # TODO: update trajectory if Z is not the cached one
+    evaluate_constraints!(alobj.conset, Z)
+
+    # Calculate AL penalty
+    alobj.alcost .= 0
+    alcost(alobj.conset)    
+    J += sum(alobj.alcost)
+
+    return J
 end
 
-function TO.cost_expansion!(E, obj::ALObjective, Z::Traj, cache=TO.ExpansionCache(obj.obj); 
-        init::Bool=false, rezero::Bool=false)
-    # Update constraint jacobians
-    TO.jacobian!(obj.constraints, Z, init)
+function cost_expansion!(alobj::ALObjective, E::CostExpansion, Z)
+    # Calculate expansion of original cost
+    cost_expansion!(alobj.obj, E, Z)
 
-    # Calculate expansion of original objective
-    TO.cost_expansion!(E, obj.obj, Z, init=true, rezero=rezero)  # needs to be computed every time...
+    # Calculate constraint Jacobians
+    constraint_jacobians!(alobj.conset, Z)
 
-    # Add in expansion of constraints
-    TO.cost_expansion!(E, obj.constraints)
-    # TO.cost_expansion!(E, obj.constraints, Z, true)
+    # Calculate expansion of AL penalty
+    algrad!(alobj.conset)
+    alhess!(alobj.conset)
+
+    # Add to existing expansion
+    # each ALConstraint has local alias to ilqr.Efull
+    # this is a hack to avoid an allocation for each constraint
+    # due to type instability
+    @assert E === alobj.conset.Eref[]
+    add_alcost_expansion!(alobj.conset, E)
+
+    return nothing
 end
