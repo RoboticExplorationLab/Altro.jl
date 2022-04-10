@@ -15,17 +15,14 @@ work with.
 ### Types
 ```@docs
 ALTROSolver
-AugmentedLagrangianSolver
+ALSolver
 iLQRSolver
 ProjectedNewtonSolver
 ```
 
 ### Methods
 ```@docs
-set_options!
 backwardpass!
 forwardpass!
 record_iteration!
-```
-
 ```
