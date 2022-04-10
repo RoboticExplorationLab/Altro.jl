@@ -54,7 +54,7 @@ function ALTROSolver(prob::Problem{T}, opts::SolverOptions=SolverOptions();
     set_options!(opts; kwarg_opts...)
     stats = SolverStats{T}(parent=solvername(ALTROSolver))
     solver_al = ALSolver(prob, opts, stats, use_static=use_static)
-    solver_pn = ProjectedNewtonSolver2(prob, opts, stats)
+    solver_pn = ProjectedNewtonSolver(prob, opts, stats)
     S = typeof(solver_al.ilqr)
     solver = ALTROSolver{T,S,typeof(solver_pn)}(opts, stats, solver_al, solver_pn)
     reset!(solver)

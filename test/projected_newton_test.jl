@@ -23,7 +23,7 @@ solve!(al)
 Zsol = get_trajectory(al)
 max_violation(al)
 
-pn = Altro.ProjectedNewtonSolver2(prob, opts)
+pn = Altro.ProjectedNewtonSolver(prob, opts)
 copyto!(pn.Z, Zsol)
 copyto!(pn.Z̄data, pn.Zdata)
 @test max_violation(pn) ≈ max_violation(al)
@@ -91,7 +91,7 @@ al = Altro.ALSolver(prob, opts, show_summary=false)
 solve!(al)
 
 Zsol = get_trajectory(al)
-pn = Altro.ProjectedNewtonSolver2(prob, opts)
+pn = Altro.ProjectedNewtonSolver(prob, opts)
 copyto!(pn.Z, Zsol)
 pn.Z[end].dt = Inf
 Z0data = copy(pn.Zdata)
@@ -172,7 +172,7 @@ end
 # Create a PN Solver
 al = Altro.ALSolver(prob)
 ilqr = al.ilqr 
-pn = Altro.ProjectedNewtonSolver2(prob)
+pn = Altro.ProjectedNewtonSolver(prob)
 Np = Altro.num_primals(pn)
 
 pnconset = pn.conset
