@@ -1,10 +1,10 @@
 
-function solve!(pn::ProjectedNewtonSolver2)
+function solve!(pn::ProjectedNewtonSolver)
     copyto!(pn.Z̄data, pn.Zdata)
     projection_solve!(pn)
 end
 
-function projection_solve!(pn::ProjectedNewtonSolver2)
+function projection_solve!(pn::ProjectedNewtonSolver)
     ϵ_feas = pn.opts.constraint_tolerance
     evaluate_constraints!(pn)
     viol = max_violation(pn, nothing)
@@ -30,13 +30,13 @@ function projection_solve!(pn::ProjectedNewtonSolver2)
     return viol
 end
 
-function record_iteration!(pn::ProjectedNewtonSolver2, viol, res, J, dJ)
+function record_iteration!(pn::ProjectedNewtonSolver, viol, res, J, dJ)
     # TODO: (#35) compute the gradient
     record_iteration!(pn.stats, cost=J, c_max=viol, is_pn=true, dJ=dJ, # gradient=res, 
         penalty_max=NaN)
 end
 
-function update_b!(pn::ProjectedNewtonSolver2)
+function update_b!(pn::ProjectedNewtonSolver)
     Np = num_primals(pn)
     Nd = num_duals(pn)
     Na = sum(pn.active) - Np
@@ -53,7 +53,7 @@ function update_b!(pn::ProjectedNewtonSolver2)
     return b
 end
 
-function getKKTMatrix(pn::ProjectedNewtonSolver2)
+function getKKTMatrix(pn::ProjectedNewtonSolver)
     Np = num_primals(pn)
     Nd = num_duals(pn)
     Na = sum(pn.active) - Np
@@ -69,7 +69,7 @@ function getKKTMatrix(pn::ProjectedNewtonSolver2)
     A = SparseMatrixCSC(Np + Na, Np + Na, colptr, rowval, nzval)
 end
 
-function _qdldl_solve!(pn::ProjectedNewtonSolver2)
+function _qdldl_solve!(pn::ProjectedNewtonSolver)
     Np = num_primals(pn)
     Nd = num_duals(pn)
 
@@ -144,7 +144,7 @@ function _qdldl_linesearch(pn, F, b)
     return NaN
 end
 
-# function multiplier_projection!(pn::ProjectedNewtonSolver2)
+# function multiplier_projection!(pn::ProjectedNewtonSolver)
 #     λ = pn.Ydata[pn.active]
 #     D,d = active_constraints(pn)
 #     g = pn.g

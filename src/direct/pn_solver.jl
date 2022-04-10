@@ -13,7 +13,7 @@ Achieves machine-level constraint satisfaction by projecting onto the feasible s
 This solver is to be used exlusively for solutions that are close to the optimal solution.
     It is intended to be used as a "solution polishing" method for augmented Lagrangian methods.
 """
-struct ProjectedNewtonSolver2{L<:DiscreteDynamics,O<:AbstractObjective,Nx,Nu,T,F} <: ConstrainedSolver{T}
+struct ProjectedNewtonSolver{L<:DiscreteDynamics,O<:AbstractObjective,Nx,Nu,T,F} <: ConstrainedSolver{T}
     # Problem Info
     model::L
     obj::O
@@ -63,8 +63,8 @@ struct ProjectedNewtonSolver2{L<:DiscreteDynamics,O<:AbstractObjective,Nx,Nu,T,F
     qdldl::Cqdldl.QDLDLSolver{T,Int}
 end
 
-function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOptions{T}(), 
-                                stats::SolverStats=SolverStats(parent=solvername(ProjectedNewtonSolver2)); 
+function ProjectedNewtonSolver(prob::Problem{T}, opts::SolverOptions=SolverOptions{T}(), 
+                                stats::SolverStats=SolverStats(parent=solvername(ProjectedNewtonSolver)); 
                                 use_static::Val{USE_STATIC}=Val(false),
                                 kwargs...) where {T,USE_STATIC}
     nx,nu = RD.dims(prob)
@@ -76,7 +76,7 @@ function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOpti
     Nd = sum(nx) + Nc       # number of duals (no constraints)
 
     set_options!(opts; kwargs...)
-    if stats.parent == solvername(ProjectedNewtonSolver2) 
+    if stats.parent == solvername(ProjectedNewtonSolver) 
         reset!(stats, opts.iterations)
     end
 
@@ -174,7 +174,7 @@ function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOpti
         funsig = RD.StaticReturn()
     end
 
-    ProjectedNewtonSolver2(prob.model[1], prob.obj, Vector(prob.x0), conset, opts, stats, funsig,
+    ProjectedNewtonSolver(prob.model[1], prob.obj, Vector(prob.x0), conset, opts, stats, funsig,
         _data, Zdata, Z̄data, dY, Ydata, Atop, colptr, rowval, nzval, d, b, active,
         Z, Z̄, hess, hessdiag, grad, ∇f, f, e, Iinit, Ireg, ix, iu, iz, blocks, hessblocks, 
         ∇fblocks, qdldl,
@@ -182,17 +182,17 @@ function ProjectedNewtonSolver2(prob::Problem{T}, opts::SolverOptions=SolverOpti
 end
 
 # Getters
-RD.dims(pn::ProjectedNewtonSolver2{<:Any,<:Any,n,m}) where {n,m} = n,m,length(pn.ix)
-TO.get_objective(pn::ProjectedNewtonSolver2) = pn.obj
-TO.get_model(pn::ProjectedNewtonSolver2) = pn.model
-TO.get_trajectory(pn::ProjectedNewtonSolver2) = pn.Z
-iterations(pn::ProjectedNewtonSolver2) = pn.stats.iterations_pn
-solvername(::Type{<:ProjectedNewtonSolver2}) = :ProjectedNewton
-num_primals(pn::ProjectedNewtonSolver2) = length(pn.Zdata)
-num_duals(pn::ProjectedNewtonSolver2) = length(pn.Ydata)
-TO.get_constraints(pn::ProjectedNewtonSolver2) = pn.conset
+RD.dims(pn::ProjectedNewtonSolver{<:Any,<:Any,n,m}) where {n,m} = n,m,length(pn.ix)
+TO.get_objective(pn::ProjectedNewtonSolver) = pn.obj
+TO.get_model(pn::ProjectedNewtonSolver) = pn.model
+TO.get_trajectory(pn::ProjectedNewtonSolver) = pn.Z
+iterations(pn::ProjectedNewtonSolver) = pn.stats.iterations_pn
+solvername(::Type{<:ProjectedNewtonSolver}) = :ProjectedNewton
+num_primals(pn::ProjectedNewtonSolver) = length(pn.Zdata)
+num_duals(pn::ProjectedNewtonSolver) = length(pn.Ydata)
+TO.get_constraints(pn::ProjectedNewtonSolver) = pn.conset
 
-function primalregularization!(pn::ProjectedNewtonSolver2)
+function primalregularization!(pn::ProjectedNewtonSolver)
     ρ_primal = pn.opts.ρ_primal
     Ireg = pn.Ireg
     Ireg.diag .= ρ_primal
@@ -201,7 +201,7 @@ function primalregularization!(pn::ProjectedNewtonSolver2)
     end
 end
 
-function cost_hessian!(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=pn.Z)
+function cost_hessian!(pn::ProjectedNewtonSolver, Z::SampledTrajectory=pn.Z)
     obj = pn.obj
     for k in eachindex(Z)
         RD.hessian!(obj.diffmethod[k], obj.cost[k], pn.hess[k], Z[k])
@@ -216,14 +216,14 @@ function cost_hessian!(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=pn.Z)
     end
 end
 
-function cost_gradient!(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=pn.Z)
+function cost_gradient!(pn::ProjectedNewtonSolver, Z::SampledTrajectory=pn.Z)
     obj = pn.obj
     for k in eachindex(Z)
         RD.gradient!(obj.diffmethod[k], obj.cost[k], pn.grad[k], Z[k])
     end
 end
 
-function dynamics_expansion!(pn::ProjectedNewtonSolver2{<:Any,<:Any,Nx,Nu}, 
+function dynamics_expansion!(pn::ProjectedNewtonSolver{<:Any,<:Any,Nx,Nu}, 
         Z::SampledTrajectory=pn.Z̄, ∇f=pn.∇f) where {Nx,Nu}
     diff = pn.opts.dynamics_diffmethod
     model = pn.model
@@ -240,7 +240,7 @@ function dynamics_expansion!(pn::ProjectedNewtonSolver2{<:Any,<:Any,Nx,Nu},
     end
 end
 
-function dynamics_error!(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=pn.Z̄)
+function dynamics_error!(pn::ProjectedNewtonSolver, Z::SampledTrajectory=pn.Z̄)
     model = pn.model
     N = length(Z)
     for k = 1:N - 1
@@ -249,7 +249,7 @@ function dynamics_error!(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=pn.Z̄
     end
 end
 
-function evaluate_constraints!(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=pn.Z̄)
+function evaluate_constraints!(pn::ProjectedNewtonSolver, Z::SampledTrajectory=pn.Z̄)
     ix = pn.ix
     n = RD.dims(pn)[1]
 
@@ -263,7 +263,7 @@ function evaluate_constraints!(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=
     evaluate_constraints!(pn.conset, Z)
 end
 
-function constraint_jacobians!(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=pn.Z̄)
+function constraint_jacobians!(pn::ProjectedNewtonSolver, Z::SampledTrajectory=pn.Z̄)
     ix = pn.ix
     # n = RD.state_dim(pn.model)
 
@@ -279,17 +279,17 @@ function constraint_jacobians!(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=
     constraint_jacobians!(pn.conset, Z)
 end
 
-function max_violation(pn::ProjectedNewtonSolver2, Z::SampledTrajectory=pn.Z̄)
+function max_violation(pn::ProjectedNewtonSolver, Z::SampledTrajectory=pn.Z̄)
     evaluate_constraints!(pn, Z)
     update_active_set!(pn)
     max_violation(pn, nothing)
 end
 
-function norm_violation(pn::ProjectedNewtonSolver2, p=1)
+function norm_violation(pn::ProjectedNewtonSolver, p=1)
     return norm(pn.d[pn.active], p)
 end
 
-function max_violation(pn::ProjectedNewtonSolver2, Z::Nothing)
+function max_violation(pn::ProjectedNewtonSolver, Z::Nothing)
     Np = num_primals(pn)
     c_max = zero(eltype(pn.d))
     for i in eachindex(pn.d)
@@ -301,11 +301,11 @@ function max_violation(pn::ProjectedNewtonSolver2, Z::Nothing)
 end
 
 
-function update_active_set!(pn::ProjectedNewtonSolver2)
+function update_active_set!(pn::ProjectedNewtonSolver)
     update_active_set!(pn.conset)
     return nothing
 end
 
-function active_constraints(pn::ProjectedNewtonSolver2)
+function active_constraints(pn::ProjectedNewtonSolver)
     return sparse(pn.D)[pn.active, :], pn.d[pn.active]
 end

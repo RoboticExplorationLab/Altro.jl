@@ -3,6 +3,22 @@ mutable struct DynamicRegularization{T}
     dρ::T
 end
 
+"""
+    iLQRSolver
+
+A fast solver for unconstrained trajectory optimization that uses a Riccati recursion
+to solve for a local feedback controller around the current trajectory, and then 
+simulates the system forward using the derived feedback control law.
+
+# Constructor
+    Altro.iLQRSolver(prob, opts; kwarg_opts...)
+
+With the following keyword arguments:
+- `use_static` Pass `Val(true)` to use StaticArrays as the internal storage for the trajectories.
+This will, by default, then use `RobotDynamics.StaticReturn()` methods for the dynamics.
+
+All other keyword arguments are interpreted as solver options passed to [`set_options!`](@ref).
+"""
 struct iLQRSolver{L,O,Nx,Ne,Nu,T,V} <: UnconstrainedSolver{T}
     model::L
     obj::O
