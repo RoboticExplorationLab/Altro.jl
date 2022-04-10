@@ -75,7 +75,7 @@ const SparseView{T,I} = SubArray{T, 2, SparseMatrixCSC{T, I}, Tuple{UnitRange{I}
 const VectorView{T,I} = SubArray{T, 1, Vector{T}, Tuple{UnitRange{I}}, true}
 
 # Select the matix multiplication kernel
-const USE_OCTAVIAN = parse(Bool, get(ENV, "ALTRO_USE_OCTAVIAN", "false"))
+const USE_OCTAVIAN = parse(Bool, get(ENV, "ALTRO_USE_OCTAVIAN", "true"))
 @static if USE_OCTAVIAN
     const matmul! = Octavian.matmul!
 else
