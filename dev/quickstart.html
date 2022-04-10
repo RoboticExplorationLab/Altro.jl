@@ -4,7 +4,10 @@ using TrajectoryOptimization
 using RobotDynamics
 using StaticArrays, LinearAlgebra
 const TO = TrajectoryOptimization
-const RD = RobotDynamics</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">RobotDynamics</code></pre><h2 id=".-Set-up-the-dynamics-model"><a class="docs-heading-anchor" href="#.-Set-up-the-dynamics-model">2. Set up the dynamics model</a><a id=".-Set-up-the-dynamics-model-1"></a><a class="docs-heading-anchor-permalink" href="#.-Set-up-the-dynamics-model" title="Permalink"></a></h2><p>We now define our dynamics model using RobotDynamics.jl. We define a new type <code>Car</code>  that inherits from <code>RobotDynamics.AbstractModel</code>. We can store any of our model  parameters in this type. After defining the state and control dimensions and the  continuous dynamics, we&#39;re done defining our model. Integration of the dynamics and the dynamics derivatives can be done automatically.</p><pre><code class="language-julia hljs">struct DubinsCar &lt;: AbstractModel end
+const RD = RobotDynamics</code></pre><h2 id=".-Set-up-the-dynamics-model"><a class="docs-heading-anchor" href="#.-Set-up-the-dynamics-model">2. Set up the dynamics model</a><a id=".-Set-up-the-dynamics-model-1"></a><a class="docs-heading-anchor-permalink" href="#.-Set-up-the-dynamics-model" title="Permalink"></a></h2><p>We now define our dynamics model using RobotDynamics.jl. We define a new type <code>Car</code>  that inherits from <code>RobotDynamics.ContinuousDynamics</code>. We can store any of our model  parameters in this type. After defining the state and control dimensions and the  continuous dynamics, we&#39;re done defining our model. Integration of the dynamics and the dynamics derivatives can be done automatically.</p><pre><code class="language-julia hljs">using ForwardDiff  # needed for @autodiff
+using FiniteDiff   # needed for @autodiff
+
+RD.@autodiff struct DubinsCar &lt;: RD.ContinuousDynamics end
 RD.state_dim(::DubinsCar) = 3
 RD.control_dim(::DubinsCar) = 2
 
@@ -12,12 +15,36 @@ function RD.dynamics(::DubinsCar,x,u)
     ẋ = @SVector [u[1]*cos(x[3]),
                   u[1]*sin(x[3]),
                   u[2]]
-end</code></pre><h2 id=".-Set-up-the-objective"><a class="docs-heading-anchor" href="#.-Set-up-the-objective">3. Set up the objective</a><a id=".-Set-up-the-objective-1"></a><a class="docs-heading-anchor-permalink" href="#.-Set-up-the-objective" title="Permalink"></a></h2><p>Once we&#39;ve defined the model, we can now start defining our problem. Let&#39;s start by defining the discretization,</p><pre><code class="language-julia hljs">model = DubinsCar()
+end</code></pre><p>The code above is the minimal amount of code we need to write to define our dynamics. We can also define in-place evaluation methods and an analytic Jacobian:</p><pre><code class="language-julia hljs">function RD.dynamics!(::DubinsCar, xdot, x, u)
+    xdot[1] = u[1] * cos(x[3])
+    xdot[2] = u[1] * sin(x[3])
+    xdot[3] = u[2]
+    return nothing
+end
+
+function RD.jacobian!(::DubinsCar, J, xdot, x, u)
+    J .= 0
+    J[1,3] = -u[1] * sin(x[3])
+    J[1,4] = cos(x[3])
+    J[2,3] = u[1] * cos(x[3])
+    J[2,4] = sin(x[3])
+    J[3,5] = 1.0
+    return nothing
+end
+
+# Specify the default method to be used when calling the dynamics
+#   options are `RD.StaticReturn()` or `RD.InPlace()`
+RD.default_signature(::DubinsCar) = RD.StaticReturn()
+
+# Specify the default method for evaluating the dynamics Jacobian
+#   options are `RD.ForwardAD()`, `RD.FiniteDifference()`, or `RD.UserDefined()`
+RD.default_diffmethod(::DubinsCar) = RD.UserDefined()</code></pre><div class="admonition is-success"><header class="admonition-header">Tip</header><div class="admonition-body"><p>We use <code>RobotDynamics.@autodiff</code> to automatically define methods to evaluate  the Jacobian of our dynamics function. See the RobotDynamics documentation  for more details. Note that we have to include the FiniteDiff and ForwardDiff packages to use this method.</p></div></div><h2 id=".-Set-up-the-objective"><a class="docs-heading-anchor" href="#.-Set-up-the-objective">3. Set up the objective</a><a id=".-Set-up-the-objective-1"></a><a class="docs-heading-anchor-permalink" href="#.-Set-up-the-objective" title="Permalink"></a></h2><p>Once we&#39;ve defined the model, we can now start defining our problem. Let&#39;s start by defining the discretization:</p><pre><code class="language-julia hljs">model = DubinsCar()
+dmodel = RD.DiscretizedDynamics{RD.RK4}(model)
 n,m = size(model)    # get state and control dimension
 N = 101              # number of time steps (knot points). Should be odd.
 tf = 3.0             # total time (sec)
-dt = tf / (N-1)      # time step (sec)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.03</code></pre><p>and our initial and final conditions</p><pre><code class="language-julia hljs">x0 = SA_F64[0,0,0]   # start at the origin
-xf = SA_F64[1,2,pi]  # goal state</code></pre><p>Let&#39;s define a quadratic cost function that penalizes distance from the goal state:</p><pre><code class="language-julia hljs">Q  = Diagonal(SA[0.1,0.1,0.01])
+dt = tf / (N-1)      # time step (sec)</code></pre><p>Note that we need a discrete version of our dynamics model, which we can obtain using  the <code>RobotDynamics.DiscretizedDynamics</code> type. This type creates a  <code>RobotDynamics.DiscreteDynamics</code> type from a <code>RobotDynamics.ContinuousDynamics</code> type  using a supplied integrator. Here we use the 4th-order explicit Runge-Kutta method provided by RobotDynamics.jl.</p><p>Now we specify our initial and final conditions:</p><pre><code class="language-julia hljs">x0 = SA_F64[0,0,0]   # start at the origin
+xf = SA_F64[1,2,pi]  # goal state</code></pre><p>For our objective, let&#39;s define a quadratic cost function that penalizes distance from  the goal state:</p><pre><code class="language-julia hljs">Q  = Diagonal(SA[0.1,0.1,0.01])
 R  = Diagonal(SA[0.01, 0.1])
 Qf = Diagonal(SA[1e2,1e2,1e3])
 obj = LQRObjective(Q,R,Qf,xf,N)</code></pre><h2 id=".-Add-the-constraints"><a class="docs-heading-anchor" href="#.-Add-the-constraints">4. Add the constraints</a><a id=".-Add-the-constraints-1"></a><a class="docs-heading-anchor-permalink" href="#.-Add-the-constraints" title="Permalink"></a></h2><p>Now let&#39;s define the constraints for our problem. We&#39;re going to bound the workspace of the robot, and add two obstacles. We start by defining a <code>ConstraintList</code>, which  is going to hold all of the constraints and make sure they&#39;re dimensions are  consistent. Here we add a goal constraint at the last time step, a workspace  constraint, and then the circular obstacle constraint.</p><pre><code class="language-julia hljs">cons = ConstraintList(n,m,N)
@@ -31,80 +58,64 @@ bnd = BoundConstraint(n,m, x_min=[-0.1,-0.1,-Inf], x_max=[5,5,Inf])
 add_constraint!(cons, bnd, 1:N-1)
 
 # Obstacle Constraint
+#   Defines two circular obstacles:
+#   - Position (1,1) with radius 0.2
+#   - Position (2,1) with radius 0.3
 obs = CircleConstraint(n, SA_F64[1,2], SA_F64[1,1], SA[0.2, 0.3])
-add_constraint!(cons, bnd, 1:N-1)</code></pre><h2 id=".-Define-the-problem"><a class="docs-heading-anchor" href="#.-Define-the-problem">5. Define the problem</a><a id=".-Define-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#.-Define-the-problem" title="Permalink"></a></h2><p>With the dynamics model, discretization, objective, constraints, and initial condition defined, we&#39;re ready to define the problem, which we do with  <code>TrajectoryOptimization.Problem</code>. Here we can also specify an integrator, which we choose to be a 4th-order Runge-Kutta method.</p><pre><code class="language-julia hljs">prob = Problem(model, obj, xf, tf, x0=x0, constraints=cons, integration=RK4)</code></pre><p>Initialization is key to nonlinear optimization problems. Since this problem is pretty easy, we&#39;ll just initialize it with small random noise on the controls and then simulate the system forward in time.</p><pre><code class="language-julia hljs">initial_controls!(prob, [@SVector rand(m) for k = 1:N-1])
-rollout!(prob)   # simulate the system forward in time with the new controls</code></pre><h2 id=".-Intialize-the-solver"><a class="docs-heading-anchor" href="#.-Intialize-the-solver">6. Intialize the solver</a><a id=".-Intialize-the-solver-1"></a><a class="docs-heading-anchor-permalink" href="#.-Intialize-the-solver" title="Permalink"></a></h2><p>With the problem now defined, we&#39;re ready to start using Altro.jl (everything up to this point used only RobotDynamics or TrajectoryOptimization). All we need to do is create an <code>ALTROSolver</code>.</p><pre><code class="language-julia hljs">solver = ALTROSolver(prob)</code></pre><h3 id="Setting-Solver-Options"><a class="docs-heading-anchor" href="#Setting-Solver-Options">Setting Solver Options</a><a id="Setting-Solver-Options-1"></a><a class="docs-heading-anchor-permalink" href="#Setting-Solver-Options" title="Permalink"></a></h3><p>We can set solver options via keyword arguments to the constructor, or by passing in  a <code>SolverOptions</code> type:</p><pre><code class="language-julia hljs"># Set up solver options
+add_constraint!(cons, bnd, 1:N-1)</code></pre><h2 id=".-Define-the-problem"><a class="docs-heading-anchor" href="#.-Define-the-problem">5. Define the problem</a><a id=".-Define-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#.-Define-the-problem" title="Permalink"></a></h2><p>With the dynamics model, discretization, objective, constraints, and initial condition defined, we&#39;re ready to define the problem, which we do with  <code>TrajectoryOptimization.Problem</code>. </p><pre><code class="language-julia hljs">prob = Problem(model, obj, x0, tf, xf=xf, constraints=cons)</code></pre><p>Initialization is key when nonlinear optimization problems with gradient-based methods.  Since this problem is pretty easy, we&#39;ll just initialize it with small random noise  on the controls and then simulate the system forward in time.</p><pre><code class="language-julia hljs">initial_controls!(prob, [@SVector rand(m) for k = 1:N-1])
+rollout!(prob)   # simulate the system forward in time with the new controls</code></pre><h2 id=".-Intialize-the-solver"><a class="docs-heading-anchor" href="#.-Intialize-the-solver">6. Intialize the solver</a><a id=".-Intialize-the-solver-1"></a><a class="docs-heading-anchor-permalink" href="#.-Intialize-the-solver" title="Permalink"></a></h2><p>With the problem now defined, we&#39;re ready to start using Altro.jl (everything up to this point used only RobotDynamics.jl or TrajectoryOptimization.jl). All we need to do is create an <code>ALTROSolver</code>.</p><pre><code class="language-julia hljs">solver = ALTROSolver(prob)</code></pre><h3 id="Setting-Solver-Options"><a class="docs-heading-anchor" href="#Setting-Solver-Options">Setting Solver Options</a><a id="Setting-Solver-Options-1"></a><a class="docs-heading-anchor-permalink" href="#Setting-Solver-Options" title="Permalink"></a></h3><p>We can set solver options via keyword arguments to the constructor, or by passing in  a <code>SolverOptions</code> type:</p><pre><code class="language-julia hljs"># Set up solver options
 opts = SolverOptions()
 opts.cost_tolerance = 1e-5
 
 # Create a solver, adding in additional options
-solver = ALTROSolver(prob, opts, show_summary=false)</code></pre><h2 id=".-Solve-the-problem"><a class="docs-heading-anchor" href="#.-Solve-the-problem">7. Solve the problem</a><a id=".-Solve-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#.-Solve-the-problem" title="Permalink"></a></h2><p>With the solver initialized, we can now solve the problem with a simple call to  <code>solve!</code>:</p><pre><code class="language-julia hljs">solve!(solver)</code></pre><h2 id=".-Post-analysis"><a class="docs-heading-anchor" href="#.-Post-analysis">8. Post-analysis</a><a id=".-Post-analysis-1"></a><a class="docs-heading-anchor-permalink" href="#.-Post-analysis" title="Permalink"></a></h2><h3 id="Checking-solve-status"><a class="docs-heading-anchor" href="#Checking-solve-status">Checking solve status</a><a id="Checking-solve-status-1"></a><a class="docs-heading-anchor-permalink" href="#Checking-solve-status" title="Permalink"></a></h3><p>Once the solve is complete, we can look at a few things. The first is to check if the solve is successful:</p><pre><code class="language-julia hljs">status(solver)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">SOLVE_SUCCEEDED::TerminationStatus = 1</code></pre><p>We can also extract some more information</p><pre><code class="language-julia hljs">println(&quot;Number of iterations: &quot;, iterations(solver))
+solver = ALTROSolver(prob, opts, show_summary=false)</code></pre><p>You can also use the <a href="options.html#Altro.set_options!"><code>set_options!</code></a> method on a solver once it&#39;s created.</p><h2 id=".-Solve-the-problem"><a class="docs-heading-anchor" href="#.-Solve-the-problem">7. Solve the problem</a><a id=".-Solve-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#.-Solve-the-problem" title="Permalink"></a></h2><p>With the solver initialized, we can now solve the problem with a simple call to  <code>solve!</code>:</p><pre><code class="language-julia hljs">solve!(solver)</code></pre><h2 id=".-Post-analysis"><a class="docs-heading-anchor" href="#.-Post-analysis">8. Post-analysis</a><a id=".-Post-analysis-1"></a><a class="docs-heading-anchor-permalink" href="#.-Post-analysis" title="Permalink"></a></h2><h3 id="Checking-solve-status"><a class="docs-heading-anchor" href="#Checking-solve-status">Checking solve status</a><a id="Checking-solve-status-1"></a><a class="docs-heading-anchor-permalink" href="#Checking-solve-status" title="Permalink"></a></h3><p>Once the solve is complete, we can look at a few things. The first is to check if the solve is successful:</p><pre><code class="language-julia hljs">status(solver)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">SOLVE_SUCCEEDED::TerminationStatus = 2</code></pre><p>We can also extract some more information</p><pre><code class="language-julia hljs">println(&quot;Number of iterations: &quot;, iterations(solver))
 println(&quot;Final cost: &quot;, cost(solver))
-println(&quot;Final constraint satisfaction: &quot;, max_violation(solver))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Number of iterations: 10
-Final cost: 0.3744233447669182
-Final constraint satisfaction: 5.092998764943957e-7</code></pre><h3 id="Extracting-the-solution"><a class="docs-heading-anchor" href="#Extracting-the-solution">Extracting the solution</a><a id="Extracting-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Extracting-the-solution" title="Permalink"></a></h3><p>We can extract the state and control trajectories, which are returned as vectors of <code>SVector</code>s:</p><pre><code class="language-julia hljs">X = states(solver)     # alternatively states(prob)
-U = controls(solver)   # alternatively controls(prob)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">100-element Array{StaticArrays.SArray{Tuple{2},Float64,1,2},1}:
- [0.10701059339631189, 2.5450032426248628]
- [0.7826967229504546, 2.519129563476165]  
- [1.360546176042138, 2.4698030156998425]  
- [1.8420555494354196, 2.403098169062552]  
- [2.231995557527207, 2.3243841066527353]  
- [2.5374366489023226, 2.238209837288993]  
- [2.766849395210306, 2.1482801167312835]  
- [2.9293478663871233, 2.05749778190044]   
- [3.0341033707154215, 1.9680478251325364] 
- [3.0899258996015684, 1.8815019721513728] 
- ⋮                                        
- [0.10414051560379568, 0.7289849498686017]
- [0.11010491635853575, 0.7282205658578556]
- [0.11695499550557402, 0.7275092347878471]
- [0.12475855352028996, 0.7268482461783838]
- [0.13359147868859778, 0.7262351736078296]
- [0.1435369028035082, 0.72566783742333]   
- [0.15467076950089123, 0.725143613005568] 
- [0.1670140932655661, 0.7246571622187112] 
- [0.18069792751387964, 0.7242090843664254]</code></pre><p>If you prefer to work with matrices, you can convert them easily:</p><pre><code class="language-julia hljs">Xm = hcat(Vector.(X)...)  # convert to normal Vector before concatenating so it&#39;s fast
-Um = hcat(Vector.(U)...)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2×100 Array{Float64,2}:
- 0.107011  0.782697  1.36055  1.84206  …  0.154671  0.167014  0.180698
- 2.545     2.51913   2.4698   2.4031      0.725144  0.724657  0.724209</code></pre><div class="admonition is-success"><header class="admonition-header">Tip</header><div class="admonition-body"><p>Converting a matrix into a vector of vectors is also very easy:</p><pre><code class="language-julia hljs">X = [col for col in eachcol(Xm)]</code></pre><p>Or if you want static vectors:</p><pre><code class="language-julia hljs">X = [SVector{n}(col) for col in eachcol(Xm)]</code></pre></div></div><h3 id="Extracting-the-final-feedback-gains"><a class="docs-heading-anchor" href="#Extracting-the-final-feedback-gains">Extracting the final feedback gains</a><a id="Extracting-the-final-feedback-gains-1"></a><a class="docs-heading-anchor-permalink" href="#Extracting-the-final-feedback-gains" title="Permalink"></a></h3><p>Since ALTRO uses iLQR, the solver computes a locally optimal linear feedback policy which can be useful for tracking purposes. We can extract it from the internal  <code>Altro.iLQRSolver</code>:</p><pre><code class="language-julia hljs">ilqr = Altro.get_ilqr(solver)
+println(&quot;Final constraint satisfaction: &quot;, max_violation(solver))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Number of iterations: 15
+Final cost: 12.480778190315517
+Final constraint satisfaction: 9.890404051304813e-10</code></pre><h3 id="Extracting-the-solution"><a class="docs-heading-anchor" href="#Extracting-the-solution">Extracting the solution</a><a id="Extracting-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Extracting-the-solution" title="Permalink"></a></h3><p>We can extract the state and control trajectories, which are returned as vectors of <code>SVector</code>s:</p><pre><code class="language-julia hljs">X = states(solver)     # alternatively states(prob)
+U = controls(solver)   # alternatively controls(prob)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">100-element Vector{StaticArrays.SVector{2, Float64}}:
+ [0.10408302208234128, 2.5451711328978885]
+ [0.7789573376495889, 2.518515596296924]
+ [1.3567922649581439, 2.4688262763897826]
+ [1.838793744040298, 2.4020103684781264]
+ [2.2294919689729085, 2.3233261896371555]
+ [2.535779163638351, 2.237253292839993]
+ [2.766007550074229, 2.1474552095184802]
+ [2.929222530458894, 2.05681172209296]
+ [3.034563692096202, 1.967495818198488]
+ [3.0908342107730546, 1.881073573968168]
+ ⋮
+ [0.10448425071528551, 0.7290808662621812]
+ [0.11049070103073053, 0.7283195318362217]
+ [0.1173845733638137, 0.7276105683753835]
+ [0.12523472114668266, 0.7269519936998429]
+ [0.13411707870043765, 0.7263417120658394]
+ [0.14411524469069364, 0.7257775059517194]
+ [0.1553211220252285, 0.7252570287084238]
+ [0.1678356188089972, 0.7247777982301813]
+ [0.1817694147293027, 0.7243371924880037]</code></pre><p>If you prefer to work with matrices, you can convert them easily:</p><pre><code class="language-julia hljs">Xm = hcat(Vector.(X)...)  # convert to normal Vector before concatenating so it&#39;s fast
+Um = hcat(Vector.(U)...)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2×100 Matrix{Float64}:
+ 0.104083  0.778957  1.35679  1.83879  …  0.155321  0.167836  0.181769
+ 2.54517   2.51852   2.46883  2.40201     0.725257  0.724778  0.724337</code></pre><div class="admonition is-success"><header class="admonition-header">Tip</header><div class="admonition-body"><p>Converting a matrix into a vector of vectors is also very easy:</p><pre><code class="language-julia hljs">X = [col for col in eachcol(Xm)]</code></pre><p>Or if you want static vectors:</p><pre><code class="language-julia hljs">X = [SVector{n}(col) for col in eachcol(Xm)]</code></pre></div></div><h3 id="Extracting-the-final-feedback-gains"><a class="docs-heading-anchor" href="#Extracting-the-final-feedback-gains">Extracting the final feedback gains</a><a id="Extracting-the-final-feedback-gains-1"></a><a class="docs-heading-anchor-permalink" href="#Extracting-the-final-feedback-gains" title="Permalink"></a></h3><p>Since ALTRO uses iLQR, the solver computes a locally optimal linear feedback policy which can be useful for tracking purposes. We can extract it from the internal  <code>Altro.iLQRSolver</code>:</p><pre><code class="language-julia hljs">ilqr = Altro.get_ilqr(solver)
 K = ilqr.K  # feedback gain matrices
-d = ilqr.d  # feedforward gains. Should be small.</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">100-element Array{StaticArrays.SizedArray{Tuple{2},Float64,1,1,Array{Float64,1}},1}:
- [0.028314789654490927, -0.0024662830406098767]  
- [0.020853976182866475, 0.00012592769534104444]  
- [0.015195657770947219, 0.0020184209033668942]   
- [0.010875727303250296, 0.0033403575478915056]   
- [0.00753834354808629, 0.004216132624758908]     
- [0.004921227428905461, 0.004756835838020673]    
- [0.0028367493259648466, 0.005055694680643749]   
- [0.001153243245583478, 0.005186864195759781]    
- [-0.0002207369185201364, 0.0052065820390602155] 
- [-0.0013488587055654152, 0.005155653219849207]  
- ⋮                                               
- [-0.003411046842288986, -0.0014428039824718837] 
- [-0.0034590573328163866, -0.0017265615331376989]
- [-0.0036738516034513576, -0.002028921314555415] 
- [-0.004052928816323828, -0.0024023506868462233] 
- [-0.004223571794465622, -0.0029736744569883403] 
- [-0.003866259618295772, -0.003869727394669919]  
- [-0.0028398119388905246, -0.004075837205612524] 
- [-0.003348446976676837, 0.0007343624714895968]  
- [1.1994640198611193e-5, -1.5879531468436017e-5] </code></pre><h3 id="Additional-solver-stats"><a class="docs-heading-anchor" href="#Additional-solver-stats">Additional solver stats</a><a id="Additional-solver-stats-1"></a><a class="docs-heading-anchor-permalink" href="#Additional-solver-stats" title="Permalink"></a></h3><p>We can extract more detailed information on the solve from <code>solver.stats</code>:</p><pre><code class="language-julia hljs">solver.stats</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">SolverStats{Float64}
-  iterations: Int64 10
-  iterations_outer: Int64 1
-  iterations_pn: Int64 1
-  iteration: Array{Int64}((10,)) [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-  iteration_outer: Array{Int64}((10,)) [0, 0, 0, 0, 0, 0, 0, 0, 1, 1]
-  iteration_pn: Array{Bool}((10,)) Bool[0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
-  cost: Array{Float64}((10,)) [1078.7071475402804, 980.8549403680462, 82.47777177816434, 42.11839598731261, 6.4462245139163485, 1.8728252825791314, 0.39510477968003466, 0.37442179513400575, 0.3744204933458541, 0.3744233447262657]
-  dJ: Array{Float64}((10,)) [328.57013321637714, 97.85220717223422, 898.3771685898819, 40.35937579085173, 35.67217147339626, 4.573399231337217, 1.4777205028990967, 0.020682984546028904, 1.3017881516641516e-6, -2.8513804116170327e-6]
-  c_max: Array{Float64}((10,)) [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 7.232661134271012e-5, 5.092998764943957e-7]
-  gradient: Array{Float64}((10,)) [3.5053504688234853, 2.6876162252657054, 1.9015098359911764, 1.9512709303143634, 0.5283829340453976, 2.675048826653846, 1.33220571865933, 0.3381680970834763, 0.0020516287962070692, 1.0191529678887371e-5]
-  penalty_max: Array{Float64}((10,)) [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0]
-  dJ_zero_counter: Int64 0
-  tstart: Float64 5.40666795514e11
-  tsolve: Float64 8130.719311999999
-  to: TimerOutputs.TimerOutput
-  status: Altro.TerminationStatus Altro.SOLVE_SUCCEEDED
-  is_reset: Bool false
-  parent: Symbol ALTRO
-</code></pre><p>The most relevant fields are the <code>cost</code>, <code>c_max</code>, and <code>gradient</code>. These give the history of these values for each iteration. The <code>iteration_outer</code> can also be helpful to know which iterations were outer loop (augmented Lagrangian)  iterations. The <code>tsolve</code> field gives the total solve time in milliseconds.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="index.html">« Introduction</a><a class="docs-footer-nextpage" href="options.html">Solver Options »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.10 on <span class="colophon-date" title="Thursday 16 December 2021 18:57">Thursday 16 December 2021</span>. Using Julia version 1.3.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+d = ilqr.d  # feedforward gains. Should be small.</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">100-element Vector{SubArray{Float64, 1, Matrix{Float64}, Tuple{Base.Slice{Base.OneTo{Int64}}, Int64}, true}}:
+ [1.846125226267802e-5, 5.427385581630193e-5]
+ [2.5942786531631744e-6, 3.163589387114192e-5]
+ [-8.526583607315221e-6, 1.2725978068324694e-5]
+ [-1.54845675179529e-5, -2.821528105996946e-6]
+ [-1.894943851300353e-5, -1.5420710535127397e-5]
+ [-1.960184976791704e-5, -2.548891729689773e-5]
+ [-1.807843394040116e-5, -3.341753204109055e-5]
+ [-1.4939285118577435e-5, -3.9556221406418595e-5]
+ [-1.0654540244404678e-5, -4.4207177789173675e-5]
+ [-5.604568196773813e-6, -4.762587258810553e-5]
+ ⋮
+ [-2.775757113295284e-6, -1.579449880494726e-6]
+ [-3.6210408165175617e-6, -1.3927807846409028e-6]
+ [-4.4871316044443125e-6, -1.1957678655922449e-6]
+ [-5.389495818408288e-6, -9.868246828583334e-7]
+ [-6.291617404559907e-6, -7.65331913728081e-7]
+ [-6.96213881396233e-6, -5.350440752877129e-7]
+ [-6.629238904425522e-6, -3.1325107842097995e-7]
+ [-3.928553233474942e-6, -1.356474342507319e-7]
+ [8.553970817741724e-7, -1.380384429250657e-9]</code></pre><h3 id="Additional-solver-stats"><a class="docs-heading-anchor" href="#Additional-solver-stats">Additional solver stats</a><a id="Additional-solver-stats-1"></a><a class="docs-heading-anchor-permalink" href="#Additional-solver-stats" title="Permalink"></a></h3><p>We can extract more detailed information on the solve from <a href="options.html#Altro.SolverStats"><code>SolverStats</code></a></p><pre><code class="language-julia hljs">Altro.stats(solver)</code></pre><p>The most relevant fields are the <code>cost</code>, <code>c_max</code>, and <code>gradient</code>. These give the history of these values for each iteration. The <code>iteration_outer</code> can also be helpful to know which iterations were outer loop (augmented Lagrangian)  iterations. The <code>tsolve</code> field gives the total solve time in milliseconds.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="index.html">« Introduction</a><a class="docs-footer-nextpage" href="options.html">Solver Options »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.15 on <span class="colophon-date" title="Sunday 10 April 2022 15:37">Sunday 10 April 2022</span>. Using Julia version 1.6.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
