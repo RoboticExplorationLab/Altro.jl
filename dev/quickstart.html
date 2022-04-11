@@ -70,52 +70,52 @@ opts.cost_tolerance = 1e-5
 # Create a solver, adding in additional options
 solver = ALTROSolver(prob, opts, show_summary=false)</code></pre><p>You can also use the <a href="options.html#Altro.set_options!"><code>set_options!</code></a> method on a solver once it&#39;s created.</p><h2 id=".-Solve-the-problem"><a class="docs-heading-anchor" href="#.-Solve-the-problem">7. Solve the problem</a><a id=".-Solve-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#.-Solve-the-problem" title="Permalink"></a></h2><p>With the solver initialized, we can now solve the problem with a simple call to  <code>solve!</code>:</p><pre><code class="language-julia hljs">solve!(solver)</code></pre><h2 id=".-Post-analysis"><a class="docs-heading-anchor" href="#.-Post-analysis">8. Post-analysis</a><a id=".-Post-analysis-1"></a><a class="docs-heading-anchor-permalink" href="#.-Post-analysis" title="Permalink"></a></h2><h3 id="Checking-solve-status"><a class="docs-heading-anchor" href="#Checking-solve-status">Checking solve status</a><a id="Checking-solve-status-1"></a><a class="docs-heading-anchor-permalink" href="#Checking-solve-status" title="Permalink"></a></h3><p>Once the solve is complete, we can look at a few things. The first is to check if the solve is successful:</p><pre><code class="language-julia hljs">status(solver)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">SOLVE_SUCCEEDED::TerminationStatus = 2</code></pre><p>We can also extract some more information</p><pre><code class="language-julia hljs">println(&quot;Number of iterations: &quot;, iterations(solver))
 println(&quot;Final cost: &quot;, cost(solver))
-println(&quot;Final constraint satisfaction: &quot;, max_violation(solver))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Number of iterations: 15
-Final cost: 12.480778190318043
-Final constraint satisfaction: 9.890395169520616e-10</code></pre><h3 id="Extracting-the-solution"><a class="docs-heading-anchor" href="#Extracting-the-solution">Extracting the solution</a><a id="Extracting-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Extracting-the-solution" title="Permalink"></a></h3><p>We can extract the state and control trajectories, which are returned as vectors of <code>SVector</code>s:</p><pre><code class="language-julia hljs">X = states(solver)     # alternatively states(prob)
+println(&quot;Final constraint satisfaction: &quot;, max_violation(solver))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Number of iterations: 14
+Final cost: 12.480778190321193
+Final constraint satisfaction: 9.890390728628518e-10</code></pre><h3 id="Extracting-the-solution"><a class="docs-heading-anchor" href="#Extracting-the-solution">Extracting the solution</a><a id="Extracting-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Extracting-the-solution" title="Permalink"></a></h3><p>We can extract the state and control trajectories, which are returned as vectors of <code>SVector</code>s:</p><pre><code class="language-julia hljs">X = states(solver)     # alternatively states(prob)
 U = controls(solver)   # alternatively controls(prob)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">100-element Vector{StaticArrays.SVector{2, Float64}}:
- [0.10408365154338646, 2.545170930778147]
- [0.7789577923119168, 2.51851537831435]
- [1.3567924773373814, 2.4688260769756583]
- [1.8387937015129237, 2.402010211957662]
- [2.22949170223751, 2.323326088328156]
- [2.5357787295229266, 2.2372532483630954]
- [2.7660070149164104, 2.1474552157950786]
- [2.929221957522481, 2.0568117686933824]
- [3.0345631339851384, 1.9674958931981363]
- [3.090833706234072, 1.8810736659613942]
+ [0.10408384057213933, 2.545170865027936]
+ [0.7789576858833325, 2.5185152150142254]
+ [1.356792124622397, 2.4688258407594774]
+ [1.8387931836933546, 2.4020099360607756]
+ [2.2294911087670464, 2.323325806325222]
+ [2.5357781403650215, 2.237252988378546]
+ [2.7660064906242035, 2.1474549976461272]
+ [2.9292215362665535, 2.056811603470973]
+ [3.034562833369419, 1.9674957844115926]
+ [3.090833527622363, 1.8810736114057178]
  ⋮
- [0.10448422196751046, 0.729080871865876]
- [0.1104906702855733, 0.7283195375661995]
- [0.11738454039138094, 0.7276105742400062]
- [0.1252346856969065, 0.7269519997083291]
- [0.13411704050122253, 0.7263417182284213]
- [0.14411520344588463, 0.7257775122802245]
- [0.15532107741222614, 0.725257035218403]
- [0.16783557047680195, 0.7247778049474433]
- [0.18176936230002733, 0.7243371994614287]</code></pre><p>If you prefer to work with matrices, you can convert them easily:</p><pre><code class="language-julia hljs">Xm = hcat(Vector.(X)...)  # convert to normal Vector before concatenating so it&#39;s fast
+ [0.10448422072429693, 0.7290808785534048]
+ [0.11049066894689089, 0.728319544561788]
+ [0.11738453895071582, 0.7276105815654768]
+ [0.12523468414762273, 0.7269520073879372]
+ [0.1341170388366607, 0.7263417262889932]
+ [0.14411520165927097, 0.7257775207511464]
+ [0.15532107549705446, 0.7252570441310761]
+ [0.1678355684268102, 0.7247778143332085]
+ [0.1817693601072153, 0.7243372093474001]</code></pre><p>If you prefer to work with matrices, you can convert them easily:</p><pre><code class="language-julia hljs">Xm = hcat(Vector.(X)...)  # convert to normal Vector before concatenating so it&#39;s fast
 Um = hcat(Vector.(U)...)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2×100 Matrix{Float64}:
  0.104084  0.778958  1.35679  1.83879  …  0.155321  0.167836  0.181769
  2.54517   2.51852   2.46883  2.40201     0.725257  0.724778  0.724337</code></pre><div class="admonition is-success"><header class="admonition-header">Tip</header><div class="admonition-body"><p>Converting a matrix into a vector of vectors is also very easy:</p><pre><code class="language-julia hljs">X = [col for col in eachcol(Xm)]</code></pre><p>Or if you want static vectors:</p><pre><code class="language-julia hljs">X = [SVector{n}(col) for col in eachcol(Xm)]</code></pre></div></div><h3 id="Extracting-the-final-feedback-gains"><a class="docs-heading-anchor" href="#Extracting-the-final-feedback-gains">Extracting the final feedback gains</a><a id="Extracting-the-final-feedback-gains-1"></a><a class="docs-heading-anchor-permalink" href="#Extracting-the-final-feedback-gains" title="Permalink"></a></h3><p>Since ALTRO uses iLQR, the solver computes a locally optimal linear feedback policy which can be useful for tracking purposes. We can extract it from the internal  <code>Altro.iLQRSolver</code>:</p><pre><code class="language-julia hljs">ilqr = Altro.get_ilqr(solver)
 K = ilqr.K  # feedback gain matrices
 d = ilqr.d  # feedforward gains. Should be small.</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">100-element Vector{SubArray{Float64, 1, Matrix{Float64}, Tuple{Base.Slice{Base.OneTo{Int64}}, Int64}, true}}:
- [1.8241585900847387e-5, 5.448523973586389e-5]
- [3.115755111041953e-6, 3.213875388112072e-5]
- [-7.3986732920329116e-6, 1.3442782785080455e-5]
- [-1.3966018513308216e-5, -1.9890720766398797e-6]
- [-1.7270547791393127e-5, -1.4567983482967357e-5]
- [-1.796061482955133e-5, -2.469341469876423e-5]
- [-1.6617370442623703e-5, -3.2732615694772514e-5]
- [-1.3741506230735924e-5, -3.901132567595292e-5]
- [-9.751809618629498e-6, -4.381170421070869e-5]
- [-4.99059124283825e-6, -4.737449542159151e-5]
+ [1.584390890901224e-5, 5.525587056617213e-5]
+ [4.201482929993375e-7, 3.2886157778685004e-5]
+ [-9.951165150215677e-6, 1.4068513009576265e-5]
+ [-1.6031160471375357e-5, -1.5420974444192494e-6]
+ [-1.8640672793379915e-5, -1.4317989686808592e-5]
+ [-1.8562401370459376e-5, -2.4628959570931827e-5]
+ [-1.648415773359204e-5, -3.282376875396354e-5]
+ [-1.2976387207323858e-5, -3.921977278224055e-5]
+ [-8.492776307050438e-6, -4.409833922061087e-5]
+ [-3.3833942643540962e-6, -4.770423489788385e-5]
  ⋮
- [-2.7620019719339394e-6, -1.575481845803162e-6]
- [-3.605573778913068e-6, -1.389206323985744e-6]
- [-4.469654361197485e-6, -1.1926350896003646e-6]
- [-5.36976200588897e-6, -9.841873666671297e-7]
- [-6.269687082504593e-6, -7.632446728043856e-7]
- [-6.939117774581077e-6, -5.3354543488543e-7]
- [-6.6088731433228915e-6, -3.1232154066651414e-7]
- [-3.917603775229729e-6, -1.3518301085032844e-7]
- [8.553949631097115e-7, -1.3747728610715866e-9]</code></pre><h3 id="Additional-solver-stats"><a class="docs-heading-anchor" href="#Additional-solver-stats">Additional solver stats</a><a id="Additional-solver-stats-1"></a><a class="docs-heading-anchor-permalink" href="#Additional-solver-stats" title="Permalink"></a></h3><p>We can extract more detailed information on the solve from <a href="options.html#Altro.SolverStats"><code>SolverStats</code></a></p><pre><code class="language-julia hljs">Altro.stats(solver)</code></pre><p>The most relevant fields are the <code>cost</code>, <code>c_max</code>, and <code>gradient</code>. These give the history of these values for each iteration. The <code>iteration_outer</code> can also be helpful to know which iterations were outer loop (augmented Lagrangian)  iterations. The <code>tsolve</code> field gives the total solve time in milliseconds.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="index.html">« Introduction</a><a class="docs-footer-nextpage" href="options.html">Solver Options »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.15 on <span class="colophon-date" title="Sunday 10 April 2022 17:31">Sunday 10 April 2022</span>. Using Julia version 1.6.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+ [-2.7668604515161966e-6, -1.5767283175161687e-6]
+ [-3.6108455961714446e-6, -1.3903200995766088e-6]
+ [-4.475411175403882e-6, -1.1936036616104492e-6]
+ [-5.376045009640715e-6, -9.849970997431052e-7]
+ [-6.276419400000014e-6, -7.638825924054924e-7]
+ [-6.9458759408455416e-6, -5.340046317587614e-7]
+ [-6.614465508418341e-6, -3.1261274339227413e-7]
+ [-3.9202341365048565e-6, -1.3533610789632646e-7]
+ [8.553957958006043e-7, -1.376679122746696e-9]</code></pre><h3 id="Additional-solver-stats"><a class="docs-heading-anchor" href="#Additional-solver-stats">Additional solver stats</a><a id="Additional-solver-stats-1"></a><a class="docs-heading-anchor-permalink" href="#Additional-solver-stats" title="Permalink"></a></h3><p>We can extract more detailed information on the solve from <a href="options.html#Altro.SolverStats"><code>SolverStats</code></a></p><pre><code class="language-julia hljs">Altro.stats(solver)</code></pre><p>The most relevant fields are the <code>cost</code>, <code>c_max</code>, and <code>gradient</code>. These give the history of these values for each iteration. The <code>iteration_outer</code> can also be helpful to know which iterations were outer loop (augmented Lagrangian)  iterations. The <code>tsolve</code> field gives the total solve time in milliseconds.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="index.html">« Introduction</a><a class="docs-footer-nextpage" href="options.html">Solver Options »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.15 on <span class="colophon-date" title="Monday 11 April 2022 11:50">Monday 11 April 2022</span>. Using Julia version 1.6.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
