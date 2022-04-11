@@ -51,7 +51,7 @@ altro = ALTROSolver(prob, opts)
 solve!(altro)
 
 # Get some info on the solve
-max_violation(altro)  # 1.852e-7
+max_violation(altro)  # 5.896e-7
 cost(altro)           # 1.539
 iterations(altro)     # 44
 
