@@ -64,9 +64,10 @@ function iLQRSolver(
         opts::SolverOptions=SolverOptions{T}(), 
         stats::SolverStats=SolverStats{T}(parent=solvername(iLQRSolver));
         use_static::Val{USE_STATIC}=usestaticdefault(get_model(prob)[1]),
+        dynamics_diffmethod::RD.DiffMethod=RD.default_diffmethod(TO.get_model(prob,1)),
         kwarg_opts...
     ) where {T, USE_STATIC}
-    set_options!(opts; kwarg_opts...)
+    set_options!(opts; dynamics_diffmethod=dynamics_diffmethod, kwarg_opts...)
 
     nx,nu = dims(prob)
     N = TO.horizonlength(prob)
@@ -166,6 +167,8 @@ RD.control_dim(solver::iLQRSolver, k::Integer) = RD.control_dim(solver.model[k])
 @inline get_initial_state(solver::iLQRSolver) = solver.x0
 solvername(::Type{<:iLQRSolver}) = :iLQR
 getlogger(solver::iLQRSolver) = solver.logger
+
+get_feedbackgains(solver::iLQRSolver) = solver.K
 
 RD.vectype(::iLQRSolver{<:Any,<:Any,<:Any,<:Any,<:Any,<:Any,V}) where V = V
 usestatic(obj) = RD.vectype(obj) <: SVector

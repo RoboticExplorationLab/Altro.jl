@@ -38,6 +38,6 @@ b1 = benchmark_solve!(solver)
 # VERSION > v"1.5" && @test b1.allocs == 0  # 4700 on v1.5
 t0 = minimum(b0).time 
 t1 = minimum(b1).time
-@test abs(t0-t1)/t1 < 0.2
+@test abs(t0-t1)/t1 < 0.5
 
 end
