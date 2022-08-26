@@ -90,7 +90,7 @@ function forwardpass!(solver::iLQRSolver, J_prev)
         expected = -α*(ΔV[1] + α*ΔV[2])
 
         # Finish if the expected decrease is super small
-        if 0.0 < expected < solver.opts.expected_decrease_tolerance
+        if 0.0 <= expected < solver.opts.expected_decrease_tolerance
             # Don't take a step at all, since it's likely to have 
             # numerical issues if the expected decrease is infinitessimal
             α = 0.0

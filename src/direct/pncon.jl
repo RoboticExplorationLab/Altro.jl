@@ -78,12 +78,13 @@ function constraint_jacobians!(pncon::PNConstraint)
     Z = pncon.Z[1]
     sig = function_signature(pncon)
     diff = pncon.diffmethod
-    for (i,k) in enumerate(pncon.inds)
-        jac = pncon.jac[i]
-        jacview = pncon.jacviews[i]'
-        RD.jacobian!(sig, diff, pncon.con, jac, pncon.vals[i], Z[k])
-        jacview .= jac  # efficient copy to sparse array
-    end
+    TO.constraint_jacobians!(sig, diff, pncon.con, pncon.jac, pncon.vals, Z, pncon.inds)
+    # for (i,k) in enumerate(pncon.inds)
+    #     jac = pncon.jac[i]
+    #     jacview = pncon.jacviews[i]'
+    #     RD.jacobian!(sig, diff, pncon.con, jac, pncon.vals[i], Z[k])
+    #     jacview .= jac  # efficient copy to sparse array
+    # end
 end
 
 RD.vectype(pncon::PNConstraint) = RD.vectype(eltype(pncon.Z[1]))

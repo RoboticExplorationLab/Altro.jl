@@ -64,6 +64,25 @@ function shift_fill!(A::Vector, n=1, mode=:copy)
 	return nothing
 end
 
+function shift_fill!(A::Vector{<:AbstractArray}, n=1, mode=:copy)
+    N = length(A)
+    N <= 1 && return nothing
+	@inbounds for k = n+1:N
+		A[k-n] .= A[k]
+    end
+    if mode == :copy
+        a_last = A[N-n]
+        @inbounds for k = N-n:N
+            A[k] .= a_last
+        end
+    else mode == :zero
+        @inbounds for k = N-n:N
+            A[k] .= zero(A[k])
+        end
+    end
+	return nothing
+end
+
 """
     triukkt
 

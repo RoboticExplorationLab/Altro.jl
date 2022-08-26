@@ -164,7 +164,8 @@ RD.control_dim(solver::iLQRSolver, k::Integer) = RD.control_dim(solver.model[k])
 @inline TO.get_trajectory(solver::iLQRSolver) = solver.Z
 @inline TO.get_objective(solver::iLQRSolver) = solver.obj
 @inline TO.get_model(solver::iLQRSolver) = solver.model
-@inline get_initial_state(solver::iLQRSolver) = solver.x0
+@inline TO.get_initial_state(solver::iLQRSolver) = solver.x0
+@inline TO.horizonlength(solver::iLQRSolver) = solver.N
 solvername(::Type{<:iLQRSolver}) = :iLQR
 getlogger(solver::iLQRSolver) = solver.logger
 
@@ -177,6 +178,10 @@ function_signature(obj) = usestatic(obj) ? RD.StaticReturn() : RD.InPlace()
 usestaticdefault(model::RD.AbstractFunction) = Val(RD.default_signature(model) == RD.StaticReturn())
 
 log_level(::iLQRSolver) = InnerLoop
+
+function TO.rollout!(solver::iLQRSolver) 
+    RD.rollout!(dynamics_signature(solver.Z), solver.model[1], solver.Z, solver.x0)
+end
 
 function reset!(solver::iLQRSolver)
     opts = options(solver)::SolverOptions

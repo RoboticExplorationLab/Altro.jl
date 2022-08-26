@@ -81,6 +81,10 @@ function backwardpass!(solver::iLQRSolver)
         K[k] .= Qux_reg
         d[k] .= Q[k].u
         # LAPACK.potrf!('L',Quu_reg)
+        # if !isfinite(norm(solver.gains[k]))
+        #     @warn "Getting bad Qux, Qu at time step $k"
+        #     break
+        # end
         Quu_fact = chol!(Quu_reg)::Cholesky
         if !isposdef(Quu_fact)  # this is a super cheap check
             # TODO: add log message
@@ -114,6 +118,8 @@ function backwardpass!(solver::iLQRSolver)
         matmul!(S[k].xx, K[k]', Qtmp.ux, 1.0, 1.0)
         matmul!(S[k].xx, K[k]', Q[k].ux, 1.0, 1.0)
         matmul!(S[k].xx, Q[k].ux', K[k], 1.0, 1.0)
+        # Sxx = Q[k].xx + K[k]'Q[k].uu*K[k] + K[k]'Q[k].ux + Q[k].ux'K[k]
+        # println("k = $k, norm(S) = ", norm(S[k].xx), ", ", norm(Sxx), " norm(K) = ", norm(solver.gains[k]))
 
         # Symmeterize Cost-to-go Hessian
         transpose!(Qtmp.xx, S[k].xx)

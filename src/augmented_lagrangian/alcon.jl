@@ -229,9 +229,10 @@ function TO.constraint_jacobians!(alcon::ALConstraint)
     Z = alcon.Z[1]
     sig = function_signature(alcon)
     diff = alcon.diffmethod
-    for (i,k) in enumerate(alcon.inds)
-        RD.jacobian!(sig, diff, alcon.con, alcon.jac[i], alcon.vals[i], Z[k])
-    end
+    TO.constraint_jacobians!(sig, diff, alcon.con, alcon.jac, alcon.vals, Z, alcon.inds)
+    # for (i,k) in enumerate(alcon.inds)
+    #     RD.jacobian!(sig, diff, alcon.con, alcon.jac[i], alcon.vals[i], Z[k])
+    # end
 end
 
 
