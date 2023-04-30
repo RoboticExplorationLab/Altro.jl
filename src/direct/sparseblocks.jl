@@ -163,11 +163,8 @@ struct SparseBlockIndex
 end
 
 function Base.getindex(blocks::SparseBlocks, i1::UnitRange, i2::UnitRange)
-    block0 = BlockIndices(i1, i2, false)
-    block = getkey(blocks.inds, block0, nothing)
-    if isnothing(block)
-        throw(KeyError((i1, i2)))
-    end
+    block = BlockIndices(i1, i2, false)
+    haskey(blocks.inds, block) || throw(KeyError((i1, i2)))
     SparseBlockIndex(block, blocks.inds[block])
 end
 
