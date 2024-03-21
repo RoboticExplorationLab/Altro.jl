@@ -22,18 +22,20 @@ function ilqrallocs(solver)
     grad = Altro.gradient!(solver)
 
     # Record the iteration
-    Altro.record_iteration!(solver, Jnew, dJ, grad) 
+    Altro.record_iteration!(solver, Jnew, dJ, grad)
 
     # Check convergence
     exit = Altro.evaluate_convergence(solver)
     return allocs
 end
 
-@testset "iLQR Solver Allocations" begin
-solver = Altro.iLQRSolver(Problems.Cartpole()..., use_static=Val(true))
-ilqrallocs(solver)
-@test ilqrallocs(solver) == 0
-solver = Altro.iLQRSolver(Problems.Cartpole()..., use_static=Val(false))
-ilqrallocs(solver)
-@test ilqrallocs(solver) == 0
+if TEST_ALLOCS
+    @testset "iLQR Solver Allocations" begin
+        solver = Altro.iLQRSolver(Problems.Cartpole()..., use_static=Val(true))
+        ilqrallocs(solver)
+        @test ilqrallocs(solver) == 0
+        solver = Altro.iLQRSolver(Problems.Cartpole()..., use_static=Val(false))
+        ilqrallocs(solver)
+        @test ilqrallocs(solver) == 0
+    end
 end

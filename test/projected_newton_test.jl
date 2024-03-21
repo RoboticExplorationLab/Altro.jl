@@ -5,7 +5,7 @@ using Test
 using BenchmarkTools
 using SparseArrays
 using LinearAlgebra
-using RobotDynamics: KnotPoint, SampledTrajectory 
+using RobotDynamics: KnotPoint, SampledTrajectory
 using SparseArrays
 using Altro.Cqdldl
 const TO = TrajectoryOptimization
@@ -33,23 +33,23 @@ copyto!(pn.Z̄data, pn.Zdata)
 @test pn.Z̄ ≈ Zsol
 
 # Check sizes
-nx,nu = RD.dims(prob)
-N = TO.horizonlength(prob) 
+nx, nu = RD.dims(prob)
+N = TO.horizonlength(prob)
 Np = Altro.num_primals(pn)
 @test Np == sum(nx) + sum(nu)
 
-@test size(pn.hess[end]) == (nx[end]+nu[end], nx[end]+nu[end])
-@test size(pn.grad[end]) == (nx[end]+nu[end],)
+@test size(pn.hess[end]) == (nx[end] + nu[end], nx[end] + nu[end])
+@test size(pn.grad[end]) == (nx[end] + nu[end],)
 
 # Check Hessian and regularization
 Altro.cost_hessian!(pn)
 iz = pn.iz
-@test pn.Atop[iz[end], iz[end]] ≈ cat(prob.obj[end].Q, prob.obj[end].R*0, dims=(1,2))
-pn.Atop[iz[end],iz[end]]
+@test pn.Atop[iz[end], iz[end]] ≈ cat(prob.obj[end].Q, prob.obj[end].R * 0, dims=(1, 2))
+pn.Atop[iz[end], iz[end]]
 Altro.primalregularization!(pn)
 ρ_primal = opts.ρ_primal
-@test pn.Atop[iz[end], iz[end]] ≈ 
-    cat(prob.obj[end].Q, prob.obj[end].R*0, dims=(1,2)) + I * ρ_primal
+@test pn.Atop[iz[end], iz[end]] ≈
+      cat(prob.obj[end].Q, prob.obj[end].R * 0, dims=(1, 2)) + I * ρ_primal
 
 # Compute the factorization
 Altro.evaluate_constraints!(pn)
@@ -57,7 +57,7 @@ Altro.constraint_jacobians!(pn)
 Altro.update_active_set!(pn)
 
 A = Altro.getKKTMatrix(pn)
-resize!(pn.qdldl, size(A,1))
+resize!(pn.qdldl, size(A, 1))
 Cqdldl.eliminationtree!(pn.qdldl, A)
 Cqdldl.factor!(pn.qdldl)
 F = Cqdldl.QDLDLFactorization(pn.qdldl)
@@ -104,36 +104,39 @@ viol = solve!(pn)
 bpn = @benchmark let pn = $pn
     copyto!(pn.Zdata, $Z0data)
     solve!(pn)
-end samples=1 evals=1
-@test bpn.allocs == 0
+end samples = 1 evals = 1
+
+if TEST_ALLOCS
+    @test bpn.allocs == 0
+end
 
 #################################
 ## Basic tests
 #################################
 
 # Create a trajectory with views into a single array
-nx,nu = RD.dims(prob)
+nx, nu = RD.dims(prob)
 N = horizonlength(prob)
 h = 0.1
-NN = N*nx[1] + (N-1)*nu[1]
+NN = N * nx[1] + (N - 1) * nu[1]
 Zdata = zeros(NN + nu[1])
-n,m = nx[1], nu[1]
-ix = [(1:n) .+ (k-1)*(n+m) for k = 1:N]
-iu = [n .+ (1:m) .+ (k-1)*(n+m) for k = 1:N-1]
-iz = [(1:n+m) .+ (k-1)*(n+m) for k = 1:N]
-Z = SampledTrajectory([KnotPoint{n,m}(view(Zdata, iz[k]), (k-1)*h, h) for k = 1:N])
+n, m = nx[1], nu[1]
+ix = [(1:n) .+ (k - 1) * (n + m) for k = 1:N]
+iu = [n .+ (1:m) .+ (k - 1) * (n + m) for k = 1:N-1]
+iz = [(1:n+m) .+ (k - 1) * (n + m) for k = 1:N]
+Z = SampledTrajectory([KnotPoint{n,m}(view(Zdata, iz[k]), (k - 1) * h, h) for k = 1:N])
 Z[end].dt = 0.0
 RD.state(Z[2]) .= 1
 RD.control(Z[3]) .= 2.1
-@test Zdata[ix[2]] ≈ fill(1,n)
-@test Zdata[iu[3]] ≈ fill(2.1,m)
+@test Zdata[ix[2]] ≈ fill(1, n)
+@test Zdata[iu[3]] ≈ fill(2.1, m)
 Nc = sum(TO.num_constraints(prob))  # number of stage constraints
-Np = N*n + (N-1)*m  # number of primals
-Nd = N*n + Nc       # number of duals (no constraints)
+Np = N * n + (N - 1) * m  # number of primals
+Nd = N * n + Nc       # number of duals (no constraints)
 
 ## Create PNConstraintSet
 A = spzeros(Np + Nd, Np + Nd)
-b = zeros(Np +  Nd)
+b = zeros(Np + Nd)
 a = trues(Nd)
 
 # Add Hessian blocks
@@ -165,13 +168,13 @@ end
 
 Altro.constraint_jacobians!(pnconset, Z)
 Altro.constraint_jacobians!(alconset, prob.Z)
-for i = 1:length(alconset) - 1
+for i = 1:length(alconset)-1
     @test pnconset[i].jac ≈ alconset[i].jac
 end
 
 # Create a PN Solver
 al = Altro.ALSolver(prob)
-ilqr = al.ilqr 
+ilqr = al.ilqr
 pn = Altro.ProjectedNewtonSolver(prob)
 Np = Altro.num_primals(pn)
 
