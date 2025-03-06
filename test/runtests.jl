@@ -16,6 +16,8 @@ const TO = TrajectoryOptimization
 TEST_TIME = false
 Random.seed!(1)
 
+TEST_ALLOCS = false
+
 ##
 # @testset "Initialization" begin
 #     include("large_init.jl")
@@ -33,7 +35,7 @@ end
     include("quadrotor.jl")
     include("escape_solve.jl")
     include("rocket_test.jl")
-    include(joinpath(@__DIR__,"..","examples","quickstart.jl"))
+    include(joinpath(@__DIR__, "..", "examples", "quickstart.jl"))
 end
 
 @testset "Solvers" begin
@@ -57,7 +59,7 @@ end
 
 @testset "Quickstart" begin
     include(joinpath(@__DIR__, "..", "examples", "quickstart.jl"))
-    @test max_violation(altro) ≈ 5.8962e-7 rtol=1e-4
+    @test max_violation(altro) ≈ 5.8962e-7 rtol = 1e-4
     @test cost(altro) ≈ 1.539 rtol = 1e-4
     @test iterations(altro) == 44
 end

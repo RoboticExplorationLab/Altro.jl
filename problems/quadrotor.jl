@@ -1,49 +1,49 @@
-function Quadrotor(scenario=:zigzag, Rot=UnitQuaternion{Float64};
-        costfun=:Quadratic, normcon=false)
+function Quadrotor(scenario=:zigzag, Rot=QuatRotation{Float64};
+    costfun=:Quadratic, normcon=false)
     if scenario == :zigzag
         model = RobotZoo.Quadrotor{Rot}()
-        n,m = RD.dims(model)
+        n, m = RD.dims(model)
 
         opts = SolverOptions(
-            penalty_scaling=100.,
+            penalty_scaling=100.0,
             penalty_initial=0.1,
         )
 
         # discretization
         N = 101 # number of knot points
         tf = 5.0
-        dt = tf/(N-1) # total time
+        dt = tf / (N - 1) # total time
 
         # Initial condition
-        x0_pos = @SVector [0., -10., 1.]
-        x0 = RobotDynamics.build_state(model, x0_pos, UnitQuaternion(I), zeros(3), zeros(3))
+        x0_pos = @SVector [0.0, -10.0, 1.0]
+        x0 = RobotDynamics.build_state(model, x0_pos, QuatRotation(I), zeros(3), zeros(3))
 
         # cost
         costfun == :QuatLQR ? sq = 0 : sq = 1
-        rm_quat = @SVector [1,2,3,4,5,6,8,9,10,11,12,13]
-        Q_diag = Dynamics.fill_state(model, 1e-5, 1e-5*sq, 1e-3, 1e-3)
+        rm_quat = @SVector [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13]
+        Q_diag = Dynamics.fill_state(model, 1e-5, 1e-5 * sq, 1e-3, 1e-3)
         Q = Diagonal(Q_diag)
-        R = Diagonal(@SVector fill(1e-4,m))
-        q_nom = UnitQuaternion(I)
+        R = Diagonal(@SVector fill(1e-4, m))
+        q_nom = QuatRotation(I)
         v_nom, ω_nom = zeros(3), zeros(3)
         x_nom = Dynamics.build_state(model, zeros(3), q_nom, v_nom, ω_nom)
 
         if costfun == :QuatLQR
-            cost_nom = QuatLQRCost(Q*dt, R*dt, x_nom, w=0.0)
+            cost_nom = QuatLQRCost(Q * dt, R * dt, x_nom, w=0.0)
         elseif costfun == :ErrorQuad
-            cost_nom = ErrorQuadratic(model, Diagonal(Q_diag[rm_quat])*dt, R*dt, x_nom)
+            cost_nom = ErrorQuadratic(model, Diagonal(Q_diag[rm_quat]) * dt, R * dt, x_nom)
         else
-            cost_nom = LQRCost(Q*dt, R*dt, x_nom)
+            cost_nom = LQRCost(Q * dt, R * dt, x_nom)
         end
 
         # waypoints
-        wpts = [(@SVector [10,0,1.]),
-                (@SVector [-10,0,1.]),
-                (@SVector [0,10,1.])]
+        wpts = [(@SVector [10, 0, 1.0]),
+            (@SVector [-10, 0, 1.0]),
+            (@SVector [0, 10, 1.0])]
         times = [33, 66, 101]
-        Qw_diag = Dynamics.fill_state(model, 1e3,1*sq,1,1)
-        Qf_diag = Dynamics.fill_state(model, 10., 100*sq, 10, 10)
-        xf = Dynamics.build_state(model, wpts[end], UnitQuaternion(I), zeros(3), zeros(3))
+        Qw_diag = Dynamics.fill_state(model, 1e3, 1 * sq, 1, 1)
+        Qf_diag = Dynamics.fill_state(model, 10.0, 100 * sq, 10, 10)
+        xf = Dynamics.build_state(model, wpts[end], QuatRotation(I), zeros(3), zeros(3))
 
         costs = map(1:length(wpts)) do i
             r = wpts[i]
@@ -52,11 +52,11 @@ function Quadrotor(scenario=:zigzag, Rot=UnitQuaternion{Float64};
                 Q = Diagonal(Qf_diag)
                 w = 40.0
             else
-                Q = Diagonal(1e-3*Qw_diag) * dt
+                Q = Diagonal(1e-3 * Qw_diag) * dt
                 w = 0.1
             end
             if costfun == :QuatLQR
-                QuatLQRCost(Q, R*dt, xg, w=w)
+                QuatLQRCost(Q, R * dt, xg, w=w)
             elseif costfun == :ErrorQuad
                 Qd = diag(Q)
                 ErrorQuadratic(model, Diagonal(Qd[rm_quat]), R, xg)
@@ -66,7 +66,7 @@ function Quadrotor(scenario=:zigzag, Rot=UnitQuaternion{Float64};
         end
 
         costs_all = map(1:N) do k
-            i = findfirst(x->(x ≥ k), times)
+            i = findfirst(x -> (x ≥ k), times)
             if k ∈ times
                 costs[i]
             else
@@ -77,20 +77,20 @@ function Quadrotor(scenario=:zigzag, Rot=UnitQuaternion{Float64};
         obj = Objective(costs_all)
 
         # Initialization
-        u0 = @SVector fill(0.5*9.81/4, m)
+        u0 = @SVector fill(0.5 * 9.81 / 4, m)
         U_hover = [copy(u0) for k = 1:N-1] # initial hovering control trajectory
 
         # Constraints
-        conSet = ConstraintList(n,m,N)
+        conSet = ConstraintList(n, m, N)
         if normcon
             if use_rot == :slack
                 add_constraint!(conSet, QuatSlackConstraint(), 1:N-1)
             else
                 add_constraint!(conSet, QuatNormConstraint(), 1:N-1)
-                u0 = [u0; (@SVector [1.])]
+                u0 = [u0; (@SVector [1.0])]
             end
         end
-        bnd = BoundConstraint(n,m, u_min=0.0, u_max=12.0)
+        bnd = BoundConstraint(n, m, u_min=0.0, u_max=12.0)
         add_constraint!(conSet, bnd, 1:N-1)
 
         # Problem
